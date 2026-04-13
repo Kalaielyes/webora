@@ -32,7 +32,7 @@ function loginErrorMessage(string $field, array $errors): string {
 <html lang="fr">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>NexaBank — Connexion</title>
+<title>LegalFin — Connexion</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="Utilisateur.css">
 <style>
@@ -103,7 +103,7 @@ body{align-items:center;justify-content:center;overflow:hidden;}
   <div class="brand-panel">
     <div>
       <div class="brand-logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L20 8.5v7l-8 4-8-4v-7l8-4.32z"/></svg></div>
-      <div class="brand-name">Nexa<span>Bank</span></div>
+      <div class="brand-name">Legal<span>Fin</span></div>
       <div class="brand-tagline">Plateforme bancaire securisee</div>
     </div>
     <div>
@@ -171,8 +171,7 @@ body{align-items:center;justify-content:center;overflow:hidden;}
       </form>
       <div class="or-divider">Ou</div>
       <div class="form-foot">
-        <span class="badge-kyc"><span class="dot-pulse"></span> KYC Verifie</span>
-        Connexion securisee SSL 256-bit
+        
       </div>
     </div>
   </div>

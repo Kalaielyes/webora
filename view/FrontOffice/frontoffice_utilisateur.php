@@ -37,7 +37,7 @@ function oldProfil(string $key, array $old, array $user): string {
 <html lang="fr">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Mon Profil - NexaBank</title>
+<title>Mon Profil - LegalFin</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="Utilisateur.css">
 <style>
@@ -64,7 +64,7 @@ function oldProfil(string $key, array $old, array $user): string {
 <body>
 <aside class="sidebar">
   <div class="sb-logo">
-    <div class="sb-logo-name">Nexa<span>Bank</span></div>
+    <div class="sb-logo-name">Legal<span>Fin</span></div>
     <div class="sb-logo-tag">Espace Client</div>
   </div>
   <div class="sb-user">

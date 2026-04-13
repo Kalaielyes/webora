@@ -70,6 +70,20 @@ function initials(string $n, string $p): string {
 tr.detail-active td{background:var(--blue-light)!important;}
 /* Search highlight */
 .hl{background:rgba(37,99,235,.12);border-radius:2px;}
+
+/* Animations */
+.modal-overlay{display:none;opacity:0;transition:opacity .25s ease;}
+.modal-overlay.open{display:flex;opacity:1;}
+.modal{transform:translateY(-14px);opacity:0;transition:transform .25s ease,opacity .25s ease;}
+.modal-overlay.open .modal{transform:translateY(0);opacity:1;}
+.btn-primary, .act-btn, .mbtn-save, .mbtn-cancel, .dp-action-btn, .filter-btn{transition:transform .2s ease,background-color .2s ease,border-color .2s ease,color .2s ease;}
+.btn-primary:hover, .act-btn:hover, .mbtn-save:hover, .mbtn-cancel:hover, .dp-action-btn:hover, .filter-btn:hover{transform:translateY(-1px);}
+.kpi, .table-card, .detail-panel{transition:transform .2s ease,box-shadow .2s ease,opacity .2s ease;}
+.kpi:hover{transform:translateY(-4px);box-shadow:0 20px 40px rgba(15,23,42,.08);}
+.user-row{transition:background .2s ease,transform .2s ease,opacity .2s ease;}
+.user-row:hover{transform:translateX(2px);}
+.detail-panel{opacity:0;animation:slideIn .28s ease forwards;}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 </style>
 </head>
 <body>
@@ -77,7 +91,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sb-logo">
-    <div class="sb-logo-name">Nexa<span>Bank</span></div>
+    <div class="sb-logo-name">Legal<span>Fin</span></div>
     <div class="sb-logo-env">ADMIN</div>
   </div>
   <div class="sb-admin">
@@ -200,10 +214,10 @@ tr.detail-active td{background:var(--blue-light)!important;}
             <td><span class="td-mono"><?= date('d/m/Y', strtotime($u['date_inscription'])) ?></span></td>
             <td>
               <div class="action-group">
-                <button class="act-btn" title="Voir" onclick="showDetail(<?= $u['id'] ?>)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-                <button class="act-btn" title="Modifier" onclick="openEdit(<?= htmlspecialchars(json_encode($u)) ?>)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                <button class="act-btn view" title="Voir" onclick="showDetail(<?= $u['id'] ?>)"><span class="icon"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span>Voir</span></button>
+                <button class="act-btn update" title="Modifier" onclick="openEdit(<?= htmlspecialchars(json_encode($u)) ?>)"><span class="icon"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span><span>Modifier</span></button>
                 <?php if($u['id']!==(int)Session::get('user_id')): ?>
-                <button class="act-btn danger" title="Supprimer" onclick="openDel(<?= $u['id'] ?>,'<?= htmlspecialchars($u['nom'].' '.$u['prenom']) ?>')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+                <button class="act-btn danger" title="Supprimer" onclick="openDel(<?= $u['id'] ?>,'<?= htmlspecialchars($u['nom'].' '.$u['prenom']) ?>')"><span class="icon"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></span><span>Supprimer</span></button>
                 <?php endif; ?>
               </div>
             </td>
