@@ -1,4 +1,216 @@
 
+    /* ── Styles CRUD minimaux non couverts par le CSS existant ── */
+    .tabs-crud {
+      display: flex;
+      gap: .4rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .tab-c {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .35rem .9rem;
+      font-size: .72rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--muted);
+      transition: .2s;
+      font-family: var(--fb);
+    }
+
+    .tab-c.on {
+      background: rgba(0, 201, 255, .12);
+      border-color: rgba(0, 201, 255, .35);
+      color: var(--cyan);
+    }
+
+    .form-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .8rem;
+    }
+
+    .fg-crud {
+      margin-bottom: .75rem;
+    }
+
+    .fl-crud {
+      display: block;
+      font-size: .68rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 4px;
+      font-family: var(--fb);
+    }
+
+    .fi-crud,
+    .fs-crud,
+    .fta-crud {
+      width: 100%;
+      background: #f8fafc;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 8px;
+      padding: .48rem .7rem;
+      font-size: .78rem;
+      color: #111;
+    }
+
+    .fi-crud:focus,
+    .fs-crud:focus,
+    .fta-crud:focus {
+      border-color: var(--cyan);
+    }
+
+    .fta-crud {
+      resize: vertical;
+      min-height: 70px;
+    }
+
+    .field-hint {
+      font-size: .63rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .err-msg {
+      color: var(--rose);
+      font-size: .68rem;
+      margin-top: 3px;
+    }
+
+    .alert-ok {
+      background: rgba(0, 229, 160, .1);
+      border: 1px solid rgba(0, 229, 160, .3);
+      color: var(--emerald);
+      border-radius: 8px;
+      padding: .55rem .9rem;
+      font-size: .75rem;
+      margin-bottom: 1rem;
+    }
+
+    .alert-err {
+      background: rgba(255, 77, 109, .1);
+      border: 1px solid rgba(255, 77, 109, .3);
+      color: var(--rose);
+      border-radius: 8px;
+      padding: .55rem .9rem;
+      font-size: .75rem;
+      margin-bottom: 1rem;
+    }
+
+    .alert-err ul {
+      margin: .3rem 0 0 1rem;
+      padding: 0;
+    }
+
+    .btn-crud {
+      background: linear-gradient(120deg, var(--cyan), #0099cc);
+      color: var(--navy);
+      border: none;
+      border-radius: 9px;
+      padding: .5rem 1.2rem;
+      font-size: .75rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--fh);
+      transition: opacity .2s;
+    }
+
+    .btn-crud:hover {
+      opacity: .88;
+    }
+
+    .btn-del {
+      background: rgba(255, 77, 109, .12);
+      color: var(--rose);
+      border: 1px solid rgba(255, 77, 109, .3);
+      border-radius: 7px;
+      padding: .3rem .75rem;
+      font-size: .68rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--fb);
+    }
+
+    .btn-edt {
+      background: rgba(240, 180, 41, .12);
+      color: var(--gold);
+      border: 1px solid rgba(240, 180, 41, .3);
+      border-radius: 7px;
+      padding: .3rem .75rem;
+      font-size: .68rem;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-block;
+      font-family: var(--fb);
+    }
+
+    .tbl-crud {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .73rem;
+    }
+
+    .tbl-crud th {
+      background: #f3f4f6;
+      padding: .55rem .7rem;
+      text-align: left;
+      font-size: .65rem;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+    }
+
+    .tbl-crud td {
+      padding: .5rem .7rem;
+      border-bottom: 1px solid rgba(15, 23, 42, .08);
+      vertical-align: middle;
+    }
+
+    .tbl-crud tr:hover td {
+      background: rgba(0, 201, 255, .03);
+    }
+
+    .td-acts-row {
+      display: flex;
+      gap: 4px;
+    }
+
+    .no-db {
+      background: rgba(255, 77, 109, .08);
+      border: 1px solid rgba(255, 77, 109, .2);
+      color: var(--rose);
+      border-radius: 8px;
+      padding: .7rem 1rem;
+      font-size: .75rem;
+      margin-bottom: 1rem;
+    }
+
+    .btn-backoffice {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: linear-gradient(120deg, var(--rose), #cc2244);
+      color: #fff;
+      font-family: var(--fh);
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .32rem .85rem;
+      border-radius: 8px;
+      text-decoration: none;
+      border: 1px solid rgba(255, 77, 109, .4);
+      transition: opacity .2s;
+      white-space: nowrap;
+    }
+
+    .btn-backoffice:hover {
+      opacity: .85;
+    }
 :root {
   --navy: #050a1e;
   --navy2: #0a1230;
@@ -244,6 +456,8 @@ body {
 .content {
   padding: 1.5rem 1.8rem;
   flex: 1;
+  background: #fff;
+  color: #111;
 }
 /* PAGES */
 .page {
@@ -254,8 +468,8 @@ body {
 }
 /* BANK CARD */
 .bank-card {
-  background: linear-gradient(135deg, #0d1f5c, #0a2a6e, #051540);
-  border: 1px solid rgba(240, 180, 41, 0.2);
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 20px;
   padding: 1.6rem;
   position: relative;
@@ -320,8 +534,8 @@ body {
   margin-bottom: 1.2rem;
 }
 .stat {
-  background: var(--card);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 14px;
   padding: 1rem;
   position: relative;
@@ -372,10 +586,11 @@ body {
 }
 /* SECTION CARD */
 .sc {
-  background: var(--card);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 16px;
   padding: 1.3rem;
+  color: #111;
 }
 .sc-hd {
   display: flex;

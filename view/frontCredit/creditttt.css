@@ -1,4 +1,212 @@
 
+    /* ── Styles CRUD minimaux non couverts par le CSS existant ── */
+    .tabs-a {
+      display: flex;
+      gap: .4rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .tab-a {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .32rem .85rem;
+      font-size: .71rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--muted);
+      transition: .2s;
+      font-family: var(--fb);
+    }
+
+    .tab-a.on {
+      background: rgba(59, 130, 246, .12);
+      border-color: rgba(59, 130, 246, .4);
+      color: var(--blue);
+    }
+
+    .form-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .8rem;
+    }
+
+    .fg-crud {
+      margin-bottom: .75rem;
+    }
+
+    .fl-crud {
+      display: block;
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted2);
+      margin-bottom: 4px;
+      font-family: var(--fb);
+    }
+
+    .fi-crud,
+    .fs-crud,
+    .fta-crud {
+      width: 100%;
+      background: var(--card2);
+      border: 1px solid rgba(255, 255, 255, .07);
+      border-radius: 8px;
+      padding: .58rem .85rem;
+      font-size: .8rem;
+      color: var(--text);
+      outline: none;
+      font-family: var(--fb);
+      box-sizing: border-box;
+      transition: border-color .18s;
+    }
+
+    .fi-crud:focus,
+    .fs-crud:focus,
+    .fta-crud:focus {
+      border-color: rgba(59, 130, 246, .4);
+    }
+
+    .fta-crud {
+      resize: vertical;
+      min-height: 65px;
+    }
+
+    .field-hint {
+      font-size: .62rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .err-msg {
+      color: var(--rose);
+      font-size: .65rem;
+      margin-top: 2px;
+    }
+
+    .alert-ok {
+      background: rgba(16, 185, 129, .1);
+      border: 1px solid rgba(16, 185, 129, .3);
+      color: var(--emerald);
+      border-radius: 8px;
+      padding: .5rem .9rem;
+      font-size: .74rem;
+      margin-bottom: 1rem;
+    }
+
+    .alert-err {
+      background: rgba(239, 68, 68, .1);
+      border: 1px solid rgba(239, 68, 68, .3);
+      color: var(--rose);
+      border-radius: 8px;
+      padding: .5rem .9rem;
+      font-size: .74rem;
+      margin-bottom: 1rem;
+    }
+
+    .alert-err ul {
+      margin: .3rem 0 0 1rem;
+      padding: 0;
+    }
+
+    .btn-crud {
+      background: linear-gradient(120deg, var(--blue), #1d4ed8);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      padding: .48rem 1.2rem;
+      font-size: .74rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--fh);
+      transition: opacity .2s;
+    }
+
+    .btn-crud:hover {
+      opacity: .85;
+    }
+
+    .btn-crud-green {
+      background: linear-gradient(120deg, var(--emerald), #059669);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      padding: .48rem 1.2rem;
+      font-size: .74rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--fh);
+    }
+
+    .btn-crud-red {
+      background: linear-gradient(120deg, var(--rose), #dc2626);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      padding: .48rem 1.2rem;
+      font-size: .74rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--fh);
+    }
+
+    .btn-del {
+      background: rgba(239, 68, 68, .12);
+      color: var(--rose);
+      border: 1px solid rgba(239, 68, 68, .25);
+      border-radius: 6px;
+      padding: .28rem .65rem;
+      font-size: .65rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--fb);
+    }
+
+    .btn-edt {
+      background: rgba(245, 158, 11, .12);
+      color: var(--amber);
+      border: 1px solid rgba(245, 158, 11, .25);
+      border-radius: 6px;
+      padding: .28rem .65rem;
+      font-size: .65rem;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-block;
+      font-family: var(--fb);
+    }
+
+    .td-acts-row {
+      display: flex;
+      gap: 4px;
+    }
+
+    .no-db {
+      background: rgba(239, 68, 68, .08);
+      border: 1px solid rgba(239, 68, 68, .2);
+      color: var(--rose);
+      border-radius: 8px;
+      padding: .7rem 1rem;
+      font-size: .74rem;
+      margin-bottom: 1rem;
+    }
+
+    .decision-row {
+      background: rgba(59, 130, 246, .05);
+      border: 1px solid rgba(59, 130, 246, .15);
+      border-radius: 10px;
+      padding: .9rem;
+      margin-top: .8rem;
+    }
+
+    .decision-title {
+      font-size: .7rem;
+      font-weight: 700;
+      color: var(--blue);
+      margin-bottom: .6rem;
+      font-family: var(--fh);
+    }
+  
   .btn-frontoffice {
     display: inline-flex;
     align-items: center;
@@ -305,6 +513,8 @@ body {
 .content {
   padding: 1.4rem 1.6rem;
   flex: 1;
+  background: #f1f5f9;
+  color: #111;
 }
 .page {
   display: none;
@@ -320,9 +530,8 @@ body {
   margin-bottom: 1.3rem;
 }
 .kpi {
-  background: var(--card);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   padding: 1.1rem;
   position: relative;
   overflow: hidden;
@@ -394,7 +603,7 @@ body {
 .tabs {
   display: flex;
   gap: 3px;
-  background: var(--card2);
+  background: #e2e8f0;
   border-radius: 10px;
   padding: 4px;
   margin-bottom: 1.1rem;
@@ -415,8 +624,8 @@ body {
 }
 /* TABLE */
 .dt-wrap {
-  background: var(--card);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 14px;
   overflow: hidden;
   margin-bottom: 1.1rem;
@@ -454,12 +663,12 @@ table {
   border-collapse: collapse;
 }
 thead th {
-  background: var(--card2);
+  background: #f8fafc;
   padding: 0.65rem 0.9rem;
   text-align: left;
   font-size: 0.65rem;
   font-weight: 700;
-  color: var(--muted);
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   border-bottom: 1px solid var(--border);
@@ -474,7 +683,7 @@ tbody tr:hover td {
 tbody td {
   padding: 0.65rem 0.9rem;
   font-size: 0.78rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
 }
 tbody tr:last-child td {
   border-bottom: none;
@@ -717,8 +926,8 @@ tbody tr:last-child td {
   margin-bottom: 1rem;
 }
 .cs-card {
-  background: var(--card);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 12px;
   padding: 0.9rem;
   text-align: center;
