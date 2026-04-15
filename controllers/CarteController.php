@@ -8,7 +8,7 @@ require_once __DIR__ . '/../models/CarteBancaire.php';
 
 class CarteController
 {
-    // ── Static factory & Helpers ──────────────────────────────
+  
     public static function fromRow(array $row): CarteBancaire
     {
         return new CarteBancaire(
@@ -264,7 +264,14 @@ class CarteController
 
         switch ($action) {
             case 'add': {
+                $kyc        = trim($_SESSION['user']['status_kyc'] ?? '');
                 $idCompte   = (int)($_POST['id_compte']               ?? 0);
+
+                if ($kyc !== 'VERIFIE') {
+                    header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php' . ($idCompte ? '?id_compte='.$idCompte.'&error=kyc_required' : '?error=kyc_required'));
+                    exit;
+                }
+
                 $type       = trim($_POST['type_carte']               ?? 'debit');
                 $titulaire  = trim($_POST['titulaire_nom']            ?? '');
                 $reseau     = trim($_POST['reseau']                   ?? 'visa');

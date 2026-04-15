@@ -203,6 +203,13 @@ class CompteController
         switch ($action) {
             case 'add': {
                 $idUser  = (int)($_SESSION['user']['id'] ?? 0);
+                $kyc     = trim($_SESSION['user']['status_kyc'] ?? '');
+
+                if ($kyc !== 'VERIFIE') {
+                    header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?error=kyc_required');
+                    exit;
+                }
+
                 $type    = trim($_POST['type_compte']      ?? 'courant');
                 $devise  = trim($_POST['devise']           ?? 'TND');
                 $plafond = (float)($_POST['plafond_virement'] ?? 5000);

@@ -29,8 +29,9 @@ foreach ($comptes as $c) {
         if (in_array($carte->getStatut(),['inactive','demande_cloture','demande_suppression'])) $pendingCartes[]=['carte'=>$carte,'compte'=>$c];
     }
 }
-$showCompteForm = (!empty($_GET['form']) && $_GET['form']==='compte');
-$showCarteForm  = (!empty($_GET['form']) && $_GET['form']==='carte');
+$isKycVerifie   = (($user['status_kyc'] ?? '') === 'VERIFIE');
+$showCompteForm = (!empty($_GET['form']) && $_GET['form']==='compte' && $isKycVerifie);
+$showCarteForm  = (!empty($_GET['form']) && $_GET['form']==='carte' && $isKycVerifie);
 $showAttente    = (!empty($_GET['tab'])  && $_GET['tab']==='attente');
 
 function cvClass(string $style, string $statut=''): string {
@@ -97,12 +98,12 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
     <a class="nav-item <?= (!$showCompteForm&&!$showCarteForm&&!$showAttente)?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Mes comptes
     </a>
-    <a class="nav-item <?= $showCompteForm?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=compte">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Ouvrir un compte
+    <a class="nav-item <?= $showCompteForm?'active':'' ?>" <?= $isKycVerifie ? 'href="'.APP_URL.'/views/frontoffice/frontoffice_compte.php?form=compte"' : 'style="opacity:0.5;cursor:not-allowed;" title="Vérification KYC requise" onclick="alert(\'Votre compte doit être vérifié (KYC) pour ouvrir un compte.\'); return false;"' ?>>
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Ouvrir un compte <?= !$isKycVerifie ? '🔒' : '' ?>
     </a>
     <div class="nav-section">Ma carte</div>
-    <a class="nav-item <?= $showCarteForm?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=carte<?= $selected?'&id_compte='.$selected->getIdCompte():'' ?>">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Demander une carte
+    <a class="nav-item <?= $showCarteForm?'active':'' ?>" <?= $isKycVerifie ? 'href="'.APP_URL.'/views/frontoffice/frontoffice_compte.php?form=carte'.($selected?'&id_compte='.$selected->getIdCompte():'').'"' : 'style="opacity:0.5;cursor:not-allowed;" title="Vérification KYC requise" onclick="alert(\'Votre compte doit être vérifié (KYC) pour demander une carte.\'); return false;"' ?>>
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Demander une carte <?= !$isKycVerifie ? '🔒' : '' ?>
     </a>
     <?php if ($pendingCount>0): ?>
     <div class="nav-section">Suivi</div>
@@ -129,10 +130,17 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
   <div class="topbar">
     <div class="topbar-title">Mes comptes bancaires</div>
     <div class="topbar-right">
+      <?php if ($isKycVerifie): ?>
       <a href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=compte" class="btn-primary" style="font-size:.78rem">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
         Nouveau compte
       </a>
+      <?php else: ?>
+      <button class="btn-primary" style="font-size:.78rem;opacity:0.5;cursor:not-allowed;" onclick="alert('Vérification KYC requise pour ouvrir un compte.')" title="Vérification KYC requise">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        Nouveau compte 🔒
+      </button>
+      <?php endif; ?>
       <div class="notif">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
         <?php if ($pendingCount>0): ?><div class="notif-dot"></div><?php endif; ?>
@@ -176,7 +184,7 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
         </div>
         <div class="form-field">
           <label>Plafond de virement souhaité (TND)</label>
-          <input type="text" id="plafond_virement" name="plafond_virement" value="<?= htmlspecialchars($formData['plafond_virement'] ?? '5000') ?>">
+          <input type="text" id="plafond_virement" name="plafond_virement" value="<?= htmlspecialchars($formData['plafond_virement'] ?? '') ?>" placeholder="1000">
           <?php if (isset($formErrors['plafond_virement'])): ?>
           <div style="color:var(--rose);font-size:.7rem;margin-top:.2rem;"><?= htmlspecialchars($formErrors['plafond_virement']) ?></div>
           <?php else: ?>
@@ -252,7 +260,7 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
         </div>
         <div class="form-field">
           <label>Plafond paiement / jour (TND)</label>
-          <input type="text" id="plafond_input" name="plafond_paiement_jour" value="<?= htmlspecialchars($formData['plafond_paiement_jour'] ?? '1000') ?>" oninput="updateStyleHint(this.value)">
+          <input type="text" id="plafond_input" name="plafond_paiement_jour" value="<?= htmlspecialchars($formData['plafond_paiement_jour'] ?? '') ?>" placeholder="100" oninput="updateStyleHint(this.value)">
           <?php if (isset($formErrors['plafond_paiement_jour'])): ?>
           <div style="color:var(--rose);font-size:.7rem;margin-top:.2rem;"><?= htmlspecialchars($formErrors['plafond_paiement_jour']) ?></div>
           <?php else: ?>
@@ -265,7 +273,7 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
         </div>
         <div class="form-field">
           <label>Plafond retrait / jour (TND)</label>
-          <input type="text" id="plafond_retrait" name="plafond_retrait_jour" value="<?= htmlspecialchars($formData['plafond_retrait_jour'] ?? '1000') ?>">
+          <input type="text" id="plafond_retrait" name="plafond_retrait_jour" value="<?= htmlspecialchars($formData['plafond_retrait_jour'] ?? '') ?>" placeholder="100">
           <?php if (isset($formErrors['plafond_retrait_jour'])): ?>
           <div style="color:var(--rose);font-size:.7rem;margin-top:.2rem;"><?= htmlspecialchars($formErrors['plafond_retrait_jour']) ?></div>
           <?php else: ?>
@@ -342,7 +350,11 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
     <svg width="52" height="52" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24" style="margin-bottom:1rem;opacity:.3;display:block;margin-inline:auto"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
     <div style="font-size:.9rem;margin-bottom:.5rem">Aucun compte bancaire</div>
     <div style="font-size:.78rem;margin-bottom:1.3rem">Soumettez une demande pour ouvrir votre premier compte.</div>
+    <?php if ($isKycVerifie): ?>
     <a href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=compte" class="btn-primary">Demander un compte</a>
+    <?php else: ?>
+    <div class="notice-msg notice-amber" style="display:inline-block;margin-top:1rem;">🔒 Votre identité doit être vérifiée (KYC) pour ouvrir un compte.</div>
+    <?php endif; ?>
   </div>
 
   <?php else: ?>
@@ -406,10 +418,17 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
     <div class="section-head" style="margin-bottom:.9rem">
       <div class="section-title">Mes cartes (<?= count($cartes) ?>)</div>
       <?php if ($selected->getStatut()==='actif'): ?>
-      <a href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=carte&id_compte=<?= $selected->getIdCompte() ?>" class="btn-ghost">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-        Nouvelle carte
-      </a>
+        <?php if ($isKycVerifie): ?>
+        <a href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=carte&id_compte=<?= $selected->getIdCompte() ?>" class="btn-ghost">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Nouvelle carte
+        </a>
+        <?php else: ?>
+        <button class="btn-ghost" style="opacity:0.5;cursor:not-allowed;" onclick="alert('Vérification KYC requise pour demander une carte.')" title="Vérification KYC requise">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Nouvelle carte 🔒
+        </button>
+        <?php endif; ?>
       <?php endif; ?>
     </div>
 
@@ -418,7 +437,11 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
       <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24" style="opacity:.3;margin-bottom:.6rem;display:block;margin-inline:auto"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
       <div style="font-size:.82rem;margin-bottom:.7rem">Aucune carte liée à ce compte.</div>
       <?php if ($selected->getStatut()==='actif'): ?>
-      <a href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=carte&id_compte=<?= $selected->getIdCompte() ?>" class="btn-primary">Demander une carte</a>
+        <?php if ($isKycVerifie): ?>
+        <a href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=carte&id_compte=<?= $selected->getIdCompte() ?>" class="btn-primary">Demander une carte</a>
+        <?php else: ?>
+        <div class="notice-msg notice-amber" style="display:inline-block;margin-top:1rem;">🔒 Vérification KYC requise pour demander une carte.</div>
+        <?php endif; ?>
       <?php endif; ?>
     </div>
     <?php else: ?>

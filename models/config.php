@@ -64,11 +64,6 @@ class Config
             session_start();
         }
 
-        // Already loaded this request
-        if (!empty($_SESSION['user'])) {
-            return;
-        }
-
         $pdo  = self::getConnexion();
         $stmt = $pdo->query("SELECT * FROM utilisateur LIMIT 1");
         $row  = $stmt->fetch();
@@ -77,13 +72,14 @@ class Config
             die('Aucun utilisateur trouvé dans la base de données.');
         }
 
-        // Force ADMIN so both frontoffice and backoffice pages work
+        // Force ADMIN and always refresh session data so manual DB changes reflect immediately
         $_SESSION['user'] = [
-            'id'     => $row['id'],
-            'nom'    => $row['nom']    ?? '',
-            'prenom' => $row['prenom'] ?? '',
-            'email'  => $row['email']  ?? '',
-            'role'   => 'ADMIN',
+            'id'         => $row['id'],
+            'nom'        => $row['nom']        ?? '',
+            'prenom'     => $row['prenom']     ?? '',
+            'email'      => $row['email']      ?? '',
+            'role'       => 'ADMIN',
+            'status_kyc' => $row['status_kyc'] ?? '',
         ];
     }
 }
