@@ -1,12 +1,12 @@
 <?php
-// =============================================================
-//  model/Session.php — NexaBank
-//  Gestion centralisée de la session PHP
-// =============================================================
+
+
+
+
 
 class Session {
 
-    // Démarre la session si pas encore démarrée
+    // Start PHP session if not already started
     public static function start() : void {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
@@ -34,9 +34,9 @@ class Session {
         session_destroy();
     }
 
-    // ─────────────────────────────────────────────
-    //  Vérifications de rôle
-    // ─────────────────────────────────────────────
+    
+    
+    
 
     public static function isLoggedIn() : bool {
         return isset($_SESSION['user_id']);
@@ -47,9 +47,9 @@ class Session {
                in_array($_SESSION['role'], ['ADMIN', 'SUPER_ADMIN']);
     }
 
-    // ─────────────────────────────────────────────
-    //  Guards — redirigent si non autorisé
-    // ─────────────────────────────────────────────
+    
+    
+    
 
     public static function requireLogin(string $redirect = '../view/FrontOffice/login.php') : void {
         self::start();
@@ -67,15 +67,15 @@ class Session {
         }
     }
 
-    // ─────────────────────────────────────────────
-    //  Flash messages (message one-shot)
-    // ─────────────────────────────────────────────
+    
+    
+    
 
     public static function setFlash(string $type, string $message) : void {
         $_SESSION['flash'] = ['type' => $type, 'message' => $message];
     }
 
-    // Retourne le flash et le supprime immédiatement
+    // Return the one-time flash message and clear it
     public static function getFlash() : ?array {
         if (isset($_SESSION['flash'])) {
             $flash = $_SESSION['flash'];
@@ -85,3 +85,5 @@ class Session {
         return null;
     }
 }
+
+

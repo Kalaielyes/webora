@@ -6,23 +6,24 @@ require_once __DIR__ . '/../model/Utilisateur.php';
 Session::start();
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-// Helper function pour vérifier si une chaîne contient une sous-chaîne (compatible PHP < 8.0)
+
+
 if (!function_exists('str_contains')) {
     function str_contains($haystack, $needle) {
         return $needle !== '' && mb_strpos($haystack, $needle) !== false;
     }
 }
 
-// ═══════════════════════════════════════════════
-//  LOGIN
-// ═══════════════════════════════════════════════
+
+
+
 if ($action === 'login') {
     $email = trim($_POST['email'] ?? '');
     $mdp   = $_POST['mdp'] ?? '';
 
     $errors = [];
 
-    // Validation de l'email
+    
     if (empty($email)) {
         $errors['email'] = "L'adresse e-mail est requise.";
     } elseif (strpos($email, '@') === false) {
@@ -31,7 +32,7 @@ if ($action === 'login') {
         $errors['email'] = "Format d'e-mail invalide (exemple: nom@domaine.com).";
     }
 
-    // Validation du mot de passe
+    
     if (empty($mdp)) {
         $errors['mdp'] = "Le mot de passe est requis.";
     }
@@ -86,9 +87,9 @@ if ($action === 'login') {
     exit;
 }
 
-// ═══════════════════════════════════════════════
-//  REGISTER
-// ═══════════════════════════════════════════════
+
+
+
 if ($action === 'register') {
     $nom            = trim($_POST['nom']            ?? '');
     $prenom         = trim($_POST['prenom']         ?? '');
@@ -106,21 +107,21 @@ if ($action === 'register') {
     $old = compact('nom','prenom','date_naissance','cin','email','numTel','gouvernorat','adresse');
     $errors = [];
 
-    // ── Validation du champ NOM ─────────────────────────────────
+    
     if (empty($nom)) {
         $errors['nom'] = "Le nom est requis.";
     } elseif (!preg_match('/^[\p{L}\s\-\']{2,50}$/u', $nom)) {
         $errors['nom'] = "Le nom ne doit contenir que des lettres (2 à 50 caractères).";
     }
 
-    // ── Validation du champ PRENOM ─────────────────────────────────
+    
     if (empty($prenom)) {
         $errors['prenom'] = "Le prénom est requis.";
     } elseif (!preg_match('/^[\p{L}\s\-\']{2,50}$/u', $prenom)) {
         $errors['prenom'] = "Le prénom ne doit contenir que des lettres (2 à 50 caractères).";
     }
 
-    // ── Validation de la DATE DE NAISSANCE ─────────────────────────────────
+    
     if (empty($date_naissance)) {
         $errors['date_naissance'] = "La date de naissance est requise.";
     } else {
@@ -137,7 +138,7 @@ if ($action === 'register') {
         }
     }
 
-    // ── Validation du CIN (8 chiffres EXACTEMENT) ─────────────────────────────────
+    
     if (empty($cin)) {
         $errors['cin'] = "Le numéro CIN est requis.";
     } elseif (!ctype_digit($cin)) {
@@ -146,7 +147,7 @@ if ($action === 'register') {
         $errors['cin'] = "Le CIN doit contenir exactement 8 chiffres.";
     }
 
-    // ── Validation de l'EMAIL (doit contenir @) ─────────────────────────────────
+    
     if (empty($email)) {
         $errors['email'] = "L'adresse e-mail est requise.";
     } elseif (strpos($email, '@') === false) {
@@ -157,11 +158,11 @@ if ($action === 'register') {
         $errors['email'] = "L'adresse e-mail ne peut pas dépasser 100 caractères.";
     }
 
-    // ── Validation du NUMERO DE TELEPHONE (8 chiffres minimum) ─────────────────────────────────
+    
     if (empty($numTel)) {
         $errors['numTel'] = "Le numéro de téléphone est requis.";
     } else {
-        // Nettoyer le numéro pour ne garder que les chiffres
+        
         $numTelClean = preg_replace('/[^0-9]/', '', $numTel);
         if (strlen($numTelClean) < 8) {
             $errors['numTel'] = "Le numéro de téléphone doit contenir au moins 8 chiffres.";
@@ -170,12 +171,12 @@ if ($action === 'register') {
         }
     }
 
-    // ── Validation du GOUVERNORAT ─────────────────────────────────
+    
     if (empty($gouvernorat)) {
         $errors['gouvernorat'] = "Le gouvernorat est requis.";
     }
 
-    // ── Validation de L'ADRESSE ─────────────────────────────────
+    
     if (empty($adresse)) {
         $errors['adresse'] = "L'adresse complète est requise.";
     } elseif (strlen($adresse) < 5) {
@@ -184,7 +185,7 @@ if ($action === 'register') {
         $errors['adresse'] = "L'adresse ne peut pas dépasser 255 caractères.";
     }
 
-    // ── Validation du MOT DE PASSE ─────────────────────────────────
+    
     if (empty($mdp)) {
         $errors['mdp'] = "Le mot de passe est requis.";
     } else {
@@ -199,12 +200,12 @@ if ($action === 'register') {
         }
     }
     
-    // ── Confirmation du mot de passe ─────────────────────────────────
+    
     if ($mdp !== $mdp_confirm) {
         $errors['mdp_confirm'] = "Les mots de passe ne correspondent pas.";
     }
 
-    // ── Consentements ─────────────────────────────────
+    
     if (!$terms) {
         $errors['terms'] = "Vous devez accepter les CGU et la Politique de confidentialité.";
     }
@@ -212,7 +213,7 @@ if ($action === 'register') {
         $errors['kyc_consent'] = "Vous devez consentir à la vérification KYC/AML.";
     }
 
-    // ── Affichage des erreurs ─────────────────────────────────
+    
     if (!empty($errors)) {
         Session::set('register_errors', $errors);
         Session::setFlash('error', 'Veuillez corriger les erreurs ci-dessous.');
@@ -262,9 +263,9 @@ if ($action === 'register') {
     exit;
 }
 
-// ═══════════════════════════════════════════════
-//  LOGOUT
-// ═══════════════════════════════════════════════
+
+
+
 if ($action === 'logout') {
     Session::destroy();
     header('Location: ../view/FrontOffice/login.php');
@@ -273,3 +274,4 @@ if ($action === 'logout') {
 
 header('Location: ../view/FrontOffice/login.php');
 exit;
+

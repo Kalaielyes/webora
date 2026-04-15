@@ -9,26 +9,20 @@ if (!$user) { Session::destroy(); header('Location: login.php'); exit; }
 $flash    = Session::getFlash();
 $initials = strtoupper(mb_substr($user['nom'],0,1).mb_substr($user['prenom'],0,1));
 
-// Recuperer les anciennes valeurs du profil en cas d'erreur de validation
 $oldProfil = Session::get('old_profil') ?? [];
 Session::remove('old_profil');
 
-// Determiner quel modal ouvrir automatiquement
-// On detecte depuis quelle action vient l'erreur en se basant sur la cle de session
-// old_profil => modal edit, erreur mot de passe => modal pwd
 $openModal = '';
 if (!empty($oldProfil) && $flash && $flash['type'] === 'error') {
     $openModal = 'm-edit';
 }
-// Pour update_password, pas d'old values (securite), mais on reafouvre le modal
-// On stocke temporairement l'info dans une cle flash speciale
+
 $pwdError = Session::get('pwd_error');
 Session::remove('pwd_error');
 if ($pwdError && $flash && $flash['type'] === 'error') {
     $openModal = 'm-pwd';
 }
 
-// Valeurs a afficher dans le modal edit
 function oldProfil(string $key, array $old, array $user): string {
     return htmlspecialchars($old[$key] ?? $user[$key] ?? '', ENT_QUOTES, 'UTF-8');
 }
@@ -64,7 +58,7 @@ function oldProfil(string $key, array $old, array $user): string {
 <body>
 <aside class="sidebar">
   <div class="sb-logo">
-    <div class="sb-logo-name">Legal<span>Fin</span></div>
+    <div class="sb-logo-name">LegalFin<span>Bank</span></div>
     <div class="sb-logo-tag">Espace Client</div>
   </div>
   <div class="sb-user">
@@ -90,7 +84,7 @@ function oldProfil(string $key, array $old, array $user): string {
   </nav>
   <div class="sb-footer" style="display:flex;flex-direction:column;gap:.5rem">
     <span class="badge-kyc"><span class="dot-pulse"></span> KYC <?= $user['status_kyc'] ?></span>
-    <a href="../../controller/AuthController.php?action=logout" style="font-size:.7rem;color:var(--rose);text-decoration:none">Deconnexion</a>
+    <a href="../../controller/AuthController.php?action=logout" style="font-size:.7rem;color:var(--rose);text-decoration:none">Déconnexion</a>
   </div>
 </aside>
 <div class="main">
@@ -107,6 +101,7 @@ function oldProfil(string $key, array $old, array $user): string {
       <span><?= htmlspecialchars($flash['message']) ?></span>
     </div>
     <?php endif; ?>
+    
     <!-- HERO -->
     <div class="profile-hero">
       <div class="profile-avatar-wrap">
@@ -122,6 +117,12 @@ function oldProfil(string $key, array $old, array $user): string {
           <span class="pbadge pbadge-kyc"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> KYC <?= $user['status_kyc'] ?></span>
           <span class="pbadge pbadge-aml"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> AML <?= $user['status_aml'] ?></span>
           <span class="pbadge pbadge-actif"><span class="dot-pulse" style="background:var(--teal)"></span> <?= $user['status'] ?></span>
+          <?php if(!empty($user['file_path'])): ?>
+          <span class="pbadge pbadge-file"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg> ID déposé</span>
+          <?php endif; ?>
+          <?php if(!empty($user['association'])): ?>
+          <span class="pbadge pbadge-assoc"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> Associé</span>
+          <?php endif; ?>
         </div>
         <div class="profile-joined">Membre depuis le <?= date('d/m/Y', strtotime($user['date_inscription'])) ?></div>
       </div>
@@ -134,8 +135,20 @@ function oldProfil(string $key, array $old, array $user): string {
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
           Mot de passe
         </button>
+        <?php if(empty($user['file_path'])): ?>
+        <button class="btn-ghost" onclick="document.getElementById('m-upload').classList.add('open')">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
+          Déposer votre ID
+        </button>
+        <?php else: ?>
+        <a class="btn-ghost" href="../../<?= htmlspecialchars($user['file_path']) ?>" target="_blank">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+          Voir mon ID
+        </a>
+        <?php endif; ?>
       </div>
     </div>
+    
     <!-- STATS -->
     <div class="stats-row">
       <div class="stat-card">
@@ -143,7 +156,7 @@ function oldProfil(string $key, array $old, array $user): string {
         <div class="stat-card-val">1</div><div class="stat-card-sub">Compte courant</div>
       </div>
       <div class="stat-card">
-        <div class="stat-card-label"><svg width="13" height="13" fill="none" stroke="var(--teal)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2 2"/></svg> Derniere connexion</div>
+        <div class="stat-card-label"><svg width="13" height="13" fill="none" stroke="var(--teal)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2 2"/></svg> Dernière connexion</div>
         <div class="stat-card-val" style="font-size:1.1rem"><?= $user['derniere_connexion'] ? date('d/m H:i', strtotime($user['derniere_connexion'])) : 'Maintenant' ?></div>
         <div class="stat-card-sub">Tunis, TN</div>
       </div>
@@ -153,34 +166,35 @@ function oldProfil(string $key, array $old, array $user): string {
         <div class="stat-card-sub">AML: <?= $user['status_aml'] ?></div>
       </div>
     </div>
+    
     <!-- INFOS + SECURITE -->
     <div class="two-col">
       <div>
         <div class="section-head">
           <div class="section-title">Informations personnelles</div>
           <button class="btn-ghost" style="font-size:.7rem;padding:.22rem .6rem" onclick="document.getElementById('m-edit').classList.add('open')">
-            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Editer
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Éditer
           </button>
         </div>
         <div class="info-card">
           <div class="info-grid">
             <div class="info-field"><div class="info-label">Nom</div><div class="info-value"><?= htmlspecialchars($user['nom']) ?></div></div>
-            <div class="info-field"><div class="info-label">Prenom</div><div class="info-value"><?= htmlspecialchars($user['prenom']) ?></div></div>
+            <div class="info-field"><div class="info-label">Prénom</div><div class="info-value"><?= htmlspecialchars($user['prenom']) ?></div></div>
             <div class="info-field"><div class="info-label">Date de naissance</div><div class="info-value"><?= date('d/m/Y', strtotime($user['date_naissance'])) ?></div></div>
-            <div class="info-field"><div class="info-label">Telephone</div><div class="info-value"><?= htmlspecialchars($user['numTel']) ?></div></div>
+            <div class="info-field"><div class="info-label">Téléphone</div><div class="info-value"><?= htmlspecialchars($user['numTel']) ?></div></div>
             <div class="info-field info-field-full"><div class="info-label">Email</div><div class="info-value"><?= htmlspecialchars($user['email']) ?></div></div>
             <div class="info-field info-field-full"><div class="info-label">Adresse</div><div class="info-value"><?= htmlspecialchars($user['adresse']) ?></div></div>
             <div class="info-field"><div class="info-label">CIN</div><div class="info-value mono"><?= htmlspecialchars($user['cin']) ?></div></div>
-            <div class="info-field"><div class="info-label">Role</div><div class="info-value"><?= $user['role'] ?></div></div>
+            <div class="info-field"><div class="info-label">Rôle</div><div class="info-value"><?= $user['role'] ?></div></div>
           </div>
         </div>
       </div>
       <div>
-        <div class="section-head"><div class="section-title">Securite du compte</div></div>
+        <div class="section-head"><div class="section-title">Sécurité du compte</div></div>
         <div class="security-card">
           <div class="sec-item"><div class="sec-left"><div class="sec-icon" style="background:rgba(79,142,247,.1)"><svg width="16" height="16" fill="none" stroke="var(--blue)" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div><div><div class="sec-title">Mot de passe</div><div class="sec-desc">Cliquez pour modifier</div></div></div><button class="btn-ghost" style="font-size:.7rem;padding:.22rem .6rem" onclick="document.getElementById('m-pwd').classList.add('open')">Changer</button></div>
           <div class="sec-item"><div class="sec-left"><div class="sec-icon" style="background:rgba(34,197,94,.1)"><svg width="16" height="16" fill="none" stroke="var(--green)" stroke-width="1.8" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div><div><div class="sec-title">2FA SMS</div><div class="sec-desc">Authentification active</div></div></div><div class="toggle on"><div class="toggle-knob"></div></div></div>
-          <div class="sec-item"><div class="sec-left"><div class="sec-icon" style="background:rgba(244,63,94,.1)"><svg width="16" height="16" fill="none" stroke="var(--rose)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 8v4M12 16h.01"/></svg></div><div><div class="sec-title">Niveau de risque</div><div class="sec-desc">Aucune activite suspecte</div></div></div><span style="font-size:.7rem;font-weight:600;color:var(--green)">FAIBLE</span></div>
+          <div class="sec-item"><div class="sec-left"><div class="sec-icon" style="background:rgba(244,63,94,.1)"><svg width="16" height="16" fill="none" stroke="var(--rose)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 8v4M12 16h.01"/></svg></div><div><div class="sec-title">Niveau de risque</div><div class="sec-desc">Aucune activité suspecte</div></div></div><span style="font-size:.7rem;font-weight:600;color:var(--green)">FAIBLE</span></div>
         </div>
       </div>
     </div>
@@ -209,7 +223,7 @@ function oldProfil(string $key, array $old, array $user): string {
                  required minlength="2" maxlength="50">
         </div>
         <div class="mf">
-          <label class="ml">Prenom *</label>
+          <label class="ml">Prénom *</label>
           <input class="mi<?= (!empty($oldProfil) && empty($oldProfil['prenom'])) ? ' is-invalid' : '' ?>"
                  type="text" name="prenom"
                  value="<?= oldProfil('prenom',$oldProfil,$user) ?>"
@@ -217,7 +231,7 @@ function oldProfil(string $key, array $old, array $user): string {
         </div>
       </div>
       <div class="mf">
-        <label class="ml">Telephone *</label>
+        <label class="ml">Téléphone *</label>
         <input class="mi<?= (!empty($oldProfil) && empty($oldProfil['numTel'])) ? ' is-invalid' : '' ?>"
                type="tel" name="numTel"
                value="<?= oldProfil('numTel',$oldProfil,$user) ?>"
@@ -260,12 +274,32 @@ function oldProfil(string $key, array $old, array $user): string {
   </div>
 </div>
 
+<!-- ═══ MODAL DEPOT FICHIER ═══ -->
+<div class="modal-overlay" id="m-upload" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('m-upload').classList.remove('open')">x</button>
+    <div class="modal-title">Déposer votre ID</div>
+    <form method="POST" action="../../controller/UtilisateurController.php" enctype="multipart/form-data">
+      <input type="hidden" name="action" value="upload_file">
+      <div class="mf">
+        <label class="ml">Sélectionner votre ID *</label>
+        <input class="mi" type="file" name="file" accept=".jpg,.jpeg,.png,.gif,.pdf" required>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:.3rem">Formats acceptés : JPEG, PNG, GIF, PDF. Taille max : 5MB.</div>
+      </div>
+      <div class="mfoot">
+        <button type="button" class="btn-ghost" onclick="document.getElementById('m-upload').classList.remove('open')">Annuler</button>
+        <button type="submit" class="btn-primary">Télécharger</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
-// Auto-ouvrir le modal en cas d'erreur de validation PHP
 <?php if ($openModal): ?>
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('<?= $openModal ?>').classList.add('open');
 });
 <?php endif; ?>
 </script>
-</body></html>
+</body>
+</html>

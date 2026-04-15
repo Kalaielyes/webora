@@ -1,9 +1,5 @@
 <?php
-// =============================================================
-//  controller/UtilisateurController.php — NexaBank
-//  CRUD utilisateurs : client (profil) + admin (full CRUD)
-//  + Validation PHP complète + persistance anciennes valeurs
-// =============================================================
+
 
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/Session.php';
@@ -13,18 +9,14 @@ Session::start();
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 $m      = new Utilisateur();
 
-// ─── Helper : messages d'erreur multiples ─────────────────
+
+// Store error flash and previous form values
 function setErrors(array $errors, string $oldKey, array $old): void {
     Session::setFlash('error', implode('<br>', $errors));
     Session::set($oldKey, $old);
 }
 
-// ═══════════════════════════════════════════════════════════
-//  CLIENT : modifier son propre profil
-// ═══════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════
-//  CLIENT : modifier son propre profil
-// ═══════════════════════════════════════════════════════════
+
 if ($action === 'update_profil') {
     Session::requireLogin('../view/FrontOffice/login.php');
     $id = (int) Session::get('user_id');
@@ -37,21 +29,21 @@ if ($action === 'update_profil') {
     $old    = compact('nom','prenom','numTel','adresse');
     $errors = [];
 
-    // Validation du nom
+    
     if (empty($nom)) {
         $errors['nom'] = "Le nom est requis.";
     } elseif (!preg_match('/^[\p{L}\s\-\']{2,50}$/u', $nom)) {
         $errors['nom'] = "Le nom ne doit contenir que des lettres (2 à 50 caractères).";
     }
 
-    // Validation du prénom
+    
     if (empty($prenom)) {
         $errors['prenom'] = "Le prénom est requis.";
     } elseif (!preg_match('/^[\p{L}\s\-\']{2,50}$/u', $prenom)) {
         $errors['prenom'] = "Le prénom ne doit contenir que des lettres (2 à 50 caractères).";
     }
 
-    // Validation du numéro de téléphone
+    
     if (empty($numTel)) {
         $errors['numTel'] = "Le numéro de téléphone est requis.";
     } else {
@@ -63,7 +55,7 @@ if ($action === 'update_profil') {
         }
     }
 
-    // Validation de l'adresse
+    
     if (empty($adresse)) {
         $errors['adresse'] = "L'adresse est requise.";
     } elseif (strlen($adresse) < 5) {
@@ -97,9 +89,7 @@ if ($action === 'update_profil') {
     exit;
 }
 
-// ═══════════════════════════════════════════════════════════
-//  CLIENT : changer son mot de passe
-// ═══════════════════════════════════════════════════════════
+
 if ($action === 'update_password') {
     Session::requireLogin('../view/FrontOffice/login.php');
     $id          = (int) Session::get('user_id');
@@ -152,9 +142,70 @@ if ($action === 'update_password') {
     header('Location: ../view/FrontOffice/frontoffice_utilisateur.php'); 
     exit;
 }
-// ═══════════════════════════════════════════════════════════
-//  ADMIN : ajouter un utilisateur
-// ═══════════════════════════════════════════════════════════
+
+
+
+
+if ($action === 'upload_file') {
+    Session::requireLogin('../view/FrontOffice/login.php');
+    $id = (int) Session::get('user_id');
+
+    
+    $user = $m->findById($id);
+    if (!empty($user['id_file_path'])) {
+        Session::setFlash('error', 'Vous avez déjà déposé un fichier ID. Contactez l\'administration pour modifications.');
+        header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
+        exit;
+    }
+
+    if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+        Session::setFlash('error', 'Erreur lors du dépôt de l\'ID.');
+        header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
+        exit;
+    }
+
+    $file = $_FILES['file'];
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+    $maxSize = 5 * 1024 * 1024; 
+
+    if (!in_array($file['type'], $allowedTypes)) {
+        Session::setFlash('error', 'Type de fichier non autorisé. Seuls JPEG, PNG, GIF et PDF sont acceptés pour l\'ID.');
+        header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
+        exit;
+    }
+
+    if ($file['size'] > $maxSize) {
+        Session::setFlash('error', 'L\'ID est trop volumineux. Taille maximale : 5MB.');
+        header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
+        exit;
+    }
+
+    $uploadDir = __DIR__ . '/../uploads/';
+    $fileName = uniqid() . '_' . basename($file['name']);
+    $filePath = $uploadDir . $fileName;
+    $relativePath = 'uploads/' . $fileName;
+
+    if (move_uploaded_file($file['tmp_name'], $filePath)) {
+        
+        try {
+            $m->updateFilePath($id, $relativePath);
+            Session::setFlash('success', 'ID déposé avec succès.');
+        } catch (Exception $e) {
+            
+            unlink($filePath);
+            Session::setFlash('error', 'Erreur lors de la sauvegarde en base de données.');
+        }
+    } else {
+        Session::setFlash('error', 'Erreur lors de la sauvegarde de l\'ID.');
+    }
+
+    header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
+    exit;
+}
+
+
+
+
 if ($action === 'admin_add') {
     Session::requireAdmin('../view/FrontOffice/login.php');
 
@@ -239,9 +290,9 @@ if ($action === 'admin_add') {
     header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
 }
 
-// ═══════════════════════════════════════════════════════════
-//  ADMIN : modifier un utilisateur
-// ═══════════════════════════════════════════════════════════
+
+
+
 if ($action === 'admin_edit') {
     Session::requireAdmin('../view/FrontOffice/login.php');
     $id = (int)($_POST['id'] ?? 0);
@@ -304,9 +355,9 @@ if ($action === 'admin_edit') {
     header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
 }
 
-// ═══════════════════════════════════════════════════════════
-//  ADMIN : reset mot de passe
-// ═══════════════════════════════════════════════════════════
+
+
+
 if ($action === 'admin_reset_pwd') {
     Session::requireAdmin('../view/FrontOffice/login.php');
     $id     = (int)($_POST['id'] ?? 0);
@@ -336,9 +387,9 @@ if ($action === 'admin_reset_pwd') {
     header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
 }
 
-// ═══════════════════════════════════════════════════════════
-//  ADMIN : supprimer un utilisateur
-// ═══════════════════════════════════════════════════════════
+
+
+
 if ($action === 'admin_delete') {
     Session::requireAdmin('../view/FrontOffice/login.php');
     $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
@@ -357,9 +408,9 @@ if ($action === 'admin_delete') {
     header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
 }
 
-// ═══════════════════════════════════════════════════════════
-//  ADMIN : valider KYC
-// ═══════════════════════════════════════════════════════════
+
+
+
 if ($action === 'valider_kyc') {
     Session::requireAdmin('../view/FrontOffice/login.php');
     $id = (int)($_POST['id'] ?? 0);
@@ -374,9 +425,9 @@ if ($action === 'valider_kyc') {
     header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
 }
 
-// ═══════════════════════════════════════════════════════════
-//  ADMIN : bloquer un compte
-// ═══════════════════════════════════════════════════════════
+
+
+
 if ($action === 'bloquer') {
     Session::requireAdmin('../view/FrontOffice/login.php');
     $id = (int)($_POST['id'] ?? 0);
@@ -395,4 +446,63 @@ if ($action === 'bloquer') {
     header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
 }
 
+
+
+
+if ($action === 'admin_set_association') {
+    Session::requireAdmin('../view/FrontOffice/login.php');
+    $id = (int)($_POST['id'] ?? 0);
+    $assoc = isset($_POST['association']) && $_POST['association'] === '1';
+
+    if ($id <= 0) {
+        Session::setFlash('error', 'ID invalide.');
+        header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
+    }
+
+    try {
+        $m->updateAssociation($id, $assoc);
+        Session::setFlash('success', 'Association mise à jour.');
+    } catch (Exception $e) {
+        Session::setFlash('error', $e->getMessage());
+    }
+    header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
+}
+
+
+
+
+if ($action === 'admin_delete_file') {
+    Session::requireAdmin('../view/FrontOffice/login.php');
+    $id = (int)($_POST['id'] ?? 0);
+
+    if ($id <= 0) {
+        Session::setFlash('error', 'ID invalide.');
+        header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
+    }
+
+    $user = $m->findById($id);
+    if (!$user) {
+        Session::setFlash('error', 'Utilisateur non trouvé.');
+        header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
+    }
+
+    if (!empty($user['id_file_path'])) {
+        $fullPath = __DIR__ . '/../' . $user['id_file_path'];
+        if (file_exists($fullPath)) {
+            unlink($fullPath);
+        }
+        try {
+            $m->updateFilePath($id, '');
+            Session::setFlash('success', 'Fichier supprimé.');
+        } catch (Exception $e) {
+            Session::setFlash('error', $e->getMessage());
+        }
+    } else {
+        Session::setFlash('error', 'Aucun fichier à supprimer.');
+    }
+    header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
+}
+
 header('Location: ../view/FrontOffice/login.php'); exit;
+
+

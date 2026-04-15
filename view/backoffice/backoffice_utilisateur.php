@@ -1,8 +1,8 @@
 <?php
-// =============================================================
-//  view/backoffice/backoffice_utilisateur.php — NexaBank
-//  CRUD Admin complet avec design backoffice (CSS light)
-// =============================================================
+
+
+
+
 require_once __DIR__ . '/../../model/Session.php';
 require_once __DIR__ . '/../../model/Utilisateur.php';
 Session::requireAdmin('../FrontOffice/login.php');
@@ -13,7 +13,7 @@ $users  = $m->findAll($filtre);
 $stats  = $m->getStats();
 $flash  = Session::getFlash();
 
-// Utilisateur a afficher dans le panneau detail
+
 $detailId = (int)($_GET['detail'] ?? ($users[0]['id'] ?? 0));
 $detail   = $detailId ? $m->findById($detailId) : ($users[0] ?? null);
 
@@ -36,15 +36,192 @@ function initials(string $n, string $p): string {
 <html lang="fr">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>NexaBank Admin - Gestion Utilisateurs</title>
+<title>LegalFin Admin - Gestion Utilisateurs</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="Utilisateur.css">
 <style>
+  /* BOUTONS CORRIGÉS */
+.btn-primary {
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1.2rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: var(--fb);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.15s;
+}
+
+.btn-primary:hover {
+    background: #1D4ED8;
+    transform: translateY(-1px);
+}
+
+.btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.45rem 1rem;
+    font-size: 0.78rem;
+    color: var(--muted2);
+    cursor: pointer;
+    font-family: var(--fb);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.15s;
+}
+
+.btn-ghost:hover {
+    border-color: var(--blue);
+    color: var(--blue);
+    background: var(--blue-light);
+}
+
+/* Boutons dans les modals */
+.mbtn-cancel {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 0.4rem 1rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--fb);
+    transition: all 0.15s;
+}
+
+.mbtn-cancel:hover {
+    border-color: var(--blue);
+    color: var(--blue);
+    background: var(--blue-light);
+}
+
+.mbtn-save {
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 0.4rem 1.2rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: var(--fb);
+    transition: all 0.15s;
+}
+
+.mbtn-save:hover {
+    background: #1D4ED8;
+    transform: translateY(-1px);
+}
+
+.mbtn-danger {
+    background: var(--rose);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 0.4rem 1rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: var(--fb);
+    transition: all 0.15s;
+}
+
+.mbtn-danger:hover {
+    background: #DC2626;
+    transform: translateY(-1px);
+}
+
+/* Boutons d'action dans le détail */
+.dp-action-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: var(--fb);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.da-primary {
+    background: var(--blue-light);
+    color: var(--blue);
+}
+
+.da-primary:hover {
+    background: var(--blue);
+    color: #fff;
+}
+
+.da-green {
+    background: var(--green-light);
+    color: var(--green);
+}
+
+.da-green:hover {
+    background: var(--green);
+    color: #fff;
+}
+
+.da-warning {
+    background: var(--amber-light);
+    color: var(--amber);
+}
+
+.da-warning:hover {
+    background: var(--amber);
+    color: #fff;
+}
+
+.da-danger {
+    background: var(--rose-light);
+    color: var(--rose);
+}
+
+.da-danger:hover {
+    background: var(--rose);
+    color: #fff;
+}
+
+/* Bouton submit principal */
+.btn-submit {
+    width: 100%;
+    background: linear-gradient(135deg, var(--blue), var(--blue2));
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: var(--fb);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: opacity 0.18s, transform 0.12s;
+}
+
+.btn-submit:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+}
 .flash-bar{border-radius:8px;padding:.6rem 1rem;font-size:.78rem;display:flex;align-items:center;gap:.6rem;margin-bottom:.8rem;}
 .flash-bar svg{width:14px;height:14px;flex-shrink:0;}
 .flash-success{background:var(--green-light);border:1px solid rgba(22,163,74,.2);color:var(--green);}
 .flash-error{background:var(--rose-light);border:1px solid rgba(220,38,38,.2);color:var(--rose);}
-/* Modal */
+
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:none;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:1.6rem;width:100%;max-width:520px;position:relative;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);}
@@ -60,35 +237,26 @@ function initials(string $n, string $p): string {
 .minput:focus,.mselect:focus{border-color:var(--blue);}
 .mfoot{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem;padding-top:.9rem;border-top:1px solid var(--border);}
 .mbtn-cancel{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:.4rem .9rem;font-size:.78rem;color:var(--muted);cursor:pointer;font-family:var(--fb);}
-.mbtn-save{background:var(--blue);color:#fff;border:none;border-radius:7px;padding:.4rem 1rem;font-size:.78rem;font-weight:500;cursor:pointer;font-family:var(--fb);}
-.mbtn-danger{background:var(--rose);color:#fff;border:none;border-radius:7px;padding:.4rem 1rem;font-size:.78rem;font-weight:500;cursor:pointer;font-family:var(--fb);}
+.mbtn-save{background:var(--blue);color:
+.mbtn-danger{background:var(--rose);color:
 .confirm-icon{width:48px;height:48px;border-radius:50%;background:var(--rose-light);display:flex;align-items:center;justify-content:center;margin:0 auto .8rem;}
 .confirm-icon svg{width:22px;height:22px;stroke:var(--rose);}
 .confirm-text{text-align:center;font-size:.84rem;color:var(--muted);margin-bottom:.4rem;}
 .confirm-text strong{color:var(--text);}
-/* Detail active row */
+
 tr.detail-active td{background:var(--blue-light)!important;}
-/* Search highlight */
+
 .hl{background:rgba(37,99,235,.12);border-radius:2px;}
 
-/* Animations */
-.modal-overlay{display:none;opacity:0;transition:opacity .25s ease;}
-.modal-overlay.open{display:flex;opacity:1;}
-.modal{transform:translateY(-14px);opacity:0;transition:transform .25s ease,opacity .25s ease;}
-.modal-overlay.open .modal{transform:translateY(0);opacity:1;}
-.btn-primary, .act-btn, .mbtn-save, .mbtn-cancel, .dp-action-btn, .filter-btn{transition:transform .2s ease,background-color .2s ease,border-color .2s ease,color .2s ease;}
-.btn-primary:hover, .act-btn:hover, .mbtn-save:hover, .mbtn-cancel:hover, .dp-action-btn:hover, .filter-btn:hover{transform:translateY(-1px);}
-.kpi, .table-card, .detail-panel{transition:transform .2s ease,box-shadow .2s ease,opacity .2s ease;}
-.kpi:hover{transform:translateY(-4px);box-shadow:0 20px 40px rgba(15,23,42,.08);}
-.user-row{transition:background .2s ease,transform .2s ease,opacity .2s ease;}
-.user-row:hover{transform:translateX(2px);}
-.detail-panel{opacity:0;animation:slideIn .28s ease forwards;}
-@keyframes slideIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+
+
+
 </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
+
 <aside class="sidebar">
   <div class="sb-logo">
     <div class="sb-logo-name">Legal<span>Fin</span></div>
@@ -128,7 +296,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
   </div>
 </aside>
 
-<!-- MAIN -->
+
 <div class="main">
   <header class="topbar">
     <div class="tb-left">
@@ -157,7 +325,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
     </div>
     <?php endif; ?>
 
-    <!-- KPIs -->
+    
     <div class="kpi-row">
       <div class="kpi">
         <div class="kpi-icon" style="background:var(--blue-light)"><svg width="18" height="18" fill="none" stroke="var(--blue)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
@@ -181,10 +349,10 @@ tr.detail-active td{background:var(--blue-light)!important;}
       </div>
     </div>
 
-    <!-- TABLE + DETAIL -->
+    
     <div class="two-col-layout">
 
-      <!-- TABLE -->
+      
       <div class="table-card">
         <div class="table-toolbar">
           <div class="table-toolbar-title">Liste des utilisateurs (<?= count($users) ?>)</div>
@@ -194,8 +362,8 @@ tr.detail-active td{background:var(--blue-light)!important;}
             <?php endforeach; ?>
           </div>
         </div>
-        <table id="user-table">
-          <thead><tr><th>Utilisateur</th><th>Email</th><th>Role</th><th>KYC</th><th>AML</th><th>Statut</th><th>Inscription</th><th>Actions</th></tr></thead>
+        <table id="user-table" style="table-layout:fixed;width:100%">
+          <colgroup><col style="width:18%"><col style="width:17%"><col style="width:9%"><col style="width:10%"><col style="width:10%"><col style="width:9%"><col style="width:10%"><col style="width:12%"></colgroup><thead><tr><th>Utilisateur</th><th>Email</th><th>Role</th><th>KYC</th><th>AML</th><th>Statut</th><th>Inscription</th><th>Actions</th></tr></thead>
           <tbody>
           <?php foreach($users as $u): ?>
           <?php $ini=initials($u['nom'],$u['prenom']); ?>
@@ -214,7 +382,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
             <td><span class="td-mono"><?= date('d/m/Y', strtotime($u['date_inscription'])) ?></span></td>
             <td>
               <div class="action-group">
-                <button class="act-btn" title="Voir" onclick="showDetail(<?= $u['id'] ?>)"><svg width="30" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                <button class="act-btn" title="Voir" onclick="showDetail(<?= $u['id'] ?>)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                 <button class="act-btn" title="Modifier" onclick="openEdit(<?= htmlspecialchars(json_encode($u)) ?>)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                 <?php if($u['id']!==(int)Session::get('user_id')): ?>
                 <button class="act-btn danger" title="Supprimer" onclick="openDel(<?= $u['id'] ?>,'<?= htmlspecialchars($u['nom'].' '.$u['prenom']) ?>')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
@@ -227,7 +395,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
         </table>
       </div>
 
-      <!-- DETAIL PANEL -->
+      
       <?php if($detail): ?>
       <?php $ini=initials($detail['nom'],$detail['prenom']); ?>
       <div class="detail-panel" id="detail-panel">
@@ -253,12 +421,25 @@ tr.detail-active td{background:var(--blue-light)!important;}
         </div>
         <div>
           <div class="dp-section">Compte &amp; Statut</div>
-          <div class="dp-row"><span class="dp-key">ID</span><span class="dp-val-mono">#NXB-<?= str_pad($detail['id'],5,'0',STR_PAD_LEFT) ?></span></div>
+          <div class="dp-row"><span class="dp-key">ID</span><span class="dp-val-mono">
           <div class="dp-row"><span class="dp-key">KYC</span><span class="<?= badge_kyc($detail['status_kyc']) ?>"><?= $detail['status_kyc'] ?></span></div>
           <div class="dp-row"><span class="dp-key">AML</span><span class="<?= badge_kyc($detail['status_aml']) ?>"><?= $detail['status_aml'] ?></span></div>
           <div class="dp-row"><span class="dp-key">Statut</span><span class="badge <?= badge_status($detail['status']) ?>"><?= $detail['status'] ?></span></div>
           <div class="dp-row"><span class="dp-key">Inscription</span><span class="dp-val-mono"><?= date('d/m/Y',strtotime($detail['date_inscription'])) ?></span></div>
           <div class="dp-row"><span class="dp-key">Connexion</span><span class="dp-val-mono"><?= $detail['derniere_connexion'] ? date('d/m H:i',strtotime($detail['derniere_connexion'])) : 'N/A' ?></span></div>
+        </div>
+        <div>
+          <div class="dp-section">Fichier &amp; Association</div>
+          <div class="dp-row"><span class="dp-key">Fichier ID</span><span class="dp-val">
+            <?php if(!empty($detail['id_file_path'])): ?>
+              <a href="../../<?= htmlspecialchars($detail['id_file_path']) ?>" target="_blank" style="color:var(--blue);text-decoration:underline">Voir fichier</a>
+            <?php else: ?>
+              Aucun fichier
+            <?php endif; ?>
+          </span></div>
+          <div class="dp-row"><span class="dp-key">Association</span><span class="dp-val">
+            <span class="badge <?= $detail['association'] ? 'b-actif' : 'b-inactif' ?>"><?= $detail['association'] ? 'Oui' : 'Non' ?></span>
+          </span></div>
         </div>
         <div class="dp-actions">
           <button class="dp-action-btn da-primary" onclick="openEdit(<?= htmlspecialchars(json_encode($detail)) ?>)">
@@ -273,6 +454,16 @@ tr.detail-active td{background:var(--blue-light)!important;}
             <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
             Reset MDP
           </button>
+          <button class="dp-action-btn da-primary" onclick="toggleAssociation(<?= $detail['id'] ?>, <?= $detail['association'] ? 'false' : 'true' ?>)">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+            Association: <?= $detail['association'] ? 'Oui' : 'Non' ?>
+          </button>
+          <?php if(!empty($detail['id_file_path'])): ?>
+          <button class="dp-action-btn da-danger" onclick="deleteFile(<?= $detail['id'] ?>)">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
+            Supprimer fichier
+          </button>
+          <?php endif; ?>
           <button class="dp-action-btn da-danger" onclick="openBloquer(<?= $detail['id'] ?>,'<?= $detail['status_kyc'] ?>','<?= $detail['status_aml'] ?>','<?= $detail['role'] ?>')">
             <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             Bloquer
@@ -293,7 +484,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
   </div>
 </div>
 
-<!-- ═══ MODAL AJOUTER ═══ -->
+
 <div class="modal-overlay" id="m-add" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
     <button class="modal-close" onclick="document.getElementById('m-add').classList.remove('open')">x</button>
@@ -323,7 +514,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
   </div>
 </div>
 
-<!-- ═══ MODAL MODIFIER ═══ -->
+
 <div class="modal-overlay" id="m-edit" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
     <button class="modal-close" onclick="document.getElementById('m-edit').classList.remove('open')">x</button>
@@ -365,7 +556,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
   </div>
 </div>
 
-<!-- ═══ MODAL RESET MDP ═══ -->
+
 <div class="modal-overlay" id="m-resetpwd" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:380px">
     <button class="modal-close" onclick="document.getElementById('m-resetpwd').classList.remove('open')">x</button>
@@ -383,7 +574,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
   </div>
 </div>
 
-<!-- ═══ MODAL VALIDER KYC ═══ -->
+
 <div class="modal-overlay" id="m-kyc" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:360px;text-align:center">
     <button class="modal-close" onclick="document.getElementById('m-kyc').classList.remove('open')">x</button>
@@ -404,7 +595,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
   </div>
 </div>
 
-<!-- ═══ MODAL BLOQUER ═══ -->
+
 <div class="modal-overlay" id="m-bloquer" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:360px;text-align:center">
     <button class="modal-close" onclick="document.getElementById('m-bloquer').classList.remove('open')">x</button>
@@ -425,7 +616,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
   </div>
 </div>
 
-<!-- ═══ MODAL SUPPRIMER ═══ -->
+
 <div class="modal-overlay" id="m-del" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:360px;text-align:center">
     <button class="modal-close" onclick="document.getElementById('m-del').classList.remove('open')">x</button>
@@ -478,6 +669,49 @@ function openBloquer(id, kyc, aml, role) {
   document.getElementById('bloq-role').value = role;
   document.getElementById('m-bloquer').classList.add('open');
 }
+function toggleAssociation(id, newVal) {
+  if (confirm('Confirmer le changement d\'association ?')) {
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '../../controller/UtilisateurController.php';
+    var inputAction = document.createElement('input');
+    inputAction.type = 'hidden';
+    inputAction.name = 'action';
+    inputAction.value = 'admin_set_association';
+    var inputId = document.createElement('input');
+    inputId.type = 'hidden';
+    inputId.name = 'id';
+    inputId.value = id;
+    var inputAssoc = document.createElement('input');
+    inputAssoc.type = 'hidden';
+    inputAssoc.name = 'association';
+    inputAssoc.value = newVal ? '1' : '0';
+    form.appendChild(inputAction);
+    form.appendChild(inputId);
+    form.appendChild(inputAssoc);
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+function deleteFile(id) {
+  if (confirm('Supprimer le fichier ID de cet utilisateur ?')) {
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '../../controller/UtilisateurController.php';
+    var inputAction = document.createElement('input');
+    inputAction.type = 'hidden';
+    inputAction.name = 'action';
+    inputAction.value = 'admin_delete_file';
+    var inputId = document.createElement('input');
+    inputId.type = 'hidden';
+    inputId.name = 'id';
+    inputId.value = id;
+    form.appendChild(inputAction);
+    form.appendChild(inputId);
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
 function showDetail(id) {
   window.location.href = '?filtre=<?= urlencode($filtre) ?>&detail=' + id;
 }
@@ -489,3 +723,5 @@ function filterTable() {
 }
 </script>
 </body></html>
+
+

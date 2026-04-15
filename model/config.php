@@ -1,15 +1,15 @@
 <?php
-// =============================================================
-//  model/config.php — NexaBank
-//  Connexion PDO + constantes URL
-// =============================================================
+
+
+
+
 
 if (!defined('BASE_URL')) {
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host     = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $docRoot  = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']), '/');
     $modelDir = rtrim(str_replace('\\', '/', __DIR__), '/');
-    $appRoot  = dirname($modelDir);          // un niveau au-dessus de /model
+    $appRoot  = dirname($modelDir);          
     $webPath  = '/' . trim(str_replace($docRoot, '', $appRoot), '/');
 
     define('BASE_URL',  $protocol . '://' . $host . $webPath);
@@ -22,9 +22,10 @@ class config {
 
     private static ?PDO $pdo = null;
 
-    // ─────────────────────────────────────────────
-    //  Connexion PDO — base : webora
-    // ─────────────────────────────────────────────
+    
+    
+    
+    // Return PDO database connection
     public static function getConnexion() : PDO {
         if (self::$pdo === null) {
             $host = getenv('DB_HOST') ?: 'localhost';
@@ -53,3 +54,5 @@ class config {
         return self::$pdo;
     }
 }
+
+

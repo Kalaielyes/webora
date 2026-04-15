@@ -9,7 +9,7 @@ $flash = Session::getFlash();
 $oldLogin = Session::get('old_login') ?? [];
 Session::remove('old_login');
 
-// Récupérer les erreurs de connexion
+
 $loginErrors = Session::get('login_errors') ?? [];
 Session::remove('login_errors');
 
@@ -36,6 +36,28 @@ function loginErrorMessage(string $field, array $errors): string {
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="Utilisateur.css">
 <style>
+  .btn-submit {
+    width: 100%;
+    background: linear-gradient(135deg, var(--blue), #3A7AF0);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: var(--fb);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: opacity 0.18s, transform 0.12s;
+}
+
+.btn-submit:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+}
 body{align-items:center;justify-content:center;overflow:hidden;}
 .bg-blob{position:fixed;border-radius:50%;pointer-events:none;z-index:0;}
 .blob1{width:500px;height:500px;top:-150px;left:-150px;background:radial-gradient(circle,rgba(79,142,247,.1),transparent 70%);}
@@ -47,7 +69,7 @@ body{align-items:center;justify-content:center;overflow:hidden;}
 .brand-panel::before{content:'';position:absolute;top:-80px;right:-80px;width:350px;height:350px;border-radius:50%;background:radial-gradient(circle,rgba(79,142,247,.12),transparent 70%);}
 .brand-panel::after{content:'';position:absolute;bottom:-60px;left:10%;width:250px;height:250px;border-radius:50%;background:radial-gradient(circle,rgba(45,212,191,.07),transparent 70%);}
 .brand-logo-icon{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--teal));display:flex;align-items:center;justify-content:center;margin-bottom:.8rem;}
-.brand-logo-icon svg{width:26px;height:26px;fill:#fff;}
+.brand-logo-icon svg{width:26px;height:26px;fill:var(--text);}
 .brand-name{font-family:var(--fh);font-size:1.6rem;font-weight:800;letter-spacing:-.03em;}
 .brand-name span{color:var(--blue);}
 .brand-tagline{font-size:.78rem;color:var(--muted);margin-top:4px;}
@@ -82,9 +104,9 @@ body{align-items:center;justify-content:center;overflow:hidden;}
 .check-label{display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--muted2);cursor:pointer;}
 .check-label input[type=checkbox]{appearance:none;width:16px;height:16px;border-radius:4px;border:1px solid var(--border2);background:var(--bg3);cursor:pointer;position:relative;flex-shrink:0;}
 .check-label input[type=checkbox]:checked{background:var(--blue);border-color:var(--blue);}
-.check-label input[type=checkbox]:checked::after{content:"\2713";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:700;}
+.check-label input[type=checkbox]:checked::after{content:"\2713";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text);}
 .forgot-link{font-size:.78rem;color:var(--blue);text-decoration:none;font-weight:500;}
-.btn-submit{width:100%;background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;border:none;border-radius:10px;padding:.8rem 1rem;font-size:.9rem;font-weight:600;font-family:var(--fb);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem;transition:opacity .18s,transform .12s;}
+.btn-submit{width:100%;background:linear-gradient(135deg,var(--blue),var(--blue2));color:var(--text);}
 .btn-submit:hover{opacity:.92;transform:translateY(-1px);}
 .flash{border-radius:10px;padding:.7rem 1rem;font-size:.78rem;display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;}
 .flash svg{width:14px;height:14px;flex-shrink:0;}
@@ -129,7 +151,7 @@ body{align-items:center;justify-content:center;overflow:hidden;}
       </div>
       <?php endif; ?>
       
-      <!-- Affichage des erreurs générales -->
+      
       <?php if (isset($loginErrors['general'])): ?>
       <div class="field-error" style="margin-bottom: 1rem; text-align: center; background: rgba(244,63,94,.08); padding: 0.5rem; border-radius: 8px;">
         <?= htmlspecialchars($loginErrors['general']) ?>
@@ -184,3 +206,5 @@ function togglePwd(){
 }
 </script>
 </body></html>
+
+

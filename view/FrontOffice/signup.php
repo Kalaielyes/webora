@@ -7,20 +7,20 @@ if (Session::isLoggedIn()) {
 }
 $flash = Session::getFlash();
 
-// Récupérer les erreurs par champ (retournées par PHP)
+
 $fieldErrors = Session::get('register_errors') ?? [];
 Session::remove('register_errors');
 
-// Récupérer les anciennes valeurs en cas d'erreur
+
 $old = Session::get('old_register') ?? [];
 Session::remove('old_register');
 
-// Helper : retourner la valeur ancienne ou vide
+
 function old(string $key, array $old, string $default = ''): string {
     return htmlspecialchars($old[$key] ?? $default, ENT_QUOTES, 'UTF-8');
 }
 
-// Helper : afficher une erreur pour un champ spécifique
+
 function errorClass(string $field, array $errors): string {
     return isset($errors[$field]) ? 'is-invalid' : '';
 }
@@ -32,7 +32,7 @@ function errorMessage(string $field, array $errors): string {
     return '';
 }
 
-// Détecter le step à afficher en cas d'erreur
+
 $startStep = 1;
 if (!empty($fieldErrors)) {
     $step1Fields = ['nom', 'prenom', 'date_naissance', 'cin'];
@@ -58,6 +58,47 @@ if (!empty($fieldErrors)) {
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="Utilisateur.css">
 <style>
+  .btn-next {
+    background: linear-gradient(135deg, var(--blue), #3A7AF0);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    padding: 0.55rem 1.6rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+    font-family: var(--fb);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: opacity 0.18s, transform 0.12s;
+}
+
+.btn-next:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+}
+
+.btn-back {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 0.55rem 1.1rem;
+    font-size: 0.82rem;
+    color: var(--muted2);
+    font-family: var(--fb);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.18s;
+}
+
+.btn-back:hover {
+    border-color: var(--blue);
+    color: var(--blue);
+    background: rgba(79, 142, 247, 0.08);
+}
 body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2rem 1.5rem;}
 .bg-blob{position:fixed;border-radius:50%;pointer-events:none;z-index:0;}
 .blob1{width:500px;height:500px;top:-150px;right:-100px;background:radial-gradient(circle,rgba(79,142,247,.1),transparent 70%);}
@@ -70,7 +111,7 @@ body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2re
 .card-head::before{content:'';position:absolute;top:-60px;right:-60px;width:250px;height:250px;border-radius:50%;background:radial-gradient(circle,rgba(79,142,247,.1),transparent 70%);}
 .head-logo{display:flex;align-items:center;gap:.9rem;}
 .logo-icon{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--blue),var(--teal));display:flex;align-items:center;justify-content:center;}
-.logo-icon svg{width:20px;height:20px;fill:#fff;}
+.logo-icon svg{width:20px;height:20px;fill:var(--text);}
 .logo-name{font-family:var(--fh);font-size:1.1rem;font-weight:800;letter-spacing:-.02em;}
 .logo-name span{color:var(--blue);}
 .card-title{font-family:var(--fh);font-size:1.3rem;font-weight:800;text-align:right;}
@@ -79,7 +120,7 @@ body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2re
 .steps{display:flex;align-items:center;padding:1rem 2rem;border-bottom:1px solid var(--border);}
 .step{display:flex;align-items:center;flex:1;}
 .step-circle{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;font-family:var(--fh);flex-shrink:0;border:2px solid var(--border);color:var(--muted);transition:all .3s;}
-.step.done .step-circle{background:var(--blue);border-color:var(--blue);color:#fff;}
+.step.done .step-circle{background:var(--blue);border-color:var(--blue);color:var(--text);}
 .step.active .step-circle{border-color:var(--blue);color:var(--blue);}
 .step.error .step-circle{border-color:var(--rose);color:var(--rose);}
 .step-label{font-size:.68rem;color:var(--muted);margin-left:.4rem;white-space:nowrap;}
@@ -117,13 +158,13 @@ body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2re
 .terms-row{display:flex;align-items:flex-start;gap:.55rem;margin-top:.4rem;font-size:.76rem;color:var(--muted2);}
 .terms-row input[type=checkbox]{appearance:none;width:15px;height:15px;min-width:15px;border-radius:4px;border:1px solid var(--border2);background:var(--bg3);cursor:pointer;position:relative;margin-top:2px;}
 .terms-row input[type=checkbox]:checked{background:var(--blue);border-color:var(--blue);}
-.terms-row input[type=checkbox]:checked::after{content:"\2713";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;font-weight:700;}
+.terms-row input[type=checkbox]:checked::after{content:"\2713";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text);}
 .terms-row a{color:var(--blue);text-decoration:none;}
 .fdivider{border:none;border-top:1px solid var(--border);margin:1.2rem 0;}
 .card-foot{padding:1.1rem 2rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;}
 .btn-back{background:transparent;border:1px solid var(--border);border-radius:9px;padding:.55rem 1.1rem;font-size:.82rem;color:var(--muted2);font-family:var(--fb);cursor:pointer;display:flex;align-items:center;gap:.4rem;transition:all .18s;}
 .btn-back:hover{border-color:var(--blue);color:var(--blue);}
-.btn-next{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;border:none;border-radius:9px;padding:.55rem 1.6rem;font-size:.86rem;font-weight:600;font-family:var(--fb);cursor:pointer;display:flex;align-items:center;gap:.4rem;transition:opacity .18s,transform .12s;}
+.btn-next{background:linear-gradient(135deg,var(--blue),var(--blue2));color:var(--text);}
 .btn-next:hover{opacity:.92;transform:translateY(-1px);}
 .foot-badges{display:flex;align-items:center;gap:.5rem;}
 .step-panel{display:none;}
@@ -177,7 +218,7 @@ body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2re
       </div>
       <?php endif; ?>
 
-      <!-- STEP 1 : Identite -->
+      
       <div class="step-panel <?= $startStep == 1 ? 'active' : '' ?>" id="panel-1">
         <div class="slabel">Informations personnelles</div>
         <div class="fgrid g2">
@@ -226,7 +267,7 @@ body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2re
         </div>
       </div>
 
-      <!-- STEP 2 : Coordonnees -->
+      
       <div class="step-panel <?= $startStep == 2 ? 'active' : '' ?>" id="panel-2">
         <div class="slabel">Coordonnees</div>
         <div class="fgrid g1">
@@ -284,7 +325,7 @@ body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2re
         </div>
       </div>
 
-      <!-- STEP 3 : Securite -->
+      
       <div class="step-panel <?= $startStep == 3 ? 'active' : '' ?>" id="panel-3">
         <div class="slabel">Securite du compte</div>
         <div class="fgrid g1">
@@ -400,7 +441,6 @@ function checkStr(v) {
   if (plbl) plbl.textContent = v.length ? (lbl[s] || 'Faible') : 'Entrez un mot de passe';
 }
 
-// Écouter les changements de mot de passe pour l'indicateur de force
 var mdpInput = document.getElementById('mdp');
 if (mdpInput) {
   mdpInput.addEventListener('input', function() { checkStr(this.value); });
@@ -410,3 +450,5 @@ updateUI();
 </script>
 </body>
 </html>
+
+
