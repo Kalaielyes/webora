@@ -87,7 +87,6 @@ tr:hover td{background:var(--bg3);}
 .b-termine{background:#F1F5F9;color:var(--muted);}
 .b-objectif{background:var(--teal-light);color:var(--teal);}
 .b-confirme{background:var(--green-light);color:var(--green);}
-.b-rembourse{background:var(--rose-light);color:var(--rose);}
 .b-echoue{background:var(--rose-light);color:var(--rose);}
 .b-anon{background:var(--purple-light);color:var(--purple);}
 
@@ -135,3 +134,24 @@ tr:hover td{background:var(--bg3);}
 .da-warning{background:var(--amber-light);color:var(--amber);}
 .da-danger{background:var(--rose-light);color:var(--rose);}
 .da-neutral{background:var(--bg3);color:var(--muted);}
+
+/* EDIT MODAL */
+.edit-modal-overlay{display:none;position:fixed;inset:0;background:rgba(2,6,23,.55);backdrop-filter:blur(2px);align-items:center;justify-content:center;z-index:10050;padding:16px;}
+.edit-modal-card{width:min(720px,100%);background:linear-gradient(180deg,#ffffff,#f8fbff);border:1px solid #d7e2ee;border-radius:14px;box-shadow:0 20px 45px rgba(15,23,42,.18);padding:16px;animation:editModalIn .2s ease-out;}
+.edit-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-family:var(--fh);font-size:1rem;}
+.edit-close-btn{background:#eef3f8;border:1px solid #d4dde8;border-radius:8px;min-width:34px;height:34px;cursor:pointer;color:#334155;}
+.edit-field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px;}
+.edit-field label{font-size:.72rem;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+.edit-field input,.edit-field textarea{width:100%;border:1px solid #cdd8e4;border-radius:10px;padding:10px 11px;font-family:var(--fb);font-size:.86rem;outline:none;background:#fff;}
+.edit-field input:focus,.edit-field textarea:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12);}
+.edit-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.edit-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px;}
+
+@keyframes editModalIn{
+  from{opacity:0;transform:translateY(8px) scale(.98);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+
+@media (max-width: 800px){
+  .edit-grid-2{grid-template-columns:1fr;}
+}

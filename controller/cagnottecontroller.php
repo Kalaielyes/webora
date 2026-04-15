@@ -1,0 +1,302 @@
+<?php
+require_once __DIR__ . "/../model/cagnotte.php";
+require_once __DIR__ . "/../model/config.php";
+
+class cagnottecontroller {
+
+    private const ALLOWED_STATUSES = ['en_attente', 'acceptee', 'refusee', 'suspendue', 'cloturee'];
+
+    private $lastError = '';
+
+    public function getLastError() {
+        return $this->lastError;
+    }
+
+    public function getUserAssociation($userId) {
+        if (!is_numeric($userId)) return '';
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->prepare("SELECT association FROM utilisateur WHERE id = :id LIMIT 1");
+        $stmt->execute(['id' => (int)$userId]);
+        $row = $stmt->fetch();
+        return trim((string)($row['association'] ?? ''));
+    }
+
+    public function getUserById($userId) {
+        if (!is_numeric($userId)) return null;
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->prepare("SELECT id, nom, prenom, email, association FROM utilisateur WHERE id = :id LIMIT 1");
+        $stmt->execute(['id' => (int)$userId]);
+        $user = $stmt->fetch();
+        return $user ?: null;
+    }
+
+    public function getSelectableUsers() {
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->query("SELECT id, nom, prenom, email, association FROM utilisateur ORDER BY prenom ASC, nom ASC, id ASC");
+        return $stmt->fetchAll();
+    }
+
+    private function fail($message) {
+        $this->lastError = $message;
+        return false;
+    }
+
+    private function normalizeStatus($status) {
+        $s = strtolower(trim((string)$status));
+        if ($s === 'en attente') return 'en_attente';
+        if ($s === 'active') return 'acceptee';
+        if ($s === 'acceptée') return 'acceptee';
+        if ($s === 'refusée') return 'refusee';
+        if ($s === 'inactive') return 'suspendue';
+        if ($s === 'terminee') return 'cloturee';
+        if ($s === 'clôturée') return 'cloturee';
+        return $s;
+    }
+
+    private function sanitizeStatus($status) {
+        $normalized = $this->normalizeStatus($status);
+        return in_array($normalized, self::ALLOWED_STATUSES, true) ? $normalized : 'en_attente';
+    }
+
+    private function normalizeCategory($category) {
+        $c = strtolower(trim((string)$category));
+        $map = [
+            'sante' => 'sante',
+            'santé' => 'sante',
+            'medical' => 'sante',
+            'médical' => 'sante',
+            'education' => 'education',
+            'éducation' => 'education',
+            'solidarite' => 'solidarite',
+            'solidarité' => 'solidarite',
+            'humanitaire' => 'solidarite',
+            'autre' => 'autre',
+            'urgence' => 'autre'
+        ];
+        return $map[$c] ?? null;
+    }
+
+    private function parseDateYmd($value) {
+        $raw = trim((string)$value);
+        if ($raw === '') return null;
+        $dt = DateTime::createFromFormat('Y-m-d', $raw);
+        if (!$dt || $dt->format('Y-m-d') !== $raw) return null;
+        return $dt;
+    }
+
+    private function validateCagnottePayload($data, $requireAssociation = false) {
+        $this->lastError = '';
+
+        $titre = trim((string)($data['titre'] ?? ''));
+        $description = trim((string)($data['description'] ?? ''));
+        $category = $this->normalizeCategory($data['categorie'] ?? '');
+        $objectif = $data['objectif_montant'] ?? null;
+        $dateDebut = $this->parseDateYmd($data['date_debut'] ?? '');
+        $dateFin = $this->parseDateYmd($data['date_fin'] ?? '');
+
+        if ($titre === '' || mb_strlen($titre) < 10) return $this->fail("Titre invalide (minimum 10 caractères)");
+        if ($description === '' || mb_strlen($description) < 30) return $this->fail("Description invalide (minimum 30 caractères)");
+        if ($category === null) return $this->fail("Catégorie invalide");
+        if (!is_numeric($objectif) || (float)$objectif < 100) return $this->fail("Objectif invalide (minimum 100)");
+        if ($dateDebut === null) return $this->fail("Date de début invalide");
+        if ($dateFin === null) return $this->fail("Date de fin invalide");
+
+        $today = new DateTime('today');
+        if ($dateDebut < $today) return $this->fail("La date de début ne peut pas être antérieure à aujourd'hui");
+        if ($dateFin < $dateDebut) return $this->fail("La date de fin doit être supérieure ou égale à la date de début");
+
+        if ($requireAssociation || array_key_exists('association', $data)) {
+            $association = trim((string)($data['association'] ?? ''));
+            if ($association === '') return $this->fail("Association requise");
+        }
+
+        return [
+            'titre' => htmlspecialchars($titre),
+            'description' => htmlspecialchars($description),
+            'categorie' => $category,
+            'objectif_montant' => (float)$objectif,
+            'date_debut' => $dateDebut->format('Y-m-d'),
+            'date_fin' => $dateFin->format('Y-m-d'),
+            'association' => trim((string)($data['association'] ?? ''))
+        ];
+    }
+
+    private function normalizeCagnotteRow($row) {
+        if (!is_array($row)) return $row;
+        if (isset($row['statut'])) {
+            $row['statut'] = $this->sanitizeStatus($row['statut']);
+        }
+        return $row;
+    }
+
+    private function normalizeCagnotteRows($rows) {
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = $this->normalizeCagnotteRow($r);
+        }
+        return $out;
+    }
+
+    public function ensureDefaultUser() {
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->prepare("SELECT id FROM utilisateur WHERE nom = 'Doe' AND prenom = 'John' LIMIT 1");
+        $stmt->execute();
+        $user = $stmt->fetch();
+        if ($user) {
+            return $user['id'];
+        }
+        
+        $sql = "INSERT INTO utilisateur (nom, prenom, email, mdp, numTel, date_naissance, adresse, cin, role, association) 
+            VALUES ('Doe', 'John', 'john.doe@example.com', 'password123', '00000000', '1990-01-01', '123 Placeholder St', '00000000', 'CLIENT', 'Association Demo')";
+        $pdo->exec($sql);
+        return $pdo->lastInsertId();
+    }
+
+    public function ajouterCagnotte($data, $userId = null) {
+        $validated = $this->validateCagnottePayload($data, true);
+        if ($validated === false) return false;
+
+        $id_createur = is_numeric($userId) ? (int)$userId : (int)$this->ensureDefaultUser();
+        $pdo = Config::getConnexion();
+
+        $sql = "INSERT INTO cagnotte (id_createur, titre, description, categorie, objectif_montant, statut, date_debut, date_fin)
+            VALUES (:id_createur, :titre, :description, :categorie, :objectif_montant, 'en_attente', :date_debut, :date_fin)";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            'id_createur' => $id_createur,
+            'titre' => $validated['titre'],
+            'description' => $validated['description'],
+            'categorie' => $validated['categorie'],
+            'objectif_montant' => $validated['objectif_montant'],
+            'date_debut' => $validated['date_debut'],
+            'date_fin' => $validated['date_fin']
+        ]);
+        
+        return true;
+    }
+
+    public function supprimerCagnotte($id) {
+        if (!is_numeric($id)) return false;
+        $pdo = Config::getConnexion();
+        
+        $stmtDon = $pdo->prepare("DELETE FROM don WHERE id_cagnotte = :id");
+        $stmtDon->execute(['id' => $id]);
+
+        $sql = "DELETE FROM cagnotte WHERE id_cagnotte = :id";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute(['id' => $id]);
+    }
+
+    public function modifierCagnotte($id, $data) {
+        if (!is_numeric($id)) return $this->fail("ID invalide");
+        $validated = $this->validateCagnottePayload($data, false);
+        if ($validated === false) return false;
+
+        $pdo = Config::getConnexion();
+        if ($validated['association'] !== '') {
+            $owner = $pdo->prepare("SELECT id_createur FROM cagnotte WHERE id_cagnotte = :id LIMIT 1");
+            $owner->execute(['id' => (int)$id]);
+            $row = $owner->fetch();
+            if ($row && isset($row['id_createur'])) {
+                $up = $pdo->prepare("UPDATE utilisateur SET association = :association WHERE id = :id");
+                $up->execute(['association' => $validated['association'], 'id' => (int)$row['id_createur']]);
+            }
+        }
+
+        $sql = "UPDATE cagnotte 
+                SET titre = :titre,
+                    description = :description,
+                    categorie = :categorie,
+                    objectif_montant = :objectif_montant,
+                    date_debut = :date_debut,
+                    date_fin = :date_fin
+                WHERE id_cagnotte = :id_cagnotte";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute([
+            'titre' => $validated['titre'],
+            'description' => $validated['description'],
+            'categorie' => $validated['categorie'],
+            'objectif_montant' => $validated['objectif_montant'],
+            'date_debut' => $validated['date_debut'],
+            'date_fin' => $validated['date_fin'],
+            'id_cagnotte' => (int)$id
+        ]);
+    }
+
+    public function getAllCagnottes($status = null) {
+        $pdo = Config::getConnexion();
+        $sql = "SELECT c.*, u.nom, u.prenom, u.association, COALESCE(SUM(d.montant), 0) as total_collecte, COUNT(d.id_don) as nb_dons 
+                FROM cagnotte c 
+                LEFT JOIN utilisateur u ON c.id_createur = u.id 
+                LEFT JOIN don d ON c.id_cagnotte = d.id_cagnotte AND d.statut = 'confirme' ";
+        if ($status) {
+            $sql .= "WHERE c.statut = :statut ";
+        }
+        $sql .= "GROUP BY c.id_cagnotte ORDER BY c.date_debut DESC";
+        
+        $stmt = $pdo->prepare($sql);
+        if ($status) {
+            $stmt->execute(['statut' => $this->sanitizeStatus($status)]);
+        } else {
+            $stmt->execute();
+        }
+        return $this->normalizeCagnotteRows($stmt->fetchAll());
+    }
+
+    public function getUserCagnottes($userId) {
+        $pdo = Config::getConnexion();
+        $sql = "SELECT c.*, u.association, COALESCE(SUM(d.montant), 0) as total_collecte, COUNT(d.id_don) as nb_dons 
+                FROM cagnotte c 
+            LEFT JOIN utilisateur u ON c.id_createur = u.id
+                LEFT JOIN don d ON c.id_cagnotte = d.id_cagnotte AND d.statut = 'confirme' 
+                WHERE c.id_createur = :userId 
+                GROUP BY c.id_cagnotte ORDER BY c.date_debut DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['userId' => $userId]);
+        return $this->normalizeCagnotteRows($stmt->fetchAll());
+    }
+
+    public function getCagnotteById($id) {
+        $pdo = Config::getConnexion();
+        $sql = "SELECT c.*, u.nom, u.prenom, u.association, COALESCE(SUM(d.montant), 0) as total_collecte, COUNT(d.id_don) as nb_dons 
+                FROM cagnotte c 
+                LEFT JOIN utilisateur u ON c.id_createur = u.id 
+                LEFT JOIN don d ON c.id_cagnotte = d.id_cagnotte AND d.statut = 'confirme' 
+                WHERE c.id_cagnotte = :id
+                GROUP BY c.id_cagnotte";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        return $this->normalizeCagnotteRow($stmt->fetch());
+    }
+
+    public function updateStatusAdmin($id, $newStatus) {
+        $newStatus = $this->normalizeStatus($newStatus);
+        if (!in_array($newStatus, self::ALLOWED_STATUSES, true)) return false;
+        
+        $pdo = Config::getConnexion();
+        $sql = "UPDATE cagnotte SET statut = :statut WHERE id_cagnotte = :id";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute(['statut' => $newStatus, 'id' => $id]);
+    }
+
+    public function updateStatusUser($id, $newStatus, $userId) {
+        $newStatus = $this->normalizeStatus($newStatus);
+        if (!in_array($newStatus, ['acceptee', 'suspendue'], true)) return false;
+        
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->prepare("SELECT statut FROM cagnotte WHERE id_cagnotte = :id AND id_createur = :userId");
+        $stmt->execute(['id' => $id, 'userId' => $userId]);
+        $cagnotte = $stmt->fetch();
+        
+        $current = $cagnotte ? $this->sanitizeStatus($cagnotte['statut']) : '';
+        if (!$cagnotte || $current === 'en_attente' || $current === 'refusee') {
+            return false;
+        }
+
+        $sql = "UPDATE cagnotte SET statut = :statut WHERE id_cagnotte = :id";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute(['statut' => $newStatus, 'id' => $id]);
+    }
+}
+?>
