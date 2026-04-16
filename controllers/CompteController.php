@@ -7,9 +7,17 @@
 require_once __DIR__ . '/../models/config.php';
 require_once __DIR__ . '/../models/CompteBancaire.php';
 require_once __DIR__ . '/../models/CarteBancaire.php'; 
+require_once __DIR__ . '/../models/mailer.php';
 
 class CompteController
 {
+    public static function getUser(int $id): ?array {
+        $db = Config::getConnexion();
+        $stmt = $db->prepare("SELECT * FROM utilisateur WHERE id = ?");
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
     // ── IBAN generator ────────────────────────────────────────
     public static function generateIban(): string
     {
@@ -165,6 +173,12 @@ class CompteController
         if ($compte) { $compte->setStatut('demande_cloture'); self::update($compte); }
     }
 
+    public static function demanderSuppression(int $id): void
+    {
+        $compte = self::findById($id);
+        if ($compte) { $compte->setStatut('demande_suppression'); self::update($compte); }
+    }
+
     public static function cloturer(int $id): void
     {
         $compte = self::findById($id);
@@ -176,6 +190,12 @@ class CompteController
     }
 
     public static function refuserCloture(int $id): void
+    {
+        $compte = self::findById($id);
+        if ($compte) { $compte->setStatut('actif'); self::update($compte); }
+    }
+
+    public static function refuserSuppression(int $id): void
     {
         $compte = self::findById($id);
         if ($compte) { $compte->setStatut('actif'); self::update($compte); }
@@ -233,16 +253,66 @@ class CompteController
 
             case 'activer': {
                 $compte = self::findById($idCompte);
-                if ($compte) { $compte->setStatut('actif'); self::update($compte); }
+                if ($compte) { 
+                    $compte->setStatut('actif'); 
+                    self::update($compte); 
+                    
+                    $u = self::getUser($compte->getIdUtilisateur());
+                    sendCompteNotification($u, $compte, "Votre compte a été activé", "#16a34a", "Actif");
+                }
                 break;
             }
 
-            case 'bloquer':          self::bloquer($idCompte);         break;
-            case 'debloquer':        self::debloquer($idCompte);       break;
+            case 'bloquer':
+                self::bloquer($idCompte);
+                $compte = self::findById($idCompte);
+                if ($compte) {
+                    $u = self::getUser($compte->getIdUtilisateur());
+                    sendCompteNotification($u, $compte, "Votre compte a été bloqué", "#dc2626", "Bloqué");
+                }
+                break;
+            case 'debloquer':
+                self::debloquer($idCompte);
+                $compte = self::findById($idCompte);
+                if ($compte) {
+                    $u = self::getUser($compte->getIdUtilisateur());
+                    sendCompteNotification($u, $compte, "Votre compte a été débloqué", "#16a34a", "Actif");
+                }
+                break;
             case 'demander_cloture': self::demanderCloture($idCompte); break;
-            case 'cloturer':         self::cloturer($idCompte);        break;
-            case 'refuser_cloture':  self::refuserCloture($idCompte);  break;
-            case 'delete':           self::delete($idCompte);          break;
+            case 'demande_suppression': self::demanderSuppression($idCompte); break;
+            case 'cloturer':
+                self::cloturer($idCompte);
+                $compte = self::findById($idCompte);
+                if ($compte) {
+                    $u = self::getUser($compte->getIdUtilisateur());
+                    sendCompteNotification($u, $compte, "Votre compte a été clôturé", "#4b5563", "Clôturé");
+                }
+                break;
+            case 'refuser_cloture':
+                self::refuserCloture($idCompte);
+                $compte = self::findById($idCompte);
+                if ($compte) {
+                    $u = self::getUser($compte->getIdUtilisateur());
+                    sendCompteNotification($u, $compte, "Votre demande de clôture a été refusée", "#ea580c", "Actif");
+                }
+                break;
+            case 'refuser_suppression':
+                self::refuserSuppression($idCompte);
+                $compte = self::findById($idCompte);
+                if ($compte) {
+                    $u = self::getUser($compte->getIdUtilisateur());
+                    sendCompteNotification($u, $compte, "Votre demande de suppression a été refusée", "#ea580c", "Actif");
+                }
+                break;
+            case 'delete':
+                $compte = self::findById($idCompte);
+                if ($compte) {
+                    $u = self::getUser($compte->getIdUtilisateur());
+                    sendCompteNotification($u, $compte, "Votre compte a été définitivement supprimé", "#dc2626", "Supprimé");
+                    self::delete($idCompte);
+                }
+                break;
 
             case 'update': {
                 $compte = self::findById($idCompte);
@@ -269,6 +339,9 @@ class CompteController
                     if (isset($_POST['statut']))           $compte->setStatut(trim($_POST['statut']));
                     if (!empty($_POST['date_fermeture']))  $compte->setDateFermeture($_POST['date_fermeture']);
                     self::update($compte);
+                    
+                    $u = self::getUser($compte->getIdUtilisateur());
+                    sendCompteNotification($u, $compte, "Les informations de votre compte ont été modifiées", "#2563eb", $compte->getStatut());
                 }
                 break;
             }

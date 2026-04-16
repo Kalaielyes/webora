@@ -33,13 +33,13 @@ if ($editCarte) {
 }
 
 // Pending requests for "En attente" tab
-$pendingComptes = array_filter($comptes, fn($r)=>in_array($r['statut'],['en_attente','demande_cloture']));
+$pendingComptes = array_filter($comptes, fn($r)=>in_array($r['statut'],['en_attente','demande_cloture','demande_suppression']));
 $allCartes      = CarteController::findAll();
 $pendingCartes  = array_filter($allCartes, fn($c)=>in_array($c->getStatut(),['inactive','demande_cloture','demande_suppression']));
 
 // Helpers
 function badgeCompte(string $s): string {
-    $map=['actif'=>['b-actif','Actif'],'bloque'=>['b-bloque','Bloqué'],'en_attente'=>['b-attente','En attente'],'demande_cloture'=>['b-attente','Dem. clôture'],'cloture'=>['b-cloture','Clôturé']];
+    $map=['actif'=>['b-actif','Actif'],'bloque'=>['b-bloque','Bloqué'],'en_attente'=>['b-attente','En attente'],'demande_cloture'=>['b-attente','Dem. clôture'],'demande_suppression'=>['b-attente','Dem. supp.'],'cloture'=>['b-cloture','Clôturé']];
     [$cls,$label]=$map[$s]??['b-cloture',ucfirst($s)];
     return "<span class=\"badge {$cls}\"><span class=\"badge-dot\"></span>{$label}</span>";
 }
@@ -68,6 +68,11 @@ function styleLabel(string $s): string {
 $adminInitials = strtoupper(substr($_SESSION['user']['prenom']??'A',0,1).substr($_SESSION['user']['nom']??'D',0,1));
 $adminNom = htmlspecialchars(($_SESSION['user']['prenom']??'').' '.($_SESSION['user']['nom']??''));
 $pendingTotal = count($pendingComptes)+count($pendingCartes);
+
+// -- ERROR & DATA HANDLING FROM PHP POST --
+$formErrors = $_SESSION['form_errors'] ?? [];
+$formData   = $_SESSION['form_data'] ?? [];
+unset($_SESSION['form_errors'], $_SESSION['form_data']);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -75,8 +80,7 @@ $pendingTotal = count($pendingComptes)+count($pendingCartes);
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>LegalFin Admin — Comptes</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="<?= APP_URL ?>/views/frontoffice/compte.css">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="<?= APP_URL ?>/views/backoffice/compte.css">
 </head>
 <body>
@@ -107,6 +111,10 @@ $pendingTotal = count($pendingComptes)+count($pendingCartes);
       <span class="nav-badge"><?= $pendingTotal ?></span>
       <?php endif; ?>
     </a>
+    <a class="nav-item <?= $tab==='stats'?'active':'' ?>" href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=stats">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      Statistiques
+    </a>
     <a class="nav-item <?= $showCompteForm?'active':'' ?>" href="../frontoffice/frontoffice_compte.php">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>frontoffice
     </a>
@@ -121,9 +129,9 @@ $pendingTotal = count($pendingComptes)+count($pendingCartes);
   <div class="topbar">
     <div class="tb-left">
       <div class="page-title">
-        <?= $tab==='attente' ? 'Demandes en attente' : 'Comptes bancaires' ?>
+        <?= $tab==='attente' ? 'Demandes en attente' : ($tab==='stats' ? 'Statistiques globales' : 'Comptes bancaires') ?>
       </div>
-      <div class="breadcrumb">/ <?= $tab==='attente' ? 'Validation' : ('Liste' . ($selected?' / #'.$selected->getIdCompte():'')) ?></div>
+      <div class="breadcrumb">/ <?= $tab==='attente' ? 'Validation' : ($tab==='stats' ? 'Aperçu' : ('Liste' . ($selected?' / #'.$selected->getIdCompte():''))) ?></div>
     </div>
     <div class="tb-right">
       <?php if ($tab==='comptes'): ?>
@@ -137,7 +145,198 @@ $pendingTotal = count($pendingComptes)+count($pendingCartes);
 
   <div class="content">
 
-  <?php if ($tab==='attente'): ?>
+  <?php if ($tab==='stats'): ?>
+  <!-- ══ STATS TAB ════════════════════════════════ -->
+  <style>
+  .stats-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 1.5rem; }
+  .stat-card-title { font-weight: 700; font-family: var(--fs); color: var(--text); margin-bottom: 1.5rem; display: flex; align-items: center; gap: .5rem; font-size: 1.1rem; }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: .9rem; }
+  .stat-label { color: var(--muted); display:flex; align-items:center; gap:.4rem;font-weight:500; }
+  .stat-val { font-weight: 700; color: var(--text); font-family: var(--fm); }
+  .stat-bar-bg { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-top: .4rem; }
+  .stat-bar-fg { height: 100%; border-radius: 3px; }
+  </style>
+
+  <?php
+    $statComptes = ['actif'=>0,'bloque'=>0,'en_attente'=>0,'cloture'=>0,'demandes'=>0];
+    $totalComptes = count($comptes);
+    foreach($comptes as $c) {
+        $st = $c['statut'];
+        if ($st === 'actif') $statComptes['actif']++;
+        elseif ($st === 'bloque') $statComptes['bloque']++;
+        elseif ($st === 'en_attente') $statComptes['en_attente']++;
+        elseif ($st === 'cloture') $statComptes['cloture']++;
+        elseif (in_array($st, ['demande_cloture', 'demande_suppression'])) $statComptes['demandes']++;
+    }
+    
+    $statCartes = ['active'=>0,'inactive'=>0,'bloquee'=>0,'expiree'=>0,'demandes'=>0];
+    $totalCartes = count($allCartes);
+    foreach($allCartes as $ca) {
+        $st = $ca->getStatut();
+        if ($st === 'active') $statCartes['active']++;
+        elseif ($st === 'inactive') $statCartes['inactive']++;
+        elseif ($st === 'bloquee') $statCartes['bloquee']++;
+        elseif ($st === 'expiree') $statCartes['expiree']++;
+        elseif (in_array($st, ['demande_cloture', 'demande_blocage', 'demande_suppression'])) $statCartes['demandes']++;
+    }
+    
+    $totalSoldeCourant = 0; $totalSoldeEpargne = 0; $totalSoldeDevise  = 0; $totalSoldePro     = 0;
+    foreach($comptes as $c) {
+        if ($c['statut'] !== 'cloture') {
+            $val = (float)$c['solde'];
+            if ($c['type_compte'] === 'courant') $totalSoldeCourant += $val;
+            elseif ($c['type_compte'] === 'epargne') $totalSoldeEpargne += $val;
+            elseif ($c['type_compte'] === 'devise') $totalSoldeDevise += $val;
+            elseif ($c['type_compte'] === 'professionnel') $totalSoldePro += $val;
+        }
+    }
+    $totalSoldeAll = $totalSoldeCourant + $totalSoldeEpargne + $totalSoldeDevise + $totalSoldePro;
+    function pct($val, $total) { return $total > 0 ? round(($val/$total)*100) : 0; }
+  ?>
+
+  <div class="stats-grid">
+    <!-- COMPTES -->
+    <div class="stat-card">
+      <div class="stat-card-title">
+        <svg width="20" height="20" fill="none" stroke="#2563EB" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
+        Statut des comptes (<?= $totalComptes ?>)
+      </div>
+      <div class="chart-container" style="position:relative; height:250px; width:100%; display:flex; justify-content:center;">
+        <canvas id="comptesChart"></canvas>
+      </div>
+    </div>
+
+    <!-- CARTES -->
+    <div class="stat-card">
+      <div class="stat-card-title">
+        <svg width="20" height="20" fill="none" stroke="#D97706" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        Statut des cartes (<?= $totalCartes ?>)
+      </div>
+      <div class="chart-container" style="position:relative; height:250px; width:100%; display:flex; justify-content:center;">
+        <canvas id="cartesChart"></canvas>
+      </div>
+    </div>
+
+    <!-- SOLDES (COURBE) -->
+    <div class="stat-card">
+      <div class="stat-card-title">
+        <svg width="20" height="20" fill="none" stroke="#10B981" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Répartition des soldes (<?= number_format($totalSoldeAll, 2, ',', ' ') ?> TND)
+      </div>
+      <div class="chart-container" style="position:relative; height:250px; width:100%;">
+        <canvas id="soldesChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+  document.addEventListener("DOMContentLoaded", function() {
+      // Data
+      const compteData = [<?= $statComptes['actif'] ?>, <?= $statComptes['en_attente'] ?>, <?= $statComptes['bloque'] ?>, <?= $statComptes['cloture'] ?>];
+      const carteData = [<?= $statCartes['active'] ?>, <?= $statCartes['inactive'] ?>, <?= $statCartes['bloquee'] ?>, <?= $statCartes['expiree'] ?>];
+      const soldeData = [<?= $totalSoldeCourant ?>, <?= $totalSoldeEpargne ?>, <?= $totalSoldePro ?>, <?= $totalSoldeDevise ?>];
+      
+      const customColors = ['#14b8a6', '#f59e0b', '#f43f5e', '#cbd5e1'];
+
+      // Chart 1: Comptes (Doughnut)
+      new Chart(document.getElementById('comptesChart'), {
+          type: 'doughnut',
+          data: {
+              labels: ['Actifs', 'En attente', 'Bloqués', 'Clôturés'],
+              datasets: [{
+                  data: compteData,
+                  backgroundColor: customColors,
+                  borderWidth: 0,
+                  hoverOffset: 6,
+                  borderRadius: 8,
+                  spacing: 4
+              }]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { 
+                 legend: { 
+                     position: 'bottom', 
+                     labels: { color: '#64748b', font: { family: 'inherit', size: 12 }, usePointStyle: true, pointStyle: 'circle', padding: 15 } 
+                 } 
+              },
+              cutout: '82%'
+          }
+      });
+
+      // Chart 2: Cartes (Doughnut)
+      new Chart(document.getElementById('cartesChart'), {
+          type: 'doughnut',
+          data: {
+              labels: ['Actives', 'Inactives', 'Bloquées', 'Expirées'],
+              datasets: [{
+                  data: carteData,
+                  backgroundColor: customColors,
+                  borderWidth: 0,
+                  hoverOffset: 6,
+                  borderRadius: 8,
+                  spacing: 4
+              }]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { 
+                 legend: { 
+                     position: 'bottom', 
+                     labels: { color: '#64748b', font: { family: 'inherit', size: 12 }, usePointStyle: true, pointStyle: 'circle', padding: 15 } 
+                 } 
+              },
+              cutout: '82%'
+          }
+      });
+
+      // Chart 3: Soldes (Line Chart - Courbe diagrame)
+      new Chart(document.getElementById('soldesChart'), {
+          type: 'line',
+          data: {
+              labels: ['Courant', 'Épargne', 'Professionnel', 'Devise'],
+              datasets: [{
+                  label: 'Solde total (TND)',
+                  data: soldeData,
+                  borderColor: '#06b6d4',
+                  backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                  borderWidth: 3,
+                  fill: true,
+                  tension: 0.5,
+                  pointBackgroundColor: '#0891b2',
+                  pointBorderColor: '#fff',
+                  pointBorderWidth: 2,
+                  pointRadius: 5,
+                  pointHoverRadius: 8
+              }]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { 
+                  legend: { display: false } 
+              },
+              scales: {
+                  y: { 
+                      beginAtZero: true, 
+                      grid: { color: '#f1f5f9', drawBorder: false }, 
+                      ticks: { color: '#64748b', font: { family: 'inherit' } } 
+                  },
+                  x: { 
+                      grid: { display: false }, 
+                      ticks: { color: '#64748b', font: { family: 'inherit', weight: 600 } } 
+                  }
+              }
+          }
+      });
+  });
+  </script>
+
+  <?php elseif ($tab==='attente'): ?>
   <!-- ══ EN ATTENTE TAB ════════════════════════════════ -->
   <?php if ($pendingTotal===0): ?>
   <div style="text-align:center;padding:4rem;color:var(--muted)">
@@ -195,6 +394,22 @@ $pendingTotal = count($pendingComptes)+count($pendingCartes);
               <input type="hidden" name="action" value="refuser_cloture">
               <input type="hidden" name="id_compte" value="<?= $row['id_compte'] ?>">
               <button type="submit" class="act-btn" title="Refuser clôture" style="background:rgba(107,114,128,.15);color:var(--muted)">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </form>
+            <?php endif; ?>
+            <?php if ($row['statut']==='demande_suppression'): ?>
+            <form method="POST" action="<?= APP_URL ?>/controllers/CompteController.php" style="display:inline" onsubmit="return confirm('Accepter la suppression définitive ?')">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="id_compte" value="<?= $row['id_compte'] ?>">
+              <button type="submit" class="act-btn success" title="Accepter suppression">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </form>
+            <form method="POST" action="<?= APP_URL ?>/controllers/CompteController.php" style="display:inline" onsubmit="return confirm('Refuser la demande de suppression ?')">
+              <input type="hidden" name="action" value="refuser_suppression">
+              <input type="hidden" name="id_compte" value="<?= $row['id_compte'] ?>">
+              <button type="submit" class="act-btn" title="Refuser suppression" style="background:rgba(107,114,128,.15);color:var(--muted)">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </form>
@@ -424,6 +639,7 @@ $pendingTotal = count($pendingComptes)+count($pendingCartes);
           <button class="filter-btn" onclick="setFilter('en_attente',this)">En attente</button>
           <button class="filter-btn" onclick="setFilter('bloque',this)">Bloqués</button>
           <button class="filter-btn" onclick="setFilter('demande_cloture',this)">Dem. clôture</button>
+          <button class="filter-btn" onclick="setFilter('demande_suppression',this)">Dem. supp.</button>
           <button class="filter-btn" onclick="setFilter('cloture',this)">Clôturés</button>
         </div>
       </div>
@@ -490,6 +706,21 @@ $pendingTotal = count($pendingComptes)+count($pendingCartes);
                 <input type="hidden" name="id_compte" value="<?= $row['id_compte'] ?>">
                 <button type="submit" class="act-btn danger" title="Confirmer clôture">
                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+              </form>
+              <?php elseif ($row['statut']==='demande_suppression'): ?>
+              <form method="POST" action="<?= APP_URL ?>/controllers/CompteController.php" style="display:inline" onsubmit="return confirm('Confirmer la suppression définitive ?')">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="id_compte" value="<?= $row['id_compte'] ?>">
+                <button type="submit" class="act-btn danger" title="Confirmer suppression">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+              </form>
+              <form method="POST" action="<?= APP_URL ?>/controllers/CompteController.php" style="display:inline" onsubmit="return confirm('Refuser la demande de suppression ?')">
+                <input type="hidden" name="action" value="refuser_suppression">
+                <input type="hidden" name="id_compte" value="<?= $row['id_compte'] ?>">
+                <button type="submit" class="act-btn" title="Refuser suppression">
+                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </form>
               <?php elseif ($row['statut']==='cloture'): ?>
@@ -588,7 +819,7 @@ $pendingTotal = count($pendingComptes)+count($pendingCartes);
         <div class="form-field">
           <label>Statut</label>
           <select name="statut">
-            <?php foreach (['actif'=>'Actif','bloque'=>'Bloqué','en_attente'=>'En attente','demande_cloture'=>'Dem. clôture','cloture'=>'Clôturé'] as $v=>$l): ?>
+            <?php foreach (['actif'=>'Actif','bloque'=>'Bloqué','en_attente'=>'En attente','demande_cloture'=>'Dem. clôture','demande_suppression'=>'Dem. supp.','cloture'=>'Clôturé'] as $v=>$l): ?>
             <option value="<?= $v ?>" <?= $selected->getStatut()===$v?'selected':'' ?>><?= $l ?></option>
             <?php endforeach; ?>
           </select>
@@ -799,7 +1030,7 @@ $pendingTotal = count($pendingComptes)+count($pendingCartes);
           Activer le compte
         </button>
       </form>
-      <?php elseif (in_array($selected->getStatut(),['actif','demande_cloture'])): ?>
+      <?php elseif (in_array($selected->getStatut(),['actif','demande_cloture','demande_suppression'])): ?>
       <form method="POST" action="<?= APP_URL ?>/controllers/CompteController.php">
         <input type="hidden" name="action" value="bloquer">
         <input type="hidden" name="id_compte" value="<?= $selected->getIdCompte() ?>">
@@ -822,6 +1053,21 @@ $pendingTotal = count($pendingComptes)+count($pendingCartes);
         <input type="hidden" name="id_compte" value="<?= $selected->getIdCompte() ?>">
         <button type="submit" class="dp-action-btn" style="width:100%;background:rgba(107,114,128,.15);color:var(--muted);border:none">
           ✕ Refuser clôture
+        </button>
+      </form>
+      <?php elseif ($selected->getStatut()==='demande_suppression'): ?>
+      <form method="POST" action="<?= APP_URL ?>/controllers/CompteController.php" onsubmit="return confirm('Accepter la demande de suppression (Suppression définitive) ?')">
+        <input type="hidden" name="action" value="delete">
+        <input type="hidden" name="id_compte" value="<?= $selected->getIdCompte() ?>">
+        <button type="submit" class="dp-action-btn da-danger" style="width:100%;background:#991B1B;color:#fff;border:none">
+          ✓ Accepter suppression
+        </button>
+      </form>
+      <form method="POST" action="<?= APP_URL ?>/controllers/CompteController.php" onsubmit="return confirm('Refuser la demande de suppression ?')">
+        <input type="hidden" name="action" value="refuser_suppression">
+        <input type="hidden" name="id_compte" value="<?= $selected->getIdCompte() ?>">
+        <button type="submit" class="dp-action-btn" style="width:100%;background:rgba(107,114,128,.15);color:var(--muted);border:none">
+          ✕ Refuser suppression
         </button>
       </form>
       <?php elseif ($selected->getStatut()==='cloture'): ?>

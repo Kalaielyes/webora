@@ -5,9 +5,23 @@
  */
 require_once __DIR__ . '/../models/config.php';
 require_once __DIR__ . '/../models/CarteBancaire.php';
+require_once __DIR__ . '/../models/mailer.php';
 
 class CarteController
 {
+    public static function getUserForCarte(int $idCarte): ?array {
+        $db = Config::getConnexion();
+        $stmt = $db->prepare("
+            SELECT u.* 
+            FROM utilisateur u
+            JOIN comptebancaire c ON c.id_utilisateur = u.id
+            JOIN cartebancaire cb ON cb.id_compte = c.id_compte
+            WHERE cb.id_carte = ?
+        ");
+        $stmt->execute([$idCarte]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
   
     public static function fromRow(array $row): CarteBancaire
     {
@@ -126,8 +140,20 @@ class CarteController
     }
 
     // ── DB: Finders ───────────────────────────────────────────
+    public static function updateExpirations(): void
+    {
+        $db = Config::getConnexion();
+        $db->exec("
+            UPDATE cartebancaire 
+            SET statut = 'expiree' 
+            WHERE date_expiration < CURDATE() 
+              AND statut != 'expiree'
+        ");
+    }
+
     public static function findByCompte(int $idCompte): array
     {
+        self::updateExpirations();
         $db   = Config::getConnexion();
         $stmt = $db->prepare("SELECT * FROM cartebancaire WHERE id_compte = ? ORDER BY id_carte DESC");
         $stmt->execute([$idCompte]);
@@ -136,6 +162,7 @@ class CarteController
 
     public static function findById(int $id): ?CarteBancaire
     {
+        self::updateExpirations();
         $db   = Config::getConnexion();
         $stmt = $db->prepare("SELECT * FROM cartebancaire WHERE id_carte = ? LIMIT 1");
         $stmt->execute([$id]);
@@ -145,6 +172,7 @@ class CarteController
 
     public static function findAll(): array
     {
+        self::updateExpirations();
         $db   = Config::getConnexion();
         $stmt = $db->query("SELECT * FROM cartebancaire ORDER BY id_carte DESC");
         return array_map([self::class, 'fromRow'], $stmt->fetchAll());
@@ -306,17 +334,58 @@ class CarteController
                 exit;
             }
 
-            case 'activer':          self::activer($idCarte);                                     break;
-            case 'bloquer':          self::bloquer($idCarte, trim($_POST['motif'] ?? 'Bloquée')); break;
-            case 'debloquer':        self::debloquer($idCarte);                                   break;
+            case 'activer':
+                self::activer($idCarte);
+                $carte = self::findById($idCarte);
+                if ($carte) {
+                    $u = self::getUserForCarte($idCarte);
+                    sendCarteNotification($u, $carte, "Votre carte a été activée !", "#16a34a", "Active");
+                }
+                break;
+            case 'bloquer':
+                self::bloquer($idCarte, trim($_POST['motif'] ?? 'Bloquée'));
+                $carte = self::findById($idCarte);
+                if ($carte) {
+                    $u = self::getUserForCarte($idCarte);
+                    sendCarteNotification($u, $carte, "Votre carte a été bloquée", "#dc2626", "Bloquée");
+                }
+                break;
+            case 'debloquer':
+                self::debloquer($idCarte);
+                $carte = self::findById($idCarte);
+                if ($carte) {
+                    $u = self::getUserForCarte($idCarte);
+                    sendCarteNotification($u, $carte, "Votre carte a été débloquée", "#16a34a", "Active");
+                }
+                break;
             case 'demander_blocage': self::demanderBlocage($idCarte);                             break;
             case 'demander_cloture': self::demanderCloture($idCarte);                             break;
             case 'demande_suppression': self::demanderSuppression($idCarte);                      break;
-            case 'delete':           self::cloturer($idCarte);                                    break;
-            case 'refuser_cloture':  self::refuserClotureCarte($idCarte);                         break;
+            case 'delete':
+                $carte = self::findById($idCarte);
+                if ($carte) {
+                    $u = self::getUserForCarte($idCarte);
+                    sendCarteNotification($u, $carte, "Votre carte a été supprimée", "#dc2626", "Supprimée");
+                }
+                self::cloturer($idCarte);
+                break;
+            case 'refuser_cloture':
+                self::refuserClotureCarte($idCarte);
+                $carte = self::findById($idCarte);
+                if ($carte) {
+                    $u = self::getUserForCarte($idCarte);
+                    sendCarteNotification($u, $carte, "Votre demande de clôture de carte a été refusée", "#ea580c", "Status actuel conservé");
+                }
+                break;
             case 'refuser_blocage': {
                 $carte = self::findById($idCarte);
-                if ($carte) { $carte->setStatut('active'); self::update($carte); }
+                if ($carte) { 
+                    $carte->setStatut('active'); 
+                    self::update($carte); 
+                    
+                    $u = self::getUserForCarte($idCarte);
+                    sendCarteNotification($u, $carte, "Votre demande de blocage de carte a été refusée", "#ea580c", "Active");
+                }
                 break;
             }
 
@@ -344,13 +413,22 @@ class CarteController
                     if (isset($_POST['type_carte']))             $carte->setTypeCarte(trim($_POST['type_carte']));
                     if (isset($_POST['titulaire_nom']))          $carte->setTitulaireNom(trim($_POST['titulaire_nom']));
                     if (isset($_POST['reseau']))                 $carte->setReseau(trim($_POST['reseau']));
-                    if (isset($_POST['date_expiration']))        $carte->setDateExpiration(trim($_POST['date_expiration']));
+                    if (isset($_POST['date_expiration'])) {
+                        $exp = trim($_POST['date_expiration']);
+                        if (preg_match('/^\d{4}-\d{2}$/', $exp)) {
+                            $exp = date('Y-m-t', strtotime($exp . '-01'));
+                        }
+                        $carte->setDateExpiration($exp);
+                    }
                     if (isset($_POST['statut']))                 $carte->setStatut(trim($_POST['statut']));
                     if (isset($_POST['motif_blocage']))          $carte->setMotifBlocage(trim($_POST['motif_blocage']));
                     if (isset($_POST['style']))                  $carte->setStyle(trim($_POST['style']));
                     if (isset($_POST['plafond_paiement_jour']))  $carte->setPlafondPaiementJour((float)$_POST['plafond_paiement_jour']);
                     if (isset($_POST['plafond_retrait_jour']))   $carte->setPlafondRetraitJour((float)$_POST['plafond_retrait_jour']);
                     self::update($carte);
+                    
+                    $u = self::getUserForCarte($idCarte);
+                    sendCarteNotification($u, $carte, "Les paramètres de votre carte ont été modifiés", "#2563eb", $carte->getStatut());
                 }
                 break;
             }

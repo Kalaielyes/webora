@@ -22,7 +22,7 @@ if (!$selected && !empty($comptes)) {
 }
 $cartes = $selected ? CarteController::findByCompte($selected->getIdCompte()) : [];
 
-$pendingComptes = array_values(array_filter($comptes, fn($c)=>in_array($c->getStatut(),['en_attente','demande_cloture'])));
+$pendingComptes = array_values(array_filter($comptes, fn($c)=>in_array($c->getStatut(),['en_attente','demande_cloture','demande_suppression'])));
 $pendingCartes  = [];
 foreach ($comptes as $c) {
     foreach (CarteController::findByCompte($c->getIdCompte()) as $carte) {
@@ -47,6 +47,7 @@ function badgeCompte(string $s): string {
         'bloque'=>'<span class="status-pill pill-red">• Bloqué</span>',
         'en_attente'=>'<span class="status-pill pill-amber">• En attente</span>',
         'demande_cloture'=>'<span class="status-pill pill-amber">• Dem. clôture</span>',
+        'demande_suppression'=>'<span class="status-pill pill-amber">• Dem. suppression</span>',
         'cloture'=>'<span class="status-pill pill-grey">• Clôturé</span>',
         default=>'<span class="status-pill pill-grey">'.htmlspecialchars($s).'</span>',
     };
@@ -398,14 +399,16 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
         <?php if ($selected->getStatut()==='actif'): ?>
         <form method="POST" action="<?= APP_URL ?>/controllers/CompteController.php" style="display:contents">
-          <input type="hidden" name="action" value="demander_cloture">
+          <input type="hidden" name="action" value="demande_suppression">
           <input type="hidden" name="id_compte" value="<?= $selected->getIdCompte() ?>">
-          <button type="submit" class="acct-action-btn aa-neutral" onclick="return confirm('Demander la clôture de ce compte ?\nUn agent bancaire traitera votre demande.')">Dem. clôture</button>
+          <button type="submit" class="acct-action-btn aa-neutral" onclick="return confirm('Demander la suppression de ce compte ?\nUn agent bancaire traitera votre demande.')">Dem. suppression</button>
         </form>
         <?php elseif ($selected->getStatut()==='bloque'): ?>
         <div class="notice-msg notice-amber">🔒 Ce compte est bloqué. Contactez votre conseiller.</div>
         <?php elseif ($selected->getStatut()==='demande_cloture'): ?>
         <div class="notice-msg notice-amber">⏳ Demande de clôture en attente de validation.</div>
+        <?php elseif ($selected->getStatut()==='demande_suppression'): ?>
+        <div class="notice-msg notice-amber">⏳ Demande de suppression en attente de validation.</div>
         <?php elseif ($selected->getStatut()==='en_attente'): ?>
         <div class="notice-msg notice-amber">⏳ Compte en attente d'activation.</div>
         <?php endif; ?>
