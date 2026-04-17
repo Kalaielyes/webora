@@ -80,7 +80,8 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>LegalFin Admin — Comptes</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="<?= APP_URL ?>/views/frontoffice/compte.css">
 <link rel="stylesheet" href="<?= APP_URL ?>/views/backoffice/compte.css">
 </head>
 <body>
@@ -129,9 +130,9 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
   <div class="topbar">
     <div class="tb-left">
       <div class="page-title">
-        <?= $tab==='attente' ? 'Demandes en attente' : ($tab==='stats' ? 'Statistiques globales' : 'Comptes bancaires') ?>
+        <?= $tab==='attente' ? 'Demandes en attente' : 'Comptes bancaires' ?>
       </div>
-      <div class="breadcrumb">/ <?= $tab==='attente' ? 'Validation' : ($tab==='stats' ? 'Aperçu' : ('Liste' . ($selected?' / #'.$selected->getIdCompte():''))) ?></div>
+      <div class="breadcrumb">/ <?= $tab==='attente' ? 'Validation' : ('Liste' . ($selected?' / #'.$selected->getIdCompte():'')) ?></div>
     </div>
     <div class="tb-right">
       <?php if ($tab==='comptes'): ?>
@@ -144,7 +145,6 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
   </div>
 
   <div class="content">
-
   <?php if ($tab==='stats'): ?>
   <!-- ══ STATS TAB ════════════════════════════════ -->
   <style>
@@ -335,7 +335,6 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
       });
   });
   </script>
-
   <?php elseif ($tab==='attente'): ?>
   <!-- ══ EN ATTENTE TAB ════════════════════════════════ -->
   <?php if ($pendingTotal===0): ?>

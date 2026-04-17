@@ -140,20 +140,8 @@ class CarteController
     }
 
     // ── DB: Finders ───────────────────────────────────────────
-    public static function updateExpirations(): void
-    {
-        $db = Config::getConnexion();
-        $db->exec("
-            UPDATE cartebancaire 
-            SET statut = 'expiree' 
-            WHERE date_expiration < CURDATE() 
-              AND statut != 'expiree'
-        ");
-    }
-
     public static function findByCompte(int $idCompte): array
     {
-        self::updateExpirations();
         $db   = Config::getConnexion();
         $stmt = $db->prepare("SELECT * FROM cartebancaire WHERE id_compte = ? ORDER BY id_carte DESC");
         $stmt->execute([$idCompte]);
@@ -162,7 +150,6 @@ class CarteController
 
     public static function findById(int $id): ?CarteBancaire
     {
-        self::updateExpirations();
         $db   = Config::getConnexion();
         $stmt = $db->prepare("SELECT * FROM cartebancaire WHERE id_carte = ? LIMIT 1");
         $stmt->execute([$id]);
@@ -172,7 +159,6 @@ class CarteController
 
     public static function findAll(): array
     {
-        self::updateExpirations();
         $db   = Config::getConnexion();
         $stmt = $db->query("SELECT * FROM cartebancaire ORDER BY id_carte DESC");
         return array_map([self::class, 'fromRow'], $stmt->fetchAll());
@@ -413,13 +399,7 @@ class CarteController
                     if (isset($_POST['type_carte']))             $carte->setTypeCarte(trim($_POST['type_carte']));
                     if (isset($_POST['titulaire_nom']))          $carte->setTitulaireNom(trim($_POST['titulaire_nom']));
                     if (isset($_POST['reseau']))                 $carte->setReseau(trim($_POST['reseau']));
-                    if (isset($_POST['date_expiration'])) {
-                        $exp = trim($_POST['date_expiration']);
-                        if (preg_match('/^\d{4}-\d{2}$/', $exp)) {
-                            $exp = date('Y-m-t', strtotime($exp . '-01'));
-                        }
-                        $carte->setDateExpiration($exp);
-                    }
+                    if (isset($_POST['date_expiration']))        $carte->setDateExpiration(trim($_POST['date_expiration']));
                     if (isset($_POST['statut']))                 $carte->setStatut(trim($_POST['statut']));
                     if (isset($_POST['motif_blocage']))          $carte->setMotifBlocage(trim($_POST['motif_blocage']));
                     if (isset($_POST['style']))                  $carte->setStyle(trim($_POST['style']));
