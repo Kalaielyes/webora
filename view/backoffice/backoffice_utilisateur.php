@@ -347,6 +347,10 @@ tr.detail-active td{background:var(--blue-light)!important;}
         <div class="kpi-icon" style="background:var(--purple-light)"><svg width="18" height="18" fill="none" stroke="var(--purple)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
         <div class="kpi-data"><div class="kpi-val"><?= $stats['admins'] ?></div><div class="kpi-label">Administrateurs</div><div class="kpi-sub" style="color:var(--muted)">3 niveaux d acces</div></div>
       </div>
+      <div class="kpi">
+        <div class="kpi-icon" style="background:rgba(79, 70, 229, 0.08)"><svg width="18" height="18" fill="none" stroke="var(--purple)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M5 12a7 7 0 0114 0c0 3.866-3.134 7-7 7s-7-3.134-7-7z"/><circle cx="12" cy="12" r="2"/></svg></div>
+        <div class="kpi-data"><div class="kpi-val"><?= $stats['association'] ?></div><div class="kpi-label">Utilisateurs associés</div><div class="kpi-sub" style="color:var(--muted)">Filtrer par association</div></div>
+      </div>
     </div>
 
     
@@ -357,7 +361,7 @@ tr.detail-active td{background:var(--blue-light)!important;}
         <div class="table-toolbar">
           <div class="table-toolbar-title">Liste des utilisateurs (<?= count($users) ?>)</div>
           <div class="filters">
-            <?php foreach(['tous'=>'Tous','clients'=>'Clients','admins'=>'Admins','bloques'=>'Bloques','kyc_attente'=>'KYC attente'] as $k=>$l): ?>
+            <?php foreach(['tous'=>'Tous','clients'=>'Clients','admins'=>'Admins','association'=>'Association','bloques'=>'Bloques','kyc_attente'=>'KYC attente'] as $k=>$l): ?>
             <a href="?filtre=<?= $k ?>" class="filter-btn <?= $filtre===$k?'active':'' ?>"><?= $l ?></a>
             <?php endforeach; ?>
           </div>

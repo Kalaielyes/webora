@@ -180,7 +180,7 @@ body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2re
   <div class="card-head">
     <div class="head-logo">
       <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L20 8.5v7l-8 4-8-4v-7l8-4.32z"/></svg></div>
-      <div class="logo-name">Nexa<span>Bank</span></div>
+      <div class="logo-name">Legal<span>Fin</span></div>
     </div>
     <div><div class="card-title">Creer un compte</div><div class="card-sub">Deja client ? <a href="login.php">Se connecter</a></div></div>
   </div>
@@ -222,21 +222,35 @@ body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2re
       <div class="step-panel <?= $startStep == 1 ? 'active' : '' ?>" id="panel-1">
         <div class="slabel">Informations personnelles</div>
         <div class="fgrid g2">
-          <div class="field">
-            <label class="field-label">Nom *</label>
+          <div class="field span2">
+            <label class="field-label">Type de compte *</label>
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;padding-top:0.35rem;">
+              <label class="terms-row" style="align-items:center;margin:0;">
+                <input type="radio" name="account_type" value="personal" <?= old('account_type', $old) !== 'association' ? 'checked' : '' ?>>
+                <span>Compte personnel</span>
+              </label>
+              <label class="terms-row" style="align-items:center;margin:0;">
+                <input type="radio" name="account_type" value="association" <?= old('account_type', $old) === 'association' ? 'checked' : '' ?>>
+                <span>Association</span>
+              </label>
+            </div>
+            <?= errorMessage('account_type', $fieldErrors) ?>
+          </div>
+          <div class="field" id="nom-field">
+            <label class="field-label" id="nom-label">Nom *</label>
             <div class="field-wrap">
               <span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
-              <input type="text" name="nom" class="finput <?= errorClass('nom', $fieldErrors) ?>" 
-                     placeholder="Ben Salem" value="<?= old('nom', $old) ?>">
+              <input type="text" id="nom-input" name="nom" class="finput <?= errorClass('nom', $fieldErrors) ?>" 
+                     placeholder="ben user" value="<?= old('nom', $old) ?>">
             </div>
             <?= errorMessage('nom', $fieldErrors) ?>
           </div>
-          <div class="field">
+          <div class="field" id="prenom-field">
             <label class="field-label">Prenom *</label>
             <div class="field-wrap">
               <span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
-              <input type="text" name="prenom" class="finput <?= errorClass('prenom', $fieldErrors) ?>" 
-                     placeholder="Ahmed" value="<?= old('prenom', $old) ?>">
+              <input type="text" id="prenom-input" name="prenom" class="finput <?= errorClass('prenom', $fieldErrors) ?>" 
+                     placeholder="user" value="<?= old('prenom', $old) ?>">
             </div>
             <?= errorMessage('prenom', $fieldErrors) ?>
           </div>
@@ -362,6 +376,14 @@ body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2re
           <?php if (isset($fieldErrors['kyc_consent'])): ?>
             <div class="field-error"><?= htmlspecialchars($fieldErrors['kyc_consent']) ?></div>
           <?php endif; ?>
+          <div class="field" id="association-name-group" style="display:none; margin-top:0.8rem;">
+            <label class="field-label">Nom de l'association *</label>
+            <div class="field-wrap">
+              <span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11h18M6 7h12M6 15h12M3 19h18"/></svg></span>
+              <input type="text" name="association_name" id="association_name" class="finput <?= errorClass('association_name', $fieldErrors) ?>" value="<?= htmlspecialchars($old['association_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>" placeholder="Nom de l'association">
+            </div>
+            <?= errorMessage('association_name', $fieldErrors) ?>
+          </div>
         </div>
         <div style="display:flex; justify-content:space-between; margin-top:1.5rem;">
           <button type="button" class="btn-back" onclick="goToStep(2)">
@@ -446,6 +468,46 @@ if (mdpInput) {
   mdpInput.addEventListener('input', function() { checkStr(this.value); });
 }
 
+var accountTypeRadios = document.querySelectorAll('input[name="account_type"]');
+var nomField = document.getElementById('nom-field');
+var prenomField = document.getElementById('prenom-field');
+var nomLabel = document.getElementById('nom-label');
+var nomInput = document.getElementById('nom-input');
+var prenomInput = document.getElementById('prenom-input');
+
+function syncAccountTypeFields() {
+  var accountType = 'personal';
+  if (accountTypeRadios) {
+    accountTypeRadios.forEach(function(radio) {
+      if (radio.checked) accountType = radio.value;
+    });
+  }
+
+  if (prenomField) {
+    prenomField.style.display = accountType === 'association' ? 'none' : 'block';
+  }
+  if (nomLabel) {
+    nomLabel.textContent = accountType === 'association' ? "Nom de l'association *" : 'Nom *';
+  }
+  if (nomInput) {
+    nomInput.placeholder = accountType === 'association' ? "Nom de l'association" : 'ben user';
+  }
+  if (prenomInput) {
+    if (accountType === 'association') {
+      prenomInput.value = 'association';
+    } else if (prenomInput.value === 'association') {
+      prenomInput.value = '';
+    }
+  }
+}
+
+if (accountTypeRadios) {
+  accountTypeRadios.forEach(function(radio) {
+    radio.addEventListener('change', syncAccountTypeFields);
+  });
+}
+
+syncAccountTypeFields();
 updateUI();
 </script>
 </body>

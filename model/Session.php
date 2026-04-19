@@ -6,7 +6,7 @@
 
 class Session {
 
-    // Start PHP session if not already started
+    
     public static function start() : void {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();

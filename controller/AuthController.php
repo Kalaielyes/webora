@@ -91,6 +91,7 @@ if ($action === 'login') {
 
 
 if ($action === 'register') {
+    $account_type   = trim($_POST['account_type'] ?? 'personal');
     $nom            = trim($_POST['nom']            ?? '');
     $prenom         = trim($_POST['prenom']         ?? '');
     $date_naissance = trim($_POST['date_naissance'] ?? '');
@@ -103,22 +104,30 @@ if ($action === 'register') {
     $mdp_confirm    = $_POST['mdp_confirm'] ?? '';
     $terms          = isset($_POST['terms']);
     $kyc_consent    = isset($_POST['kyc_consent']);
+    $association    = $account_type === 'association';
 
-    $old = compact('nom','prenom','date_naissance','cin','email','numTel','gouvernorat','adresse');
+    $old = compact('account_type','nom','prenom','date_naissance','cin','email','numTel','gouvernorat','adresse');
     $errors = [];
 
     
-    if (empty($nom)) {
-        $errors['nom'] = "Le nom est requis.";
-    } elseif (!preg_match('/^[\p{L}\s\-\']{2,50}$/u', $nom)) {
-        $errors['nom'] = "Le nom ne doit contenir que des lettres (2 à 50 caractères).";
-    }
+    if (!$association) {
+        if (empty($nom)) {
+            $errors['nom'] = "Le nom est requis.";
+        } elseif (!preg_match('/^[\p{L}\s\-\']{2,50}$/u', $nom)) {
+            $errors['nom'] = "Le nom ne doit contenir que des lettres (2 à 50 caractères).";
+        }
 
-    
-    if (empty($prenom)) {
-        $errors['prenom'] = "Le prénom est requis.";
-    } elseif (!preg_match('/^[\p{L}\s\-\']{2,50}$/u', $prenom)) {
-        $errors['prenom'] = "Le prénom ne doit contenir que des lettres (2 à 50 caractères).";
+        if (empty($prenom)) {
+            $errors['prenom'] = "Le prénom est requis.";
+        } elseif (!preg_match('/^[\p{L}\s\-\']{2,50}$/u', $prenom)) {
+            $errors['prenom'] = "Le prénom ne doit contenir que des lettres (2 à 50 caractères).";
+        }
+    } else {
+        if (empty($nom)) {
+            $errors['nom'] = "Le nom de l'association est requis.";
+        } elseif (!preg_match('/^[\p{L}0-9\s\-\']{2,80}$/u', $nom)) {
+            $errors['nom'] = "Le nom de l'association contient des caractères invalides.";
+        }
     }
 
     
@@ -241,6 +250,10 @@ if ($action === 'register') {
             exit;
         }
 
+        if ($association) {
+            $prenom = 'association';
+        }
+
         $m->setNom($nom);
         $m->setPrenom($prenom);
         $m->setEmail($email);
@@ -249,6 +262,7 @@ if ($action === 'register') {
         $m->setDateNaissance($date_naissance);
         $m->setAdresse($adresse);
         $m->setCin($cin);
+        $m->setAssociation($association);
         $m->create();
 
         Session::remove('old_register');

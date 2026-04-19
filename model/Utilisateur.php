@@ -300,6 +300,7 @@ class Utilisateur {
         $where = match($filtre) {
             'clients'     => "WHERE role='CLIENT'",
             'admins'      => "WHERE role IN ('ADMIN','SUPER_ADMIN')",
+            'association' => "WHERE association=1",
             'bloques'     => "WHERE status='SUSPENDU'",
             'kyc_attente' => "WHERE status_kyc='EN_ATTENTE'",
             default       => ''
@@ -310,12 +311,13 @@ class Utilisateur {
     public function getStats() : array {
         $q = fn($sql) => (int)$this->db->query($sql)->fetchColumn();
         return [
-            'total'   => $q("SELECT COUNT(*) FROM utilisateur"),
-            'actifs'  => $q("SELECT COUNT(*) FROM utilisateur WHERE role='CLIENT' AND status='ACTIF'"),
-            'kyc'     => $q("SELECT COUNT(*) FROM utilisateur WHERE status_kyc='EN_ATTENTE'"),
-            'bloques' => $q("SELECT COUNT(*) FROM utilisateur WHERE status='SUSPENDU'"),
-            'admins'  => $q("SELECT COUNT(*) FROM utilisateur WHERE role IN ('ADMIN','SUPER_ADMIN')"),
-            'mois'    => $q("SELECT COUNT(*) FROM utilisateur WHERE MONTH(date_inscription)=MONTH(NOW()) AND YEAR(date_inscription)=YEAR(NOW())"),
+            'total'       => $q("SELECT COUNT(*) FROM utilisateur"),
+            'actifs'      => $q("SELECT COUNT(*) FROM utilisateur WHERE role='CLIENT' AND status='ACTIF'"),
+            'kyc'         => $q("SELECT COUNT(*) FROM utilisateur WHERE status_kyc='EN_ATTENTE'"),
+            'bloques'     => $q("SELECT COUNT(*) FROM utilisateur WHERE status='SUSPENDU'"),
+            'admins'      => $q("SELECT COUNT(*) FROM utilisateur WHERE role IN ('ADMIN','SUPER_ADMIN')"),
+            'association' => $q("SELECT COUNT(*) FROM utilisateur WHERE association=1"),
+            'mois'        => $q("SELECT COUNT(*) FROM utilisateur WHERE MONTH(date_inscription)=MONTH(NOW()) AND YEAR(date_inscription)=YEAR(NOW())"),
         ];
     }
 
