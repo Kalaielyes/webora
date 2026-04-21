@@ -349,33 +349,16 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
         ══════════════════ -->
         <div id="tab-gar" style="display:<?= $activeTab === 'gar' ? 'block' : 'none' ?>">
 
-          <!-- Formulaire garantie -->
+          <!-- Formulaire édition garantie (seulement si en mode édition) -->
+          <?php if ($editGarantie): ?>
           <div class="dt-wrap" style="margin-bottom:1.2rem">
             <div class="dt-hd">
-              <div class="dt-title">
-                <?= $editGarantie ? '✏️ Modifier garantie #' . (int) $editGarantie['id'] : '➕ Ajouter une garantie' ?>
-              </div>
+              <div class="dt-title">✏️ Modifier garantie #<?= (int) $editGarantie['id'] ?></div>
             </div>
             <div style="padding:1.2rem">
-              <form method="POST" action="<?= $self ?>" id="form-gar" novalidate>
-                <input type="hidden" name="action"
-                  value="<?= $editGarantie ? 'update_garantie' : 'create_garantie' ?>" />
-                <?php if ($editGarantie): ?><input type="hidden" name="id"
-                    value="<?= (int) $editGarantie['id'] ?>" /><?php endif; ?>
-
-                <?php if (!$editGarantie): ?>
-                  <div class="fg-crud">
-                    <label class="fl-crud">Demande associée *</label>
-                    <select class="fs-crud" name="demande_credit_id" id="g-demande" required>
-                      <option value="">— Sélectionner —</option>
-                      <?php foreach ($demandesSelect as $ds): ?>
-                        <option value="<?= $ds['id'] ?>">#<?= $ds['id'] ?> — <?= number_format($ds['montant'], 0, ',', ' ') ?>
-                          TND — <?= $ds['date_demande'] ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                    <div class="err-msg" id="ge-demande"></div>
-                  </div>
-                <?php endif; ?>
+              <form method="POST" action="<?= $self ?>" id="form-gar" enctype="multipart/form-data" novalidate>
+                <input type="hidden" name="action" value="update_garantie" />
+                <input type="hidden" name="id" value="<?= (int) $editGarantie['id'] ?>" />
 
                 <div class="form-row-2">
                   <div class="fg-crud">
@@ -390,38 +373,41 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                   </div>
                   <div class="fg-crud">
                     <label class="fl-crud" id="g-doc-lbl">Document *</label>
-                    <input class="fi-crud" name="document" id="g-doc" type="text" placeholder="Référence officielle"
-                      value="<?= htmlspecialchars($editGarantie['document'] ?? '') ?>" required />
+                    <input class="fi-crud" name="document" id="g-doc" type="text"
+                        placeholder="Référence officielle"
+                        value="<?= htmlspecialchars($editGarantie['document'] ?? '') ?>" required />
                     <div class="field-hint" id="g-doc-hint">N° carte grise, titre propriété, nom garant…</div>
                     <div class="err-msg" id="ge-doc"></div>
                   </div>
                 </div>
 
                 <div class="form-row-2">
-                  <div class="fg-crud"><label class="fl-crud">Valeur estimée (TND) *</label><input class="fi-crud"
-                      name="valeur_estimee" id="g-val" type="number" min="0" step="100" placeholder="ex: 30000"
-                      value="<?= htmlspecialchars($editGarantie['valeur_estimee'] ?? '') ?>" required />
+                  <div class="fg-crud">
+                    <label class="fl-crud">Valeur estimée (TND) *</label>
+                    <input class="fi-crud" name="valeur_estimee" id="g-val" type="number" min="0" step="100" 
+                        placeholder="ex: 30000" value="<?= htmlspecialchars($editGarantie['valeur_estimee'] ?? '') ?>" required />
                     <div class="err-msg" id="ge-val"></div>
                   </div>
-                  <div class="fg-crud"><label class="fl-crud">Description</label><input class="fi-crud"
-                      name="description" type="text" placeholder="Détails…"
-                      value="<?= htmlspecialchars($editGarantie['description'] ?? '') ?>" /></div>
+                  <div class="fg-crud">
+                    <label class="fl-crud">Description</label>
+                    <input class="fi-crud" name="description" type="text" placeholder="Détails…"
+                        value="<?= htmlspecialchars($editGarantie['description'] ?? '') ?>" />
+                  </div>
                 </div>
 
-                <button type="submit" class="btn-crud">
-                  <?= $editGarantie ? '💾 Enregistrer' : '🔒 Ajouter' ?>
-                </button>
-                <?php if ($editGarantie): ?>
-                  <a href="<?= $self ?>?tab=gar" class="fl" style="margin-left:.6rem;cursor:pointer">✕ Annuler</a>
-                <?php endif; ?>
+                <div style="display:flex;gap:.6rem;align-items:center;margin-top:.9rem">
+                  <button type="submit" class="btn-crud">💾 Enregistrer</button>
+                  <a href="<?= $self ?>?tab=gar" class="fl" style="cursor:pointer">✕ Annuler</a>
+                </div>
               </form>
             </div>
           </div>
+          <?php endif; ?>
 
           <!-- Tableau garanties -->
           <div class="dt-wrap">
             <div class="dt-hd">
-              <div class="dt-title">🔒 Toutes les garanties <span class="badge b-blue">
+              <div class="dt-title">🔒 Gestion des garanties <span class="badge b-blue">
                   <?= count($garanties) ?>
                 </span></div>
               <input type="text" id="search-gar" class="fi" placeholder="🔍 Rechercher..." style="width:180px"
@@ -436,6 +422,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                     <th>Type</th>
                     <th>Document</th>
                     <th>Valeur</th>
+                    <th>Statut</th>
                     <th>Description</th>
                     <th>Actions</th>
                   </tr>
@@ -443,10 +430,14 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                 <tbody>
                   <?php if (empty($garanties)): ?>
                     <tr>
-                      <td colspan="7" style="text-align:center;padding:2rem;color:var(--muted);font-size:.8rem">Aucune
+                      <td colspan="8" style="text-align:center;padding:2rem;color:var(--muted);font-size:.8rem">Aucune
                         garantie.</td>
                     </tr>
-                  <?php else: foreach ($garanties as $g): ?>
+                  <?php else: foreach ($garanties as $g): 
+                    $gStatus = $g['statut'] ?? 'en_attente';
+                    $gStatusLabel = $rl[$gStatus] ?? $gStatus;
+                    $gStatusBadge = $rc[$gStatus] ?? 'b-wait';
+                    ?>
                       <tr>
                         <td>
                           <?= (int) $g['id'] ?>
@@ -464,18 +455,40 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                         <td><strong>
                             <?= number_format($g['valeur_estimee'], 0, ',', ' ') ?> TND
                           </strong></td>
-                        <td style="color:var(--muted)">
+                        <td>
+                          <span class="badge <?= $gStatusBadge ?>"><?= $gStatusLabel ?></span>
+                        </td>
+                        <td style="color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                          title="<?= htmlspecialchars($g['description'] ?? '') ?>">
                           <?= htmlspecialchars($g['description'] ?: '—') ?>
                         </td>
                         <td>
-                          <div class="td-acts">
-                            <a href="<?= $self ?>?edit_g=<?= $g['id'] ?>&tab=gar" class="btn-edt">✏️</a>
-                            <form method="POST" action="<?= $self ?>" style="display:inline"
-                              onsubmit="return confirm('Supprimer ?')">
-                              <input type="hidden" name="action" value="delete_garantie" />
-                              <input type="hidden" name="id" value="<?= $g['id'] ?>" />
-                              <button type="submit" class="btn-del">🗑️</button>
-                            </form>
+                          <div class="td-acts" style="flex-direction: column; gap: 0.3rem;">
+                            <div style="display: flex; gap: 4px;">
+                              <a href="<?= $self ?>?edit_g=<?= $g['id'] ?>&tab=gar" class="btn-edt">✏️ Modifier</a>
+                              <form method="POST" action="<?= $self ?>" style="display:inline"
+                                onsubmit="return confirm('Supprimer cette garantie ?')">
+                                <input type="hidden" name="action" value="delete_garantie" />
+                                <input type="hidden" name="id" value="<?= $g['id'] ?>" />
+                                <button type="submit" class="btn-del">🗑️</button>
+                              </form>
+                            </div>
+                            <?php if ($gStatus === 'en_attente'): ?>
+                            <div style="display: flex; gap: 4px; font-size: 0.65rem;">
+                              <form method="POST" action="<?= $self ?>" style="display:inline">
+                                <input type="hidden" name="action" value="update_garantie_status" />
+                                <input type="hidden" name="id" value="<?= $g['id'] ?>" />
+                                <input type="hidden" name="statut" value="approuvee" />
+                                <button type="submit" class="btn-quick-approve" title="Approuver cette garantie">✅ Approuver</button>
+                              </form>
+                              <form method="POST" action="<?= $self ?>" style="display:inline">
+                                <input type="hidden" name="action" value="update_garantie_status" />
+                                <input type="hidden" name="id" value="<?= $g['id'] ?>" />
+                                <input type="hidden" name="statut" value="refusee" />
+                                <button type="submit" class="btn-quick-refuse" title="Refuser cette garantie">❌ Refuser</button>
+                              </form>
+                            </div>
+                            <?php endif; ?>
                           </div>
                         </td>
                       </tr>
@@ -533,16 +546,17 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
       if (!ok) e.preventDefault();
     });
 
-    document.getElementById('form-gar').addEventListener('submit', function (e) {
-      let ok = true;
-      const set = (id, msg) => { const el = document.getElementById(id); if (el) { el.textContent = msg; if (msg) ok = false; } };
-      if (document.getElementById('g-demande'))
-        set('ge-demande', !document.getElementById('g-demande').value ? 'Sélectionnez une demande.' : '');
-      set('ge-type', !document.getElementById('g-type').value ? 'Type obligatoire.' : '');
-      set('ge-doc', (v => (!v || v.length < 3) ? 'Document requis (min 3 car.).' : '')(document.getElementById('g-doc').value.trim()));
-      set('ge-val', (v => (isNaN(v) || v < 0) ? 'Valeur invalide.' : '')(parseFloat(document.getElementById('g-val').value)));
-      if (!ok) e.preventDefault();
-    });
+    const formGar = document.getElementById('form-gar');
+    if (formGar) {
+      formGar.addEventListener('submit', function (e) {
+        let ok = true;
+        const set = (id, msg) => { const el = document.getElementById(id); if (el) { el.textContent = msg; if (msg) ok = false; } };
+        set('ge-type', !document.getElementById('g-type').value ? 'Type obligatoire.' : '');
+        set('ge-doc', (v => (!v || v.length < 3) ? 'Document requis (min 3 car.).' : '')(document.getElementById('g-doc').value.trim()));
+        set('ge-val', (v => (isNaN(v) || v < 0) ? 'Valeur invalide.' : '')(parseFloat(document.getElementById('g-val').value)));
+        if (!ok) e.preventDefault();
+      });
+    }
 
     function quickDecision(type) {
       const res = document.getElementById('a-resultat'), stat = document.getElementById('a-statut'), mot = document.getElementById('a-motif');

@@ -83,7 +83,7 @@ class AdminCreditController
         $this->renderView(success: "Demande #$id et ses garanties supprimées.");
     }
 
-    // ── Garantie ──────────────────────────────────────────────────────────────
+    // ── Garantie 
     private function createGarantie(): void
     {
         $data = $this->collectGarantiePost();
@@ -171,15 +171,24 @@ class AdminCreditController
     }
 
     private function collectGarantiePost(): array
-    {
-        return [
-            'demande_credit_id' => (int) ($_POST['demande_credit_id'] ?? 0),
-            'type' => trim($_POST['type'] ?? ''),
-            'description' => trim($_POST['description'] ?? ''),
-            'document' => trim($_POST['document'] ?? ''),
-            'valeur_estimee' => trim($_POST['valeur_estimee'] ?? ''),
-        ];
+{
+    // Gestion de l'upload fichier
+    $documentPath = trim($_POST['document'] ?? '');
+    if (!empty($_FILES['document_file']['name']) && $_FILES['document_file']['error'] === UPLOAD_ERR_OK) {
+        $uploaded = $this->garantieModel->handleUpload($_FILES['document_file']);
+        if ($uploaded) {
+            $documentPath = $uploaded; // chemin fichier remplace la saisie manuelle
+        }
     }
+
+    return [
+        'demande_credit_id' => (int) ($_POST['demande_credit_id'] ?? 0),
+        'type'              => trim($_POST['type'] ?? ''),
+        'description'       => trim($_POST['description'] ?? ''),
+        'document'          => $documentPath,
+        'valeur_estimee'    => trim($_POST['valeur_estimee'] ?? ''),
+    ];
+}
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────

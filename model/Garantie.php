@@ -38,19 +38,59 @@ class Garantie
     }
 
     public function create(array $data): bool
-    {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO Garantie (type, description, document, valeur_estimee, demande_credit_id)
-            VALUES (?, ?, ?, ?, ?)
-        ");
-        return $stmt->execute([
-            $data['type'],
-            $data['description'],
-            $data['document'],
-            $data['valeur_estimee'],
-            $data['demande_credit_id'],
-        ]);
-    }
+{
+    $stmt = $this->pdo->prepare("
+        INSERT INTO Garantie (type, description, document, valeur_estimee, demande_credit_id)
+        VALUES (?, ?, ?, ?, ?)
+    ");
+    return $stmt->execute([
+        $data['type'],
+        $data['description'],
+        $data['document'],   // contiendra le chemin du fichier uploadé
+        $data['valeur_estimee'],
+        $data['demande_credit_id'],
+    ]);
+}
+
+/**
+ * Gère l'upload du fichier de garantie.
+ * Retourne le chemin relatif du fichier ou une erreur.
+ */
+public function handleUpload(array $file): string|false
+{
+    $allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    $maxSize = 5 * 1024 * 1024; // 5 Mo
+
+    if ($file['error'] !== UPLOAD_ERR_OK)
+        return false;
+
+    if ($file['size'] > $maxSize)
+        return false;
+
+    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($file['tmp_name']);
+    if (!in_array($mime, $allowedTypes, true))
+        return false;
+
+    $ext = match ($mime) {
+        'application/pdf' => 'pdf',
+        'image/jpeg'      => 'jpg',
+        'image/png'       => 'png',
+        'image/webp'      => 'webp',
+    };
+
+    $uploadDir = __DIR__ . '/../uploads/garanties/';
+    if (!is_dir($uploadDir))
+        mkdir($uploadDir, 0755, true);
+
+    $filename = 'gar_' . uniqid() . '.' . $ext;
+    $dest = $uploadDir . $filename;
+
+    if (!move_uploaded_file($file['tmp_name'], $dest))
+        return false;
+
+    return 'uploads/garanties/' . $filename;
+}
 
     public function update(int $id, array $data): bool
     {
@@ -119,8 +159,52 @@ class Garantie
         // Description (optionnelle mais limitée)
         if (!empty($data['description']) && mb_strlen($data['description']) > 500)
             $errors['description'] = 'La description ne peut pas dépasser 500 caractères.';
+        // Fichier uploadé (optionnel, mais validé si présent)
+if (!empty($_FILES['document_file']['name'])) {
+    $allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($_FILES['document_file']['tmp_name']);
+    if (!in_array($mime, $allowedMimes, true))
+        $errors['document_file'] = 'Format de fichier non autorisé (PDF, JPG, PNG, WEBP uniquement).';
+    elseif ($_FILES['document_file']['size'] > 5 * 1024 * 1024)
+        $errors['document_file'] = 'Le fichier ne peut pas dépasser 5 Mo.';
+}
 
         return $errors;
+    }
+
+    /**
+     * Update the status of a guarantee
+     * @param int $id Guarantee ID
+     * @param string $statut Status value (en_attente, approuvee, refusee)
+     * @return bool
+     */
+    public function updateStatus(int $id, string $statut): bool
+    {
+        $validStatuts = ['en_attente', 'approuvee', 'refusee'];
+        if (!in_array($statut, $validStatuts, true))
+            return false;
+        
+        $stmt = $this->pdo->prepare("UPDATE Garantie SET statut = ? WHERE id = ?");
+        return $stmt->execute([$statut, $id]);
+    }
+
+    /**
+     * Get all guarantees with a specific status
+     * @param string $statut Status value (en_attente, approuvee, refusee)
+     * @return array
+     */
+    public function getByStatus(string $statut): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT g.*, d.montant AS dc_montant
+            FROM Garantie g
+            LEFT JOIN DemandeCredit d ON g.demande_credit_id = d.id
+            WHERE g.statut = ?
+            ORDER BY g.id DESC
+        ");
+        $stmt->execute([$statut]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function getTypes(): array

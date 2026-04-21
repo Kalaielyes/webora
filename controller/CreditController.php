@@ -28,19 +28,19 @@ class CreditController
             'create_garantie' => $this->createGarantie(),
             'update_garantie' => $this->updateGarantie(),
             'delete_garantie' => $this->deleteGarantie(),
+            'update_garantie_status' => $this->updateGarantieStatus(),
             default => $this->renderView(),
         };
     }
 
-    // ── DemandeCredit CRUD ────────────────────────────────────────────────────
-
+    // ── DemandeCredit ─────────────────────────────────────────────────────────
     private function createDemande(): void
     {
         $data = $this->collectDemandePost();
 
         $errors = array_values($this->demandeModel->validate($data));
         if ($errors) {
-            $this->renderView(errors: $errors, postData: $data);
+            $this->renderView(errors: $errors);
             return;
         }
         try {
@@ -65,11 +65,11 @@ class CreditController
             $errors[] = 'ID invalide.';
 
         if ($errors) {
-            $this->renderView(errors: $errors, editDemandeId: $id);
+            $this->renderView(errors: $errors, editDemandeId: $id, activeTab: 'demande');
             return;
         }
         $this->demandeModel->update($id, $data);
-        $this->renderView(success: "Demande #$id mise à jour.");
+        $this->renderView(success: "Demande #$id mise à jour.", activeTab: 'demande');
     }
 
     private function deleteDemande(): void
@@ -79,21 +79,21 @@ class CreditController
             $this->garantieModel->deleteByDemande($id);
             $this->demandeModel->delete($id);
         }
-        $this->renderView(success: "Demande #$id supprimée.");
+        $this->renderView(success: "Demande #$id et ses garanties supprimées.");
     }
 
-    // ── Garantie CRUD ─────────────────────────────────────────────────────────
+    // ── Garantie
     private function createGarantie(): void
     {
         $data = $this->collectGarantiePost();
         $errors = array_values($this->garantieModel->validate($data));
 
         if ($errors) {
-            $this->renderView(errors: $errors, postData: $data, activeTab: 'garantie');
+            $this->renderView(errors: $errors, activeTab: 'gar');
             return;
         }
         $this->garantieModel->create($data);
-        $this->renderView(success: 'Garantie ajoutée.', activeTab: 'garantie');
+        $this->renderView(success: 'Garantie ajoutée.', activeTab: 'gar');
     }
 
     private function updateGarantie(): void
@@ -105,11 +105,11 @@ class CreditController
             $errors[] = 'ID garantie invalide.';
 
         if ($errors) {
-            $this->renderView(errors: $errors, editGarantieId: $id, activeTab: 'garantie');
+            $this->renderView(errors: $errors, editGarantieId: $id, activeTab: 'gar');
             return;
         }
         $this->garantieModel->update($id, $data);
-        $this->renderView(success: "Garantie #$id mise à jour.", activeTab: 'garantie');
+        $this->renderView(success: "Garantie #$id mise à jour.", activeTab: 'gar');
     }
 
     private function deleteGarantie(): void
@@ -117,29 +117,59 @@ class CreditController
         $id = (int) ($_POST['id'] ?? 0);
         if ($id > 0)
             $this->garantieModel->delete($id);
-        $this->renderView(success: "Garantie #$id supprimée.", activeTab: 'garantie');
+        $this->renderView(success: "Garantie #$id supprimée.", activeTab: 'gar');
+    }
+
+    private function updateGarantieStatus(): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        $statut = $_POST['statut'] ?? '';
+        
+        if ($id <= 0) {
+            $this->renderView(errors: ['ID garantie invalide.'], activeTab: 'gar');
+            return;
+        }
+
+        if (!in_array($statut, ['en_attente', 'approuvee', 'refusee'], true)) {
+            $this->renderView(errors: ['Statut invalide.'], activeTab: 'gar');
+            return;
+        }
+
+        if ($this->garantieModel->updateStatus($id, $statut)) {
+            $statusLabel = match($statut) {
+                'en_attente' => 'En attente',
+                'approuvee' => 'Approuvée',
+                'refusee' => 'Refusée',
+            };
+            $this->renderView(success: "Garantie #$id marquée comme $statusLabel.", activeTab: 'gar');
+        } else {
+            $this->renderView(errors: ['Erreur lors de la mise à jour.'], activeTab: 'gar');
+        }
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
     private function renderView(
         array $errors = [],
         string $success = '',
-        array $postData = [],
         int $editDemandeId = 0,
         int $editGarantieId = 0,
         string $activeTab = 'demande'
     ): void {
-        // Detect edit from GET
         if (!$editDemandeId && isset($_GET['edit_d']))
             $editDemandeId = (int) $_GET['edit_d'];
         if (!$editGarantieId && isset($_GET['edit_g']))
             $editGarantieId = (int) $_GET['edit_g'];
-        if (isset($_GET['tab']))
+        if (isset($_GET['tab'])) {
             $activeTab = $_GET['tab'];
+        } elseif ($editDemandeId) {
+            $activeTab = 'demande';
+        } elseif ($editGarantieId) {
+            $activeTab = 'garantie';
+        }
 
         $demandes = $this->demandeModel->getAll();
         $garanties = $this->garantieModel->getAll();
-        $demandesSelect = $this->demandeModel->getAll(); // for <select>
+        $demandesSelect = $demandes;
         $editDemande = $editDemandeId ? $this->demandeModel->getById($editDemandeId) : null;
         $editGarantie = $editGarantieId ? $this->garantieModel->getById($editGarantieId) : null;
         $controllerSelf = $_SERVER['SCRIPT_NAME']; // always the controller since we're running from it
@@ -166,15 +196,24 @@ class CreditController
     }
 
     private function collectGarantiePost(): array
-    {
-        return [
-            'demande_credit_id' => (int) ($_POST['demande_credit_id'] ?? 0),
-            'type' => trim($_POST['type'] ?? ''),
-            'description' => trim($_POST['description'] ?? ''),
-            'document' => trim($_POST['document'] ?? ''),
-            'valeur_estimee' => trim($_POST['valeur_estimee'] ?? ''),
-        ];
+{
+    // Gestion de l'upload fichier
+    $documentPath = trim($_POST['document'] ?? '');
+    if (!empty($_FILES['document_file']['name']) && $_FILES['document_file']['error'] === UPLOAD_ERR_OK) {
+        $uploaded = $this->garantieModel->handleUpload($_FILES['document_file']);
+        if ($uploaded) {
+            $documentPath = $uploaded; // chemin fichier remplace la saisie manuelle
+        }
     }
+
+    return [
+        'demande_credit_id' => (int) ($_POST['demande_credit_id'] ?? 0),
+        'type'              => trim($_POST['type'] ?? ''),
+        'description'       => trim($_POST['description'] ?? ''),
+        'document'          => $documentPath,
+        'valeur_estimee'    => trim($_POST['valeur_estimee'] ?? ''),
+    ];
+}
 
 }
 
