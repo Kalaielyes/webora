@@ -137,6 +137,24 @@ class cagnottecontroller {
         return $out;
     }
 
+    public function sanitizeCategoryFilter($category) {
+        $raw = trim((string)$category);
+        if ($raw === '') return '';
+        return $this->normalizeCategory($raw) ?? '';
+    }
+
+    public function buildAdminFilters($filters = []) {
+        $status = trim((string)($filters['status'] ?? ''));
+        $query = trim((string)($filters['query'] ?? ''));
+        $category = $this->sanitizeCategoryFilter($filters['category'] ?? '');
+
+        return [
+            'status' => $status === '' ? '' : $this->sanitizeStatus($status),
+            'query' => $query,
+            'category' => $category
+        ];
+    }
+
     public function ensureDefaultUser() {
         $pdo = Config::getConnexion();
         $stmt = $pdo->prepare("SELECT id FROM utilisateur WHERE nom = 'Doe' AND prenom = 'John' LIMIT 1");
@@ -225,23 +243,89 @@ class cagnottecontroller {
     }
 
     public function getAllCagnottes($status = null) {
+        return $this->getFilteredCagnottes(['status' => $status]);
+    }
+
+    public function getFilteredCagnottes($filters = []) {
         $pdo = Config::getConnexion();
+        $filters = $this->buildAdminFilters($filters);
         $sql = "SELECT c.*, u.nom, u.prenom, u.association, COALESCE(SUM(d.montant), 0) as total_collecte, COUNT(d.id_don) as nb_dons 
                 FROM cagnotte c 
                 LEFT JOIN utilisateur u ON c.id_createur = u.id 
                 LEFT JOIN don d ON c.id_cagnotte = d.id_cagnotte AND d.statut = 'confirme' ";
-        if ($status) {
-            $sql .= "WHERE c.statut = :statut ";
+        $where = [];
+        $params = [];
+
+        if ($filters['status'] !== '') {
+            $where[] = "c.statut = :statut";
+            $params['statut'] = $filters['status'];
+        }
+        if ($filters['category'] !== '') {
+            $where[] = "c.categorie = :categorie";
+            $params['categorie'] = $filters['category'];
+        }
+        if ($filters['query'] !== '') {
+            $where[] = "(c.titre LIKE :query_titre OR c.categorie LIKE :query_categorie OR COALESCE(u.association, '') LIKE :query_association OR CONCAT(COALESCE(u.nom, ''), ' ', COALESCE(u.prenom, '')) LIKE :query_createur OR CONCAT(COALESCE(u.prenom, ''), ' ', COALESCE(u.nom, '')) LIKE :query_createur_inv)";
+            $queryValue = '%' . $filters['query'] . '%';
+            $params['query_titre'] = $queryValue;
+            $params['query_categorie'] = $queryValue;
+            $params['query_association'] = $queryValue;
+            $params['query_createur'] = $queryValue;
+            $params['query_createur_inv'] = $queryValue;
+        }
+        if (!empty($where)) {
+            $sql .= "WHERE " . implode(' AND ', $where) . " ";
         }
         $sql .= "GROUP BY c.id_cagnotte ORDER BY c.date_debut DESC";
         
         $stmt = $pdo->prepare($sql);
-        if ($status) {
-            $stmt->execute(['statut' => $this->sanitizeStatus($status)]);
-        } else {
-            $stmt->execute();
-        }
+        $stmt->execute($params);
         return $this->normalizeCagnotteRows($stmt->fetchAll());
+    }
+
+    public function getCagnotteStatusCounts() {
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->query("SELECT statut, COUNT(*) as total FROM cagnotte GROUP BY statut");
+        $counts = [
+            'en_attente' => 0,
+            'acceptee' => 0,
+            'refusee' => 0,
+            'suspendue' => 0,
+            'cloturee' => 0
+        ];
+        foreach ($stmt->fetchAll() as $row) {
+            $status = $this->sanitizeStatus($row['statut'] ?? 'en_attente');
+            $counts[$status] = (int)($row['total'] ?? 0);
+        }
+        return $counts;
+    }
+
+    public function getCagnotteCategoryCounts() {
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->query("SELECT categorie, COUNT(*) as total FROM cagnotte GROUP BY categorie ORDER BY total DESC, categorie ASC");
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $key = $this->sanitizeCategoryFilter($row['categorie'] ?? 'autre');
+            if ($key === '') {
+                $key = 'autre';
+            }
+            $out[] = [
+                'categorie' => $key,
+                'total' => (int)($row['total'] ?? 0)
+            ];
+        }
+        return $out;
+    }
+
+    public function getAdminOverviewStats() {
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->query("SELECT COUNT(*) as total_cagnottes, COALESCE(SUM(objectif_montant), 0) as total_objectif, COALESCE(SUM(montant_collecte), 0) as total_collecte FROM cagnotte");
+        $row = $stmt->fetch() ?: [];
+        return [
+            'total_cagnottes' => (int)($row['total_cagnottes'] ?? 0),
+            'total_objectif' => (float)($row['total_objectif'] ?? 0),
+            'total_collecte' => (float)($row['total_collecte'] ?? 0)
+        ];
     }
 
     public function getUserCagnottes($userId) {

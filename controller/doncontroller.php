@@ -52,6 +52,69 @@ class doncontroller {
         return $out;
     }
 
+    public function buildAdminFilters($filters = []) {
+        $status = trim((string)($filters['status'] ?? ''));
+        $query = trim((string)($filters['query'] ?? ''));
+        $cagnotteQuery = trim((string)($filters['cagnotte_query'] ?? ''));
+        $donorQuery = trim((string)($filters['donor_query'] ?? ''));
+        $payment = strtolower(trim((string)($filters['payment_method'] ?? '')));
+        $dateStart = trim((string)($filters['date_start'] ?? ''));
+        $dateEnd = trim((string)($filters['date_end'] ?? ''));
+
+        if (!in_array($payment, ['carte', 'virement'], true)) {
+            $payment = '';
+        }
+
+        return [
+            'status' => $status === '' ? '' : $this->sanitizeDonStatus($status),
+            'query' => $query,
+            'cagnotte_query' => $cagnotteQuery,
+            'donor_query' => $donorQuery,
+            'payment_method' => $payment,
+            'date_start' => $dateStart,
+            'date_end' => $dateEnd
+        ];
+    }
+
+    private function buildDonFiltersSql($filters, &$params) {
+        $filters = $this->buildAdminFilters($filters);
+        $where = [];
+        $params = [];
+
+        if ($filters['status'] !== '') {
+            $where[] = "d.statut = :statut";
+            $params['statut'] = $filters['status'];
+        }
+        if ($filters['query'] !== '') {
+            $where[] = "(c.titre LIKE :global_query_titre OR CONCAT(COALESCE(u.nom, ''), ' ', COALESCE(u.prenom, '')) LIKE :global_query_donateur)";
+            $globalQueryValue = '%' . $filters['query'] . '%';
+            $params['global_query_titre'] = $globalQueryValue;
+            $params['global_query_donateur'] = $globalQueryValue;
+        }
+        if ($filters['cagnotte_query'] !== '') {
+            $where[] = "c.titre LIKE :cagnotte_query";
+            $params['cagnotte_query'] = '%' . $filters['cagnotte_query'] . '%';
+        }
+        if ($filters['donor_query'] !== '') {
+            $where[] = "CONCAT(COALESCE(u.nom, ''), ' ', COALESCE(u.prenom, '')) LIKE :donor_query";
+            $params['donor_query'] = '%' . $filters['donor_query'] . '%';
+        }
+        if ($filters['payment_method'] !== '') {
+            $where[] = "d.moyen_paiement = :payment_method";
+            $params['payment_method'] = $filters['payment_method'];
+        }
+        if ($filters['date_start'] !== '') {
+            $where[] = "DATE(d.date_don) >= :date_start";
+            $params['date_start'] = $filters['date_start'];
+        }
+        if ($filters['date_end'] !== '') {
+            $where[] = "DATE(d.date_don) <= :date_end";
+            $params['date_end'] = $filters['date_end'];
+        }
+
+        return $where;
+    }
+
     public function ajouterDon($data, $donateurId = null) {
         if (!isset($data['montant']) || !is_numeric($data['montant']) || $data['montant'] <= 0) {
             die("Montant invalide");
@@ -107,13 +170,23 @@ class doncontroller {
     }
     
     public function getAllDons() {
+        return $this->getFilteredDons();
+    }
+
+    public function getFilteredDons($filters = []) {
         $pdo = Config::getConnexion();
+        $params = [];
+        $where = $this->buildDonFiltersSql($filters, $params);
         $sql = "SELECT d.*, c.titre as cagnotte_titre, u.nom, u.prenom 
                 FROM don d
                 INNER JOIN cagnotte c ON d.id_cagnotte = c.id_cagnotte
-                LEFT JOIN utilisateur u ON d.id_donateur = u.id
-                ORDER BY d.date_don DESC";
-        $stmt = $pdo->query($sql);
+                LEFT JOIN utilisateur u ON d.id_donateur = u.id ";
+        if (!empty($where)) {
+            $sql .= "WHERE " . implode(' AND ', $where) . " ";
+        }
+        $sql .= "ORDER BY d.date_don DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
         return $this->normalizeDonRows($stmt->fetchAll());
     }
     
@@ -146,6 +219,64 @@ class doncontroller {
         $sql = "SELECT COUNT(*) as nb_conf, COALESCE(SUM(montant),0) as total_conf FROM don WHERE statut = 'confirme'";
         $stmt = $pdo->query($sql);
         return $stmt->fetch();
+    }
+
+    public function getDonStatusCounts() {
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->query("SELECT statut, COUNT(*) as total FROM don GROUP BY statut");
+        $counts = [
+            'en_attente' => 0,
+            'confirme' => 0,
+            'refuse' => 0
+        ];
+        foreach ($stmt->fetchAll() as $row) {
+            $status = $this->sanitizeDonStatus($row['statut'] ?? 'en_attente');
+            $counts[$status] = (int)($row['total'] ?? 0);
+        }
+        return $counts;
+    }
+
+    public function getPaymentMethodStats() {
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->query("SELECT moyen_paiement, COUNT(*) as total, COALESCE(SUM(montant), 0) as montant_total FROM don GROUP BY moyen_paiement ORDER BY total DESC, moyen_paiement ASC");
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $method = trim((string)($row['moyen_paiement'] ?? ''));
+            if ($method === '') {
+                $method = 'inconnu';
+            }
+            $out[] = [
+                'moyen_paiement' => $method,
+                'total' => (int)($row['total'] ?? 0),
+                'montant_total' => (float)($row['montant_total'] ?? 0)
+            ];
+        }
+        return $out;
+    }
+
+    public function getTopDonCagnottes($limit = 5) {
+        $pdo = Config::getConnexion();
+        $limit = max(1, (int)$limit);
+        $stmt = $pdo->prepare("SELECT c.titre, COUNT(d.id_don) as nb_dons, COALESCE(SUM(CASE WHEN d.statut = 'confirme' THEN d.montant ELSE 0 END), 0) as total_confirme
+                FROM cagnotte c
+                LEFT JOIN don d ON d.id_cagnotte = c.id_cagnotte
+                GROUP BY c.id_cagnotte, c.titre
+                ORDER BY total_confirme DESC, nb_dons DESC, c.titre ASC
+                LIMIT :lim");
+        $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function getGlobalStats() {
+        $pdo = Config::getConnexion();
+        $stmt = $pdo->query("SELECT COUNT(*) as total_dons, COALESCE(SUM(montant), 0) as montant_total, COALESCE(SUM(CASE WHEN statut = 'confirme' THEN montant ELSE 0 END), 0) as montant_confirme FROM don");
+        $row = $stmt->fetch() ?: [];
+        return [
+            'total_dons' => (int)($row['total_dons'] ?? 0),
+            'montant_total' => (float)($row['montant_total'] ?? 0),
+            'montant_confirme' => (float)($row['montant_confirme'] ?? 0)
+        ];
     }
     
     public function confirmerDon($id) {
