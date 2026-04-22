@@ -35,7 +35,7 @@ if ($editCarte) {
 // Pending requests for "En attente" tab
 $pendingComptes = array_filter($comptes, fn($r)=>in_array($r['statut'],['en_attente','demande_cloture','demande_suppression']));
 $allCartes      = CarteController::findAll();
-$pendingCartes  = array_filter($allCartes, fn($c)=>in_array($c->getStatut(),['inactive','demande_cloture','demande_suppression']));
+$pendingCartes  = array_filter($allCartes, fn($c)=>in_array($c->getStatut(),['inactive','demande_cloture','demande_suppression','demande_reactivation']));
 
 // Helpers
 function badgeCompte(string $s): string {
@@ -44,7 +44,7 @@ function badgeCompte(string $s): string {
     return "<span class=\"badge {$cls}\"><span class=\"badge-dot\"></span>{$label}</span>";
 }
 function badgeCarte(string $s): string {
-    $map=['active'=>['b-actif','Active'],'inactive'=>['b-cloture','Inactive'],'bloquee'=>['b-bloque','Bloquée'],'expiree'=>['b-cloture','Expirée'],'demande_cloture'=>['b-attente','Dem. supp.'],'demande_blocage'=>['b-attente','Dem. blocage'],'demande_suppression'=>['b-attente','Dem. supp.']];
+    $map=['active'=>['b-actif','Active'],'inactive'=>['b-cloture','Inactive'],'bloquee'=>['b-bloque','Bloquée'],'expiree'=>['b-cloture','Expirée'],'demande_cloture'=>['b-attente','Dem. supp.'],'demande_blocage'=>['b-attente','Dem. blocage'],'demande_suppression'=>['b-attente','Dem. supp.'],'demande_reactivation'=>['b-attente','Dem. réactiv.']];
     [$cls,$label]=$map[$s]??['b-cloture',ucfirst($s)];
     return "<span class=\"badge {$cls}\"><span class=\"badge-dot\"></span>{$label}</span>";
 }
@@ -494,6 +494,25 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
               <input type="hidden" name="id_carte" value="<?= $carte->getIdCarte() ?>">
               <input type="hidden" name="redirect_id_compte" value="<?= $carte->getIdCompte() ?>">
               <button type="submit" class="act-btn" title="Refuser suppression" style="background:rgba(107,114,128,.15);color:var(--muted)">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </form>
+            <?php endif; ?>
+            <?php if ($carte->getStatut()==='demande_reactivation'): ?>
+            <form method="POST" action="<?= APP_URL ?>/controllers/CarteController.php" style="display:inline" onsubmit="return confirm('Réactiver cette carte ?')">
+              <input type="hidden" name="action" value="activer">
+              <input type="hidden" name="id_carte" value="<?= $carte->getIdCarte() ?>">
+              <input type="hidden" name="redirect_id_compte" value="<?= $carte->getIdCompte() ?>">
+              <button type="submit" class="act-btn success" title="Accepter réactivation">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </form>
+            <form method="POST" action="<?= APP_URL ?>/controllers/CarteController.php" style="display:inline" onsubmit="return confirm('Refuser la réactivation ?')">
+              <input type="hidden" name="action" value="update">
+              <input type="hidden" name="id_carte" value="<?= $carte->getIdCarte() ?>">
+              <input type="hidden" name="statut" value="expiree">
+              <input type="hidden" name="redirect_id_compte" value="<?= $carte->getIdCompte() ?>">
+              <button type="submit" class="act-btn" title="Refuser réactivation" style="background:rgba(107,114,128,.15);color:var(--muted)">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </form>

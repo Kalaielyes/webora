@@ -356,6 +356,8 @@ class CompteController
     }
 }
 
-// Invoke the handler if accessed directly for POST actions
-CompteController::handleRequest();
+// Invoke the handler only when this file is the entry point (not when included)
+if (basename($_SERVER["SCRIPT_FILENAME"]) === basename(__FILE__)) {
+    CompteController::handleRequest();
+}
 ?>

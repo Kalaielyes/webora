@@ -142,6 +142,7 @@ class CarteController
     // ── DB: Finders ───────────────────────────────────────────
     public static function findByCompte(int $idCompte): array
     {
+        self::syncExpiration();
         $db   = Config::getConnexion();
         $stmt = $db->prepare("SELECT * FROM cartebancaire WHERE id_compte = ? ORDER BY id_carte DESC");
         $stmt->execute([$idCompte]);
@@ -150,6 +151,7 @@ class CarteController
 
     public static function findById(int $id): ?CarteBancaire
     {
+        self::syncExpiration();
         $db   = Config::getConnexion();
         $stmt = $db->prepare("SELECT * FROM cartebancaire WHERE id_carte = ? LIMIT 1");
         $stmt->execute([$id]);
@@ -159,6 +161,7 @@ class CarteController
 
     public static function findAll(): array
     {
+        self::syncExpiration();
         $db   = Config::getConnexion();
         $stmt = $db->query("SELECT * FROM cartebancaire ORDER BY id_carte DESC");
         return array_map([self::class, 'fromRow'], $stmt->fetchAll());
@@ -196,6 +199,10 @@ class CarteController
     {
         $carte = self::findById($id);
         if ($carte) {
+            // If it was expired or pending reactivation, renew the expiration date
+            if ($carte->getStatut() === 'expiree' || $carte->getStatut() === 'demande_reactivation') {
+                $carte->setDateExpiration(date('Y-m-t', strtotime('+4 years')));
+            }
             $carte->setStatut('active');
             $carte->setDateActivation(date('Y-m-d'));
             $carte->setMotifBlocage(null);
@@ -262,6 +269,21 @@ class CarteController
             $carte->setStatut('demande_suppression');
             self::update($carte);
         }
+    }
+
+    public static function demanderReactivation(int $id): void
+    {
+        $carte = self::findById($id);
+        if ($carte) {
+            $carte->setStatut('demande_reactivation');
+            self::update($carte);
+        }
+    }
+
+    public static function syncExpiration(): void
+    {
+        $db = Config::getConnexion();
+        $db->exec("UPDATE cartebancaire SET statut = 'expiree' WHERE date_expiration < CURDATE() AND statut = 'active'");
     }
 
     // ── Request Handler ───────────────────────────────────────
@@ -346,6 +368,7 @@ class CarteController
                 break;
             case 'demander_blocage': self::demanderBlocage($idCarte);                             break;
             case 'demander_cloture': self::demanderCloture($idCarte);                             break;
+            case 'demander_reactivation': self::demanderReactivation($idCarte);                   break;
             case 'demande_suppression': self::demanderSuppression($idCarte);                      break;
             case 'delete':
                 $carte = self::findById($idCarte);
@@ -429,6 +452,8 @@ class CarteController
     }
 }
 
-// Invoke the handler if accessed directly for POST actions
-CarteController::handleRequest();
+// Invoke the handler only when this file is the entry point (not when included)
+if (basename($_SERVER["SCRIPT_FILENAME"]) === basename(__FILE__)) {
+    CarteController::handleRequest();
+}
 ?>

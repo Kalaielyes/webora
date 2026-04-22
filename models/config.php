@@ -13,6 +13,11 @@ if (!defined('APP_URL')) {
     define('APP_URL', $scheme . '://' . $host . $base);
 }
 
+// ── GEMINI API KEY ───────────────────────────────────────────────────────────
+if (!defined('GEMINI_API_KEY')) {
+    define('GEMINI_API_KEY', 'AIzaSyB0YlH91gEh797m-Nzgh5G29PzuXbFcBxY');
+}
+
 class Config
 {
     private static ?PDO $pdo = null;

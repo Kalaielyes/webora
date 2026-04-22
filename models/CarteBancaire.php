@@ -13,7 +13,7 @@ class CarteBancaire {
     public const STYLES  = ['standard', 'gold', 'platinum', 'titanium'];
     public const STATUTS = [
         'active', 'inactive', 'bloquee', 'expiree',
-        'demande_cloture', 'demande_blocage', 'demande_suppression'
+        'demande_cloture', 'demande_blocage', 'demande_suppression', 'demande_reactivation'
     ];
 
     // ── Properties (map 1-to-1 to DB columns) ────────────────────────────────
