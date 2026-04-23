@@ -1,23 +1,22 @@
 <?php
 
-
 class Config
 {
     private static ?PDO $pdo = null;
 
-    private function construct() {}
-    private function clone() {}
+    private function __construct() {}
+    private function __clone() {}
 
     public static function getConnexion(): ?PDO
     {
         if (self::$pdo === null) {
-            $host    = 'localhost';
+            $host    = '127.0.0.1';
             $dbname  = 'webora';
             $user    = 'root';
             $pass    = '';
             $charset = 'utf8mb4';
 
-            $dsn = "mysql:host=$host;dbname=$dbname;charset=$charset";
+            $dsn = "mysql:host=$host;port=3307;dbname=$dbname;charset=$charset";
 
             $options = [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -27,12 +26,6 @@ class Config
 
             try {
                 self::$pdo = new PDO($dsn, $user, $pass, $options);
-                
-                try {
-                    self::$pdo->exec("ALTER TABLE cartebancaire ADD COLUMN cvv_display VARCHAR(4) NOT NULL DEFAULT ''");
-                } catch (PDOException $me) {
-                    
-                }
             } catch (PDOException $e) {
                 error_log('[NexaBank] DB Connection failed: ' . $e->getMessage());
                 die(json_encode(['error' => 'Database unavailable. Please try later.']));
@@ -40,6 +33,4 @@ class Config
         }
         return self::$pdo;
     }
-
- 
 }

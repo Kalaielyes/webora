@@ -1,21 +1,22 @@
 <?php
-require_once '../../config/config.php';
-require_once '../../model/demandechequier.php';
-require_once '../../controller/demandechequiercontroller.php';
+require_once __DIR__ . '/../../model/config.php';
+require_once __DIR__ . '/../../model/demandechequier.php';
+require_once __DIR__ . '/../../controller/demandechequiercontroller.php';
+require_once __DIR__ . '/../../controller/chequiercontroller.php';
+require_once __DIR__ . '/../../model/chequier.php';
+require_once __DIR__ . '/../../controller/chequecontroller.php';
+require_once __DIR__ . '/../../model/cheque.php';
 
 $demandeC = new DemandeChequierController();
-
-// Suppression d'une demande via le contrôleur
+$chequierC = new ChequierController();
+$chequeC = new ChequeController();
 if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])) {
     $demandeC->deleteDemande((int)$_GET['id']);
     header('Location: frontoffice_chequier.php');
     exit();
 }
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_demande'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nom_et_prenom'])) {
     $id_compte = $_POST['compte'] ?? '';
-    
-    // Fallback automatique
     if (empty($id_compte)) {
         try {
             $db = Config::getConnexion();
@@ -42,7 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_demande'])) {
     $id_edit = $_POST['id_edit'] ?? '';
     // On définit le type d'opération pour le message de succès
     $op_type = empty($id_edit) ? 'add' : 'edit';
-    
     try {
         if (!empty($id_edit)) {
             $success = $demandeC->updateDemande($demande, (int)$id_edit);
@@ -50,23 +50,144 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_demande'])) {
             $success = $demandeC->addDemande($demande);
         }
     } catch (Exception $e) {
-        die("Erreur lors de l'opération : " . $e->getMessage());
+        $error_msg = "Erreur lors de l'opération : " . $e->getMessage();
+        $success = false;
+    }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_POST['action_type'] === 'emettre_cheque') {
+    $id_chequier = (int)($_POST['id_chequier'] ?? 0);
+    $validated = false;
+    $validation_errors = [];
+    
+    if ($id_chequier <= 0) {
+        $error_msg = "Erreur : Chéquier non identifié. Veuillez réessayer.";
+    } else {
+        $validation_errors = [];
+        $montant_str = trim($_POST['montant'] ?? '');
+        $montant = floatval($montant_str);
+        if (empty($montant_str) || !is_numeric($montant_str) || $montant <= 0 || $montant > 8000) {
+            $validation_errors[] = "Le montant est obligatoire, doit être positif et max 8000.";
+        }
+        $date_emission = trim($_POST['date_emission'] ?? '');
+        if (empty($date_emission) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_emission)) {
+            $validation_errors[] = "La date d'émission est obligatoire et invalide.";
+        }
+        $lettres = trim($_POST['lettres'] ?? '');
+        if (empty($lettres) || strlen($lettres) > 40 || !preg_match('/^[a-zA-ZÀ-ÿ\s]+$/', $lettres)) {
+            $validation_errors[] = "Les lettres sont obligatoires, max 40 caractères et lettres uniquement.";
+        }
+        $agence = trim($_POST['agence'] ?? '');
+        if (empty($agence) || strlen($agence) > 20) {
+            $validation_errors[] = "L'agence est obligatoire, max 20 caractères.";
+        }
+        $beneficiaire = trim($_POST['beneficiaire'] ?? '');
+        if (empty($beneficiaire) || strlen($beneficiaire) > 10 || !preg_match('/^[a-zA-ZÀ-ÿ\s]+$/', $beneficiaire)) {
+            $validation_errors[] = "Le nom du bénéficiaire est obligatoire, max 10 caractères et lettres uniquement.";
+        }
+        $cin = trim($_POST['cin_beneficiaire'] ?? '');
+        if (!preg_match('/^\d{8}$/', $cin)) {
+            $validation_errors[] = "Le CIN doit contenir exactement 8 chiffres.";
+        }
+        $rib = trim($_POST['rib_beneficiaire'] ?? '');
+        if (!preg_match('/^\d{20}$/', $rib)) {
+            $validation_errors[] = "Le RIB doit contenir exactement 20 chiffres.";
+        }
+        $numero_cheque = trim($_POST['numero_cheque'] ?? '');
+        if (empty($numero_cheque)) {
+            $validation_errors[] = "Le numéro de chèque est obligatoire.";
+        }
+        if (empty($validation_errors)) {
+            $validated = true;
+            
+            $data = [
+                'id_chequier'      => $id_chequier,
+                'numero_cheque'    => $numero_cheque,
+                'montant'          => $montant,
+                'date_emission'    => $date_emission,
+                'beneficiaire'     => $beneficiaire,
+                'rib_beneficiaire' => $rib,
+                'cin_beneficiaire' => $cin,
+                'lettres'          => $lettres,
+                'agence'           => $agence
+            ];
+
+            $cheque = new Cheque($data);
+            try {
+                $res = $chequeC->addCheque($cheque);
+                if ($res) {
+                    $success = true;
+                    $op_type = 'cheque_emited';
+                    // Rediriger avec un paramètre de succès
+                    header('Location: frontoffice_chequier.php?view=mes_chequiers&cheque_success=1');
+                    exit();
+                }
+            } catch (Exception $e) {
+                $error_msg = "Erreur base de données : " . $e->getMessage();
+            }
+        } else {
+            $error_msg = "Erreur de validation : " . implode(" ", $validation_errors);
+        }
+    }
+}
+if (isset($_GET['action']) && $_GET['action'] === 'get_history' && isset($_GET['id'])) {
+    header('Content-Type: application/json');
+    $id = (int)$_GET['id'];
+    $cheques = $chequeC->listChequesByChequier($id);
+    echo json_encode($cheques);
+    exit();
+}
+if (isset($_GET['action']) && $_GET['action'] === 'delete_cheque' && isset($_GET['id'])) {
+    header('Content-Type: application/json');
+    $id = (int)$_GET['id'];
+    try {
+        $res = $chequeC->deleteCheque($id);
+        echo json_encode(['success' => $res]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit();
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_POST['action_type'] === 'update_cheque') {
+    $id_cheque = (int)($_POST['id_cheque'] ?? 0);
+    $data = [
+        'montant'          => (float)($_POST['montant'] ?? 0),
+        'date_emission'    => $_POST['date_emission'] ?? date('Y-m-d'),
+        'beneficiaire'     => $_POST['beneficiaire'] ?? '',
+        'rib_beneficiaire' => $_POST['rib_beneficiaire'] ?? '',
+        'cin_beneficiaire' => $_POST['cin_beneficiaire'] ?? '',
+        'lettres'          => $_POST['lettres'] ?? '',
+        'agence'           => $_POST['agence'] ?? ''
+    ];
+
+    $cheque = new Cheque($data);
+    try {
+        $res = $chequeC->updateCheque($cheque, $id_cheque);
+        if ($res) {
+            $success = true;
+            $op_type = 'edit_cheque'; // Specific type for check edit
+            // Optionnel : ne pas rediriger si on veut rester sur la vue actuelle
+            header('Location: frontoffice_chequier.php?view=mes_chequiers&status=success_edit');
+            exit();
+        }
+    } catch (Exception $e) {
+        $error_msg = "Erreur lors de la modification : " . $e->getMessage();
+    }
+}
+$toutes_les_demandes = $demandeC->listDemandes();
+$tous_les_chequiers = $chequierC->listChequiers();
+$countActifs = 0;
+$totalFeuilles = 0;
+foreach($tous_les_chequiers as $c) {
+    if (trim(strtolower($c['statut'])) === 'actif') {
+        $countActifs++;
+        $totalFeuilles += (int)$c['nombre_feuilles'];
     }
 }
 
-// Récupération de toutes les demandes via le contrôleur
-$toutes_les_demandes = $demandeC->listDemandes();
-
-// Calcul des statistiques réelles
-$countActifs = 0;
 $countRequests = 0;
-$totalFeuilles = 0;
 foreach($toutes_les_demandes as $d) {
     $statut = trim(strtolower($d['statut'] ?? 'en attente'));
-    if ($statut === 'acceptée' || $statut === 'acceptee') {
-        $countActifs++;
-        $totalFeuilles += (int)$d['nombre_cheques'];
-    } elseif ($statut === 'en attente' || empty($statut)) {
+    if ($statut === 'en attente' || empty($statut)) {
         $countRequests++;
     }
 }
@@ -92,6 +213,9 @@ try {
 </head>
 <body>
 
+<?php 
+$current_view = $_GET['view'] ?? 'dashboard'; 
+?>
 <!-- SIDEBAR -->
 <div class="sidebar">
   <div class="sb-logo">
@@ -107,15 +231,18 @@ try {
   </div>
   <nav class="sb-nav">
     <div class="nav-section">Mon compte</div>
-    <a class="nav-item" href="#">
+    
+    <a class="nav-item <?= $current_view === 'dashboard' ? 'active' : '' ?>" href="frontoffice_chequier.php?view=dashboard">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Tableau de bord
     </a>
-    <a class="nav-item active" href="#">
+
+    <a class="nav-item <?= $current_view === 'mes_chequiers' ? 'active' : '' ?>" href="frontoffice_chequier.php?view=mes_chequiers">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/></svg>
       Mes chéquiers
-      <span class="nav-badge"><?= $countActifs + $countRequests ?></span>
+      <span class="nav-badge" style="background:rgba(220,38,38,0.25); color:#FCA5A5; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:50%; padding:0; margin-left:auto; font-size:0.65rem;"><?= $countActifs ?></span>
     </a>
+
     <a class="nav-item" href="../backoffice/backoffice_chequier.php">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
       backoffice
@@ -126,10 +253,11 @@ try {
   </div>
 </div>
 
+
 <!-- MAIN -->
 <div class="main">
   <div class="topbar">
-    <div class="topbar-title">Mes chéquiers</div>
+    <div class="topbar-title"><?= $current_view === 'mes_chequiers' ? 'Mes chéquiers' : 'Demande d\'un chequier' ?></div>
     <div class="topbar-right">
       <div class="notif">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
@@ -139,8 +267,34 @@ try {
   </div>
 
   <div class="content">
+    <?php if (isset($success) && $success && ($op_type === 'add' || $op_type === 'edit')): ?>
+      <div id="phpSuccessMsg" class="success-banner" style="margin-bottom: 1.5rem; align-items: center;">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="flex-shrink:0; color:var(--green);"><path d="M20 6L9 17l-5-5"/></svg>
+        <div style="flex:1; font-size:0.8rem; color:var(--text); padding: 0 4px;">
+            <?php 
+              if ($op_type === 'add') echo "Votre demande de chéquier a été enregistrée avec succès.";
+              elseif ($op_type === 'edit') echo "Votre demande a été mise à jour avec succès.";
+            ?>
+        </div>
+        <button onclick="this.parentElement.remove()" style="background:none; border:none; color:var(--muted2); cursor:pointer; font-size:1.2rem; line-height:1; display:flex;">&times;</button>
+      </div>
+    <?php elseif (isset($_GET['cheque_success']) && $_GET['cheque_success'] == 1): ?>
+      <div id="chequeSuccessMsg" class="success-banner" style="margin-bottom: 1.5rem; align-items: center;">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="flex-shrink:0; color:var(--green);"><path d="M20 6L9 17l-5-5"/></svg>
+        <div style="flex:1; font-size:0.8rem; color:var(--text); padding: 0 4px;">
+          Le chèque a été émis avec succès.
+        </div>
+        <button onclick="this.parentElement.remove()" style="background:none; border:none; color:var(--muted2); cursor:pointer; font-size:1.2rem; line-height:1; display:flex;">&times;</button>
+      </div>
+    <?php elseif (isset($error_msg)): ?>
+      <div class="danger-banner" style="margin-bottom: 1.5rem; align-items: center;">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="flex-shrink:0; color:var(--rose);"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        <div style="flex:1; font-size:0.8rem; color:var(--text); padding: 0 4px;"><?= htmlspecialchars($error_msg) ?></div>
+        <button onclick="this.parentElement.remove()" style="background:none; border:none; color:var(--muted2); cursor:pointer; font-size:1.2rem; line-height:1; display:flex;">&times;</button>
+      </div>
+    <?php endif; ?>
 
-    <!-- STATS -->
+    <!-- STATS (Persistent) -->
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-card-label">
@@ -168,24 +322,18 @@ try {
       </div>
     </div>
 
-    <!-- DEMANDE FORM -->
+    <?php if ($current_view === 'dashboard'): ?>
+    <!-- VIEW: DASHBOARD (Faire une demande) -->
+
     <div>
       <div class="section-head" style="margin-bottom:.9rem">
         <div class="section-title">Faire une demande de chéquier</div>
       </div>
-      <div class="demande-card">
         <div class="info-banner">
           <svg width="16" height="16" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
           Votre demande sera traitée sous 24 à 48h ouvrables. Vous serez notifié par e-mail dès la validation ou le refus de votre demande.
         </div>
 
-        <?php if (isset($success) && $success): ?>
-        <div id="phpSuccessMsg" class="info-banner" style="background:var(--green-light); border-color:var(--green); color:var(--green); margin-bottom:1.5rem;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><polyline points="20 6 9 17 4 12"/></svg>
-          <?= (isset($op_type) && $op_type === 'edit') ? "Votre demande a été modifiée avec succès !" : "Félicitations ! Votre demande a été enregistrée avec succès dans la base de données." ?>
-        </div>
-
-        <?php endif; ?>
 
         <form method="POST" action="" id="demandeForm" onsubmit="return validerDemande(event)" novalidate>
           <input type="hidden" name="id_edit" id="idEdit" value=""/>
@@ -290,7 +438,9 @@ try {
         </form>
       </div>
     </div>
-
+    <?php else: ?>
+    
+    <!-- VIEW: MES CHEQUIERS (Cards + Demandes) -->
     <!-- MES CHEQUIERS ACTIFS -->
     <div>
       <div class="section-head" style="margin-bottom:.9rem">
@@ -301,20 +451,19 @@ try {
         <?php 
         $affiche_quelque_chose = false;
         $countShow = 0;
-        foreach ($toutes_les_demandes as $d): 
-            $s = trim(strtolower($d['statut'] ?? 'en attente'));
-            if ($s === 'acceptée' || $s === 'acceptee' || $s === 'refusée'):
-                if ($countShow >= 3) continue; // Limit to 3 on main page
+        foreach ($tous_les_chequiers as $chq): 
+            $s = trim(strtolower($chq['statut']));
+            if ($s === 'actif' || $s === 'bloque' || $s === 'expire'):
                 $countShow++;
                 $affiche_quelque_chose = true;
-                $isRefused = $s === 'refusée';
-                $creationDate = new DateTime($d['date_demande']);
-                $expDate = clone $creationDate;
-                $expDate->modify('+2 years');
-                $chqNum = "CHQ-" . $creationDate->format('Y') . "-" . str_pad($d['id_demande'], 5, '0', STR_PAD_LEFT);
-                $badgeClass = $isRefused ? 'b-refusee' : 'b-actif';
-                $dotColor = $isRefused ? 'var(--rose)' : 'var(--green)';
-                $statutLabel = $isRefused ? 'Refusée' : 'Actif';
+                $affiche_quelque_chose = true;
+                $isRefused = ($s !== 'actif');
+                $creationDate = new DateTime($chq['date_creation']);
+                $expDate = new DateTime($chq['date_expiration']);
+                $chqNum = $chq['numero_chequier'];
+                $badgeClass = $s === 'actif' ? 'b-actif' : 'b-refusee';
+                $dotColor = $s === 'actif' ? 'var(--green)' : 'var(--rose)';
+                $statutLabel = ucfirst($s);
                 
                 // Styles pour le refus
                 $actionStyle = $isRefused ? 'border-color:var(--rose-light); color:var(--rose); cursor:not-allowed; opacity:0.7;' : '';
@@ -322,33 +471,33 @@ try {
         ?>
         <div class="chq-card" <?= $isRefused ? 'style="border-color:var(--rose-light);"' : '' ?>>
           <div class="chq-visual" <?= $isRefused ? 'style="background:linear-gradient(135deg, #fecaca 0%, #ef4444 100%);"' : '' ?>>
-            <div class="chq-num"><?= $chqNum ?></div>
+            <div class="chq-num"><?= htmlspecialchars($chqNum) ?></div>
             <div class="chq-bottom">
               <div>
-                <div class="chq-name"><?= htmlspecialchars($d['nom et prenom']) ?></div>
+                <div class="chq-name"><?= htmlspecialchars($chq['nom et prenom'] ?? 'Client') ?></div>
                 <div style="font-size:.5rem;color:rgba(255,255,255,.35);margin-top:2px;">Exp. <?= $expDate->format('d/m/Y') ?></div>
               </div>
               <div style="text-align:right">
-                <div class="chq-feuilles-val"><?= htmlspecialchars($d['nombre_cheques']) ?></div>
+                <div class="chq-feuilles-val"><?= htmlspecialchars($chq['nombre_feuilles']) ?></div>
                 <div class="chq-feuilles-label">feuilles</div>
               </div>
             </div>
           </div>
           <div class="chq-details">
             <div class="chq-details-top">
-              <span class="chq-details-title">Chéquier N° <?= $chqNum ?></span>
-              <span class="badge <?= $badgeClass ?>"><span class="badge-dot" style="background:<?= $dotColor ?>"></span><?= $statutLabel ?></span>
+              <span class="chq-details-title">Chéquier N° <?= htmlspecialchars($chqNum) ?></span>
+              <span class="badge <?= $badgeClass ?>"><span class="badge-dot" style="background:<?= $dotColor ?>"></span><?= htmlspecialchars($statutLabel) ?></span>
             </div>
             <div class="chq-info-grid">
-              <div class="ci-item"><div class="ci-label">ID chéquier</div><div class="ci-val" style="font-family:var(--fm);font-size:.75rem"><?= $chqNum ?></div></div>
-              <div class="ci-item"><div class="ci-label">Feuilles restantes</div><div class="ci-val"><?= htmlspecialchars($d['nombre_cheques']) ?> / <?= htmlspecialchars($d['nombre_cheques']) ?></div></div>
+              <div class="ci-item"><div class="ci-label">ID chéquier</div><div class="ci-val" style="font-family:var(--fm);font-size:.75rem"><?= htmlspecialchars($chqNum) ?></div></div>
+              <div class="ci-item"><div class="ci-label">Feuilles restantes</div><div class="ci-val"><?= htmlspecialchars($chq['nombre_feuilles']) ?> / <?= htmlspecialchars($chq['nombre_feuilles']) ?></div></div>
               <div class="ci-item"><div class="ci-label">Date création</div><div class="ci-val"><?= $creationDate->format('d M. Y') ?></div></div>
               <div class="ci-item"><div class="ci-label">Date expiration</div><div class="ci-val"><?= $expDate->format('d M. Y') ?></div></div>
-              <div class="ci-item"><div class="ci-label">Compte lié</div><div class="ci-val" style="font-family:var(--fm);font-size:.72rem"><?= htmlspecialchars($d['iban'] ?: 'Non renseigné') ?></div></div>
-              <div class="ci-item"><div class="ci-label">Statut</div><div class="ci-val"><span class="badge <?= $badgeClass ?>" style="font-size:.65rem"><span class="badge-dot" style="background:<?= $dotColor ?>"></span><?= $statutLabel ?></span></div></div>
+              <div class="ci-item"><div class="ci-label">Compte lié</div><div class="ci-val" style="font-family:var(--fm);font-size:.72rem"><?= htmlspecialchars($chq['iban'] ?? 'Non renseigné') ?></div></div>
+              <div class="ci-item"><div class="ci-label">Statut</div><div class="ci-val"><span class="badge <?= $badgeClass ?>" style="font-size:.65rem"><span class="badge-dot" style="background:<?= $dotColor ?>"></span><?= htmlspecialchars($statutLabel) ?></span></div></div>
             </div>
             <div class="chq-actions">
-              <button class="chq-act-btn ca-primary" style="<?= $actionStyle ?>" <?= $actionCursor ?>>
+              <button class="chq-act-btn ca-primary" style="<?= $actionStyle ?>" <?= $isRefused ? 'onclick="return false;"' : "onclick=\"openChequierModal('".htmlspecialchars($chqNum)."','".htmlspecialchars(addslashes($chq['nom et prenom'] ?? 'Client'))."','".htmlspecialchars(addslashes($chq['iban'] ?? ''))."','".htmlspecialchars($statutLabel)."','".htmlspecialchars($chq['nombre_feuilles'])."','".htmlspecialchars($chq['date_creation'])."','".htmlspecialchars($chq['date_expiration'])."','".htmlspecialchars($chq['id_chequier'])."')\"" ?>>
                 <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 Détails
               </button>
@@ -356,9 +505,13 @@ try {
                 <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/></svg>
                 Attestation
               </button>
-              <button class="chq-act-btn ca-saisir" style="<?= $actionStyle ?>" <?= $isRefused ? 'onclick="return false;"' : "onclick=\"openChequeModal('$chqNum','".htmlspecialchars($d['nom et prenom'])."','".htmlspecialchars($d['iban'])."')\"" ?>>
+              <button class="chq-act-btn ca-saisir" style="<?= $actionStyle ?>" <?= $isRefused ? 'onclick="return false;"' : "onclick=\"openChequeModal('".htmlspecialchars($chqNum)."','".htmlspecialchars(addslashes($chq['nom et prenom'] ?? ''))."','".htmlspecialchars(addslashes($chq['iban'] ?? ''))."','".htmlspecialchars($chq['id_chequier'])."')\"" ?>>
                 <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4M14 15h4"/></svg>
                 Saisir un chèque
+              </button>
+              <button class="chq-act-btn ca-neutral" onclick="openHistoriqueModal('<?= htmlspecialchars($chqNum) ?>','<?= htmlspecialchars($chq['id_chequier'] ?? '') ?>')" style="background:rgba(99,102,241,0.1); color:var(--blue); border-color:rgba(99,102,241,0.2);">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Historique
               </button>
               <button class="chq-act-btn ca-danger" style="<?= $isRefused ? $actionStyle : '' ?>" <?= $actionCursor ?>>
                 <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
@@ -419,6 +572,7 @@ try {
       </div>
     </div>
 
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -441,7 +595,7 @@ try {
     </div>
 
     <!-- Bannière succès -->
-    <div class="success-banner" id="successBanner">
+    <div class="success-banner" id="successBanner" style="display:none;">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
       Chèque émis avec succès !
     </div>
@@ -520,8 +674,25 @@ try {
     </div>
 
     <!-- ─── FORMULAIRE DE SAISIE ─── -->
-    <form class="cheque-form" onsubmit="return false;">
+    <form class="cheque-form" id="chequeEmissionForm" method="POST" onsubmit="return submitCheque(event);">
+      <input type="hidden" name="action_type" value="emettre_cheque">
+      <input type="hidden" name="id_chequier" id="hiddenChequierId">
       <div class="cheque-form-grid">
+
+        <!-- Section : jointure Chéquier -->
+        <div class="form-section-label">Lien avec le chéquier</div>
+        
+        <div class="form-field full-col">
+          <label>N° Chéquier cible (Jointure)</label>
+          <div class="input-id-wrapper">
+            <span class="input-id-prefix" style="background:var(--surface3); color:var(--blue);">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
+              REF-
+            </span>
+            <input type="text" id="chkRefChequier" class="input-with-prefix" readonly style="background:var(--surface2); cursor:default;"/>
+          </div>
+          <div class="field-hint">Ce chèque sera rattaché mathématiquement à ce chéquier.</div>
+        </div>
 
         <!-- Section : Informations du chèque -->
         <div class="form-section-label">Informations du chèque</div>
@@ -545,32 +716,32 @@ try {
               <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
               NMR-
             </span>
-            <input type="text" id="chkNmr" class="input-with-prefix" readonly/>
+            <input type="text" id="chkNmr" name="numero_cheque" class="input-with-prefix" readonly/>
           </div>
           <div class="field-hint">Numéro séquentiel unique</div>
         </div>
 
         <div class="form-field">
           <label>Montant (TND) *</label>
-          <input type="text" id="chkMontant" placeholder="Ex : 1500.000" oninput="updatePreview()"/>
+          <input type="text" id="chkMontant" name="montant" placeholder="Ex : 1500.000" oninput="updatePreview()"/>
           <div id="errChkMontant" class="error-msg" style="color:var(--rose);font-size:0.75rem;margin-top:4px;display:none;"></div>
         </div>
 
         <div class="form-field">
           <label>Date d'émission *</label>
-          <input type="text" id="chkDate" placeholder="Ex : 2026-04-12" oninput="updatePreview()"/>
+          <input type="date" id="chkDate" name="date_emission" oninput="updatePreview()"/>
           <div id="errChkDate" class="error-msg" style="color:var(--rose);font-size:0.75rem;margin-top:4px;display:none;"></div>
         </div>
 
         <div class="form-field full-col">
           <label>Montant en lettres *</label>
-          <input type="text" id="chkLettres" placeholder="Ex : Mille cinq cents dinars" oninput="updatePreview()"/>
+          <input type="text" id="chkLettres" name="lettres" placeholder="Ex : Mille cinq cents dinars" oninput="updatePreview()"/>
           <div id="errChkLettres" class="error-msg" style="color:var(--rose);font-size:0.75rem;margin-top:4px;display:none;"></div>
         </div>
 
         <div class="form-field full-col">
           <label>Agence *</label>
-          <input type="text" id="chkAgence" placeholder="Ex : Agence Tunis Centre" oninput="updatePreview()"/>
+          <input type="text" id="chkAgence" name="agence" placeholder="Ex : Agence Tunis Centre" oninput="updatePreview()"/>
           <div id="errChkAgence" class="error-msg" style="color:var(--rose);font-size:0.75rem;margin-top:4px;display:none;"></div>
         </div>
 
@@ -579,19 +750,19 @@ try {
 
         <div class="form-field">
           <label>Nom du bénéficiaire *</label>
-          <input type="text" id="chkBenef" placeholder="Ex : Ahmed Ben Ali" oninput="updatePreview()"/>
+          <input type="text" id="chkBenef" name="beneficiaire" placeholder="Ex : Ahmed Ben Ali" oninput="updatePreview()"/>
           <div id="errChkBenef" class="error-msg" style="color:var(--rose);font-size:0.75rem;margin-top:4px;display:none;"></div>
         </div>
 
         <div class="form-field">
           <label>N° Pièce d'identité *</label>
-          <input type="text" id="chkCin" placeholder="Ex : 09856321" oninput="updatePreview()"/>
+          <input type="text" id="chkCin" name="cin_beneficiaire" placeholder="Ex : 09856321" oninput="updatePreview()"/>
           <div id="errChkCin" class="error-msg" style="color:var(--rose);font-size:0.75rem;margin-top:4px;display:none;"></div>
         </div>
 
         <div class="form-field full-col">
           <label>RIB bénéficiaire *</label>
-          <input type="text" id="chkRib" placeholder="Ex : 04010050071234120045" oninput="updatePreview()"/>
+          <input type="text" id="chkRib" name="rib_beneficiaire" placeholder="Ex : 04010050071234120045" oninput="updatePreview()"/>
           <div id="errChkRib" class="error-msg" style="color:var(--rose);font-size:0.75rem;margin-top:4px;display:none;"></div>
         </div>
 
@@ -599,16 +770,15 @@ try {
 
       <div class="modal-footer">
         <button type="button" class="btn-ghost" onclick="closeChequeModal()">Annuler</button>
-        <button type="button" class="btn-primary" onclick="submitCheque()">
+        <button type="submit" class="btn-primary">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
           Émettre le chèque
         </button>
       </div>
-
     </form>
-
   </div><!-- /modal-box -->
 </div><!-- /modal-overlay -->
+<?php endif; ?>
 
 
 
@@ -643,8 +813,10 @@ try {
         </thead>
         <tbody>
           <?php foreach ($toutes_les_demandes as $d): 
-             $statut = trim(strtolower($d['statut'] ?? 'en attente'));
-             if ($statut === 'en attente' || empty($statut)):
+             $statut_raw = $d['statut'] ?? '';
+             $statut = trim(strtolower($statut_raw));
+             // Afficher toutes les demandes en attente (filtre robuste)
+             if ($statut === 'en attente' || $statut === '' || strpos($statut, 'attente') !== false || $statut_raw === null):
           ?>
             <tr style="border-bottom:1px solid var(--border);">
               <td style="padding:.8rem;">
@@ -698,51 +870,56 @@ try {
       <div class="chq-list" style="display:flex; flex-direction:column; gap:1.5rem;">
         <?php 
         $anyChq = false;
-        foreach ($toutes_les_demandes as $d): 
-            $s = trim(strtolower($d['statut'] ?? 'en attente'));
-            if ($s === 'acceptée' || $s === 'acceptee' || $s === 'refusée'):
+        foreach ($tous_les_chequiers as $chq): 
+            $s = trim(strtolower($chq['statut']));
+            if ($s === 'actif' || $s === 'bloque' || $s === 'expire'):
                 $anyChq = true;
-                $isRefused = $s === 'refusée';
-                $creationDate = new DateTime($d['date_demande']);
-                $expDate = clone $creationDate;
-                $expDate->modify('+2 years');
-                $chqNum = "CHQ-" . $creationDate->format('Y') . "-" . str_pad($d['id_demande'], 5, '0', STR_PAD_LEFT);
-                $badgeClass = $isRefused ? 'b-refusee' : 'b-actif';
-                $dotColor = $isRefused ? 'var(--rose)' : 'var(--green)';
-                $statutLabel = $isRefused ? 'Refusée' : 'Actif';
+                $isRefused = ($s !== 'actif');
+                $creationDate = new DateTime($chq['date_creation']);
+                $expDate = new DateTime($chq['date_expiration']);
+                $chqNum = $chq['numero_chequier'];
+                $badgeClass = $s === 'actif' ? 'b-actif' : 'b-refusee';
+                $dotColor = $s === 'actif' ? 'var(--green)' : 'var(--rose)';
+                $statutLabel = ucfirst($s);
                 
                 $actionStyle = $isRefused ? 'border-color:var(--rose-light); color:var(--rose); cursor:not-allowed; opacity:0.7;' : '';
                 $actionCursor = $isRefused ? 'onclick="return false;"' : '';
         ?>
         <div class="chq-card" <?= $isRefused ? 'style="border-color:var(--rose-light);"' : '' ?>>
           <div class="chq-visual" <?= $isRefused ? 'style="background:linear-gradient(135deg, #fecaca 0%, #ef4444 100%);"' : '' ?>>
-            <div class="chq-num"><?= $chqNum ?></div>
+            <div class="chq-num"><?= htmlspecialchars($chqNum) ?></div>
             <div class="chq-bottom">
               <div>
-                <div class="chq-name"><?= htmlspecialchars($d['nom et prenom']) ?></div>
+                <div class="chq-name"><?= htmlspecialchars($chq['nom et prenom'] ?? 'Client') ?></div>
                 <div style="font-size:.5rem;color:rgba(255,255,255,.35);margin-top:2px;">Exp. <?= $expDate->format('d/m/Y') ?></div>
               </div>
               <div style="text-align:right">
-                <div class="chq-feuilles-val"><?= htmlspecialchars($d['nombre_cheques']) ?></div>
+                <div class="chq-feuilles-val"><?= htmlspecialchars($chq['nombre_feuilles']) ?></div>
                 <div class="chq-feuilles-label">feuilles</div>
               </div>
             </div>
           </div>
           <div class="chq-details">
             <div class="chq-details-top">
-              <span class="chq-details-title">Chéquier N° <?= $chqNum ?></span>
-              <span class="badge <?= $badgeClass ?>"><span class="badge-dot" style="background:<?= $dotColor ?>"></span><?= $statutLabel ?></span>
+              <span class="chq-details-title">Chéquier N° <?= htmlspecialchars($chqNum) ?></span>
+              <span class="badge <?= $badgeClass ?>"><span class="badge-dot" style="background:<?= $dotColor ?>"></span><?= htmlspecialchars($statutLabel) ?></span>
             </div>
             <div class="chq-info-grid">
-              <div class="ci-item"><div class="ci-label">ID chéquier</div><div class="ci-val" style="font-family:var(--fm);font-size:.75rem"><?= $chqNum ?></div></div>
-              <div class="ci-item"><div class="ci-label">Feuilles restantes</div><div class="ci-val"><?= htmlspecialchars($d['nombre_cheques']) ?> / <?= htmlspecialchars($d['nombre_cheques']) ?></div></div>
+              <div class="ci-item"><div class="ci-label">ID chéquier</div><div class="ci-val" style="font-family:var(--fm);font-size:.75rem"><?= htmlspecialchars($chqNum) ?></div></div>
+              <div class="ci-item"><div class="ci-label">Feuilles restantes</div><div class="ci-val"><?= htmlspecialchars($chq['nombre_feuilles']) ?> / <?= htmlspecialchars($chq['nombre_feuilles']) ?></div></div>
               <div class="ci-item"><div class="ci-label">Date création</div><div class="ci-val"><?= $creationDate->format('d M. Y') ?></div></div>
               <div class="ci-item"><div class="ci-label">Date expiration</div><div class="ci-val"><?= $expDate->format('d M. Y') ?></div></div>
-              <div class="ci-item"><div class="ci-label">Compte lié</div><div class="ci-val" style="font-family:var(--fm);font-size:.72rem"><?= htmlspecialchars($d['iban'] ?: 'Non renseigné') ?></div></div>
-              <div class="ci-item"><div class="ci-label">Statut</div><div class="ci-val"><span class="badge <?= $badgeClass ?>" style="font-size:.65rem"><span class="badge-dot" style="background:<?= $dotColor ?>"></span><?= $statutLabel ?></span></div></div>
+              <div class="ci-item"><div class="ci-label">Compte lié</div><div class="ci-val" style="font-family:var(--fm);font-size:.72rem"><?= htmlspecialchars($chq['iban'] ?? 'Non renseigné') ?></div></div>
+              <div class="ci-item"><div class="ci-label">Statut</div><div class="ci-val"><span class="badge <?= $badgeClass ?>" style="font-size:.65rem"><span class="badge-dot" style="background:<?= $dotColor ?>"></span><?= htmlspecialchars($statutLabel) ?></span></div></div>
             </div>
             <div class="chq-actions">
-              <button class="chq-act-btn ca-primary" style="<?= $actionStyle ?>" <?= $actionCursor ?>>
+              <?php if (!$isRefused): ?>
+              <button class="chq-act-btn" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;font-weight:600;letter-spacing:.02em;" onclick="openChequierModal('<?= htmlspecialchars($chqNum) ?>','<?= htmlspecialchars(addslashes($chq['nom et prenom'] ?? '')) ?>','<?= htmlspecialchars(addslashes($chq['iban'] ?? '')) ?>','<?= $statutLabel ?>','<?= $chq['nombre_feuilles'] ?>','<?= $chq['date_creation'] ?>','<?= $chq['date_expiration'] ?>','<?= $chq['id_chequier'] ?>')">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/><path d="M14 3v4a1 1 0 001 1h4"/></svg>
+                Saisir chéquier
+              </button>
+              <?php endif; ?>
+              <button class="chq-act-btn ca-primary" style="<?= $actionStyle ?>" <?= $isRefused ? 'onclick="return false;"' : "onclick=\"openChequierModal('".htmlspecialchars($chqNum)."','".htmlspecialchars(addslashes($chq['nom et prenom'] ?? 'Client'))."','".htmlspecialchars(addslashes($chq['iban'] ?? ''))."','".htmlspecialchars($statutLabel)."','".htmlspecialchars($chq['nombre_feuilles'])."','".htmlspecialchars($chq['date_creation'])."','".htmlspecialchars($chq['date_expiration'])."','".htmlspecialchars($chq['id_chequier'])."')\"" ?>>
                 <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 Détails
               </button>
@@ -750,9 +927,13 @@ try {
                 <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/></svg>
                 Attestation
               </button>
-              <button class="chq-act-btn ca-saisir" style="<?= $actionStyle ?>" <?= $isRefused ? 'onclick="return false;"' : "onclick=\"openChequeModal('$chqNum','".htmlspecialchars($d['nom et prenom'])."','".htmlspecialchars($d['iban'])."')\"" ?>>
+              <button class="chq-act-btn ca-saisir" style="<?= $actionStyle ?>" <?= $isRefused ? 'onclick="return false;"' : "onclick=\"openChequeModal('".htmlspecialchars($chqNum)."','".htmlspecialchars(addslashes($chq['nom et prenom'] ?? ''))."','".htmlspecialchars(addslashes($chq['iban'] ?? ''))."','".htmlspecialchars($chq['id_chequier'])."')\"" ?>>
                 <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4M14 15h4"/></svg>
                 Saisir un chèque
+              </button>
+              <button class="chq-act-btn ca-neutral" onclick="openHistoriqueModal('<?= htmlspecialchars($chqNum) ?>','<?= htmlspecialchars($chq['id_chequier'] ?? '') ?>')" style="background:rgba(99,102,241,0.1); color:var(--blue); border-color:rgba(99,102,241,0.2);">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Historique
               </button>
               <button class="chq-act-btn ca-danger" style="<?= $isRefused ? $actionStyle : '' ?>" <?= $actionCursor ?>>
                 <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
@@ -770,6 +951,234 @@ try {
   </div>
 </div>
 
-<script src="chequier.js"></script>
+<!-- ═══════════════════════════════
+     MODAL SAISIR CHÉQUIER
+════════════════════════════════ -->
+<div class="modal-overlay" id="chequierModal">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Saisir chéquier</div>
+        <div class="modal-sub">Chéquier : <span id="chqModalId" style="font-family:var(--fm);color:var(--blue)"></span></div>
+      </div>
+      <button class="modal-close" onclick="closeChequierModal()" title="Fermer">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Visual chequier card -->
+    <div class="chq-visual" id="chqModalVisual" style="border-radius:14px;margin-bottom:1.2rem;min-height:100px;">
+      <div class="chq-num" id="chqModalNum"></div>
+      <div class="chq-bottom">
+        <div>
+          <div class="chq-name" id="chqModalName"></div>
+          <div style="font-size:.5rem;color:rgba(255,255,255,.35);margin-top:2px;" id="chqModalExpLabel">Exp. —</div>
+        </div>
+        <div style="text-align:right">
+          <div class="chq-feuilles-val" id="chqModalFeuilles"></div>
+          <div class="chq-feuilles-label">feuilles</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Details grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:1.4rem;">
+      <div class="ci-item"><div class="ci-label">N° Chéquier</div><div class="ci-val" id="chqModalNumVal" style="font-family:var(--fm);font-size:.72rem;"></div></div>
+      <div class="ci-item"><div class="ci-label">Statut</div><div id="chqModalStatutBadge"></div></div>
+      <div class="ci-item"><div class="ci-label">Feuilles disponibles</div><div class="ci-val" id="chqModalFeuillesVal"></div></div>
+      <div class="ci-item"><div class="ci-label">Compte IBAN</div><div class="ci-val" id="chqModalIban" style="font-family:var(--fm);font-size:.7rem;"></div></div>
+      <div class="ci-item"><div class="ci-label">Date création</div><div class="ci-val" id="chqModalDateCreation"></div></div>
+      <div class="ci-item"><div class="ci-label">Date expiration</div><div class="ci-val" id="chqModalDateExp"></div></div>
+    </div>
+
+    <!-- Action rapide -->
+    <div style="background:var(--surface2);border-radius:10px;padding:1rem;border:1px solid var(--border);">
+      <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.8rem;">Action rapide</div>
+      <div style="display:flex;flex-direction:column;gap:.7rem;">
+        <div class="form-field-mini" style="margin:0;">
+          <label style="font-size:.75rem;color:var(--muted2);">Bénéficiaire du chèque</label>
+          <input type="text" id="chqModalBenef" placeholder="Nom du bénéficiaire" style="height:36px;font-size:.82rem;">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+          <div class="form-field-mini" style="margin:0;">
+            <label style="font-size:.75rem;color:var(--muted2);">Montant (TND)</label>
+            <input type="text" id="chqModalMontant" placeholder="Ex : 1500.000" style="height:36px;font-size:.82rem;">
+          </div>
+          <div class="form-field-mini" style="margin:0;">
+            <label style="font-size:.75rem;color:var(--muted2);">Date d'émission</label>
+            <input type="date" id="chqModalDate" style="height:36px;font-size:.82rem;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="margin-top:1.2rem;">
+      <button type="button" class="btn-ghost" onclick="closeChequierModal()">Fermer</button>
+      <button type="button" class="btn-primary" onclick="lancerSaisirCheque()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        Saisir un chèque
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL : HISTORIQUE DES CHEQUES -->
+<div class="modal-overlay" id="historiqueChequeModal">
+  <div class="modal-box" style="max-width:800px; max-height:80vh; overflow-y:auto;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Historique des chèques</div>
+        <div class="modal-sub">Chéquier : <span id="histChqNum" style="font-family:var(--fm);color:var(--blue)"></span></div>
+      </div>
+      <button class="modal-close" onclick="closeHistoriqueModal()" title="Fermer">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    
+    <div class="modal-body" style="padding-top:1rem;">
+      <div id="historiqueList">
+        <div id="historiqueContent">
+          <div class="info-banner">Chargement de l'historique...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-ghost" onclick="closeHistoriqueModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script src="chequier.js?v=<?= time() ?>"></script>
+<script src="cheque.js?v=<?= time() ?>"></script>
+<script src="demandechequier.js?v=<?= time() ?>"></script>
+<script src="saisiecheque.js?v=<?= time() ?>"></script>
+<script>
+/* ── Modales de base ── */
+function openModal() {
+  var m = document.getElementById('requestsModal');
+  if (m) { m.classList.add('open'); document.body.style.overflow = 'hidden'; }
+}
+function closeModal() {
+  var m = document.getElementById('requestsModal');
+  if (m) { m.classList.remove('open'); document.body.style.overflow = ''; }
+}
+function openAllChequiersModal() {
+  var m = document.getElementById('allChequiersModal');
+  if (m) { m.classList.add('open'); document.body.style.overflow = 'hidden'; }
+}
+function closeAllChequiersModal() {
+  var m = document.getElementById('allChequiersModal');
+  if (m) { m.classList.remove('open'); document.body.style.overflow = ''; }
+}
+function closeHistoriqueModal() {
+  var m = document.getElementById('historiqueChequeModal');
+  if (m) { m.classList.remove('open'); document.body.style.overflow = ''; }
+}
+/* Fermer en cliquant sur l'overlay */
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) {
+    o.addEventListener('click', function(e) {
+      if (e.target === o) { o.classList.remove('open'); document.body.style.overflow = ''; }
+    });
+  });
+});
+
+/* ── preparerModif : pré-remplit le formulaire de demande ── */
+function preparerModif(d) {
+  closeModal();
+  var form = document.getElementById('demandeForm');
+  if (!form) {
+    window.location.href = 'frontoffice_chequier.php?view=dashboard&edit_id=' + d.id_demande;
+    return;
+  }
+  document.getElementById('idEdit').value        = d.id_demande || '';
+  document.getElementById('nomPrenom').value     = d['nom et prenom'] || '';
+  document.getElementById('motif').value         = d.motif || '';
+  document.getElementById('montantMax').value    = d.montant_max_par_cheque || '';
+  document.getElementById('telephone').value     = d.telephone || '';
+  document.getElementById('email').value         = d.email || '';
+  document.getElementById('commentaire').value   = d.commentaire || '';
+  document.getElementById('adresseInput').value  = d.adresse_agence || '';
+  var cpt = document.getElementById('compte');
+  if (cpt && d.id_compte) cpt.value = d.id_compte;
+  var tc = document.querySelector('select[name="type_chequier"]');
+  if (tc && d.type_chequier) tc.value = d.type_chequier;
+  var nb = document.querySelector('select[name="nombre_cheques"]');
+  if (nb && d.nombre_cheques) nb.value = d.nombre_cheques;
+  document.querySelectorAll('input[name="mode_reception"]').forEach(function(r) {
+    var lbl = r.closest('label');
+    if (r.value === d.mode_reception) { r.checked = true; if (lbl) lbl.classList.add('selected'); }
+    else { r.checked = false; if (lbl) lbl.classList.remove('selected'); }
+  });
+  var btn = document.querySelector('#demandeForm .btn-primary');
+  if (btn) btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Modifier la demande';
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function openHistoriqueModal(num, id) {
+  console.log("Opening history v4 for:", num, id);
+  const modal = document.getElementById('historiqueChequeModal');
+  const chqNumSpan = document.getElementById('histChqNum');
+  const content = document.getElementById('historiqueContent');
+
+  if (chqNumSpan) chqNumSpan.textContent = num + " [ACTIF - v4]";
+  if (content) content.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">Chargement v4...</div>';
+
+  if (modal) {
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  fetch(`frontoffice_chequier.php?action=get_history&id=${id}&cb=${Date.now()}`, { cache: "no-store" })
+    .then(response => response.json())
+    .then(data => {
+      window.currentChequesHistory = data;
+      if (!data || data.length === 0) {
+        content.innerHTML = '<div class="info-banner" style="background:var(--surface2); color:var(--muted);">Aucun chèque émis pour ce chéquier.</div>';
+      } else {
+        let html = `
+          <div class="hist-list">
+            <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+              <thead style="background:var(--surface2); text-align:left;">
+                <tr>
+                  <th style="padding:10px; border-bottom:2px solid var(--blue);">N° Chèque</th>
+                  <th style="padding:10px; border-bottom:2px solid var(--blue);">Bénéficiaire</th>
+                  <th style="padding:10px; border-bottom:2px solid var(--blue);">Montant</th>
+                  <th style="padding:10px; border-bottom:2px solid var(--blue);">Date</th>
+                  <th style="padding:10px; border-bottom:2px solid var(--blue); text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+        data.forEach(chq => {
+          const dateStr = new Date(chq.date_emission).toLocaleDateString('fr-FR');
+          html += `
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:12px; font-family:var(--fm); color:var(--blue);">${chq.numero_cheque}</td>
+              <td style="padding:12px;">
+                <div style="font-weight:600;">${chq.beneficiaire}</div>
+                <div style="font-size:0.7rem; color:var(--muted);">${chq.rib_beneficiaire}</div>
+              </td>
+              <td style="padding:12px; font-weight:600;">${parseFloat(chq.montant).toLocaleString('fr-TN', {minimumFractionDigits:3})} TND</td>
+              <td style="padding:12px; color:var(--muted);">${dateStr}</td>
+              <td style="padding:12px; text-align:right;">
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                  <button type="button" onclick="editCheque(${chq.id_cheque})" style="background:#4f46e5; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:10px; font-weight:bold; letter-spacing:0.5px;">MODIFIER</button>
+                  <button type="button" onclick="deleteCheque(${chq.id_cheque}, ${id})" style="background:#dc2626; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:10px; font-weight:bold; letter-spacing:0.5px;">SUPPRIMER</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+        html += '</tbody></table></div>';
+        content.innerHTML = html;
+      }
+    })
+    .catch(err => {
+      content.innerHTML = '<div class="info-banner" style="background:var(--rose-light); color:var(--rose);">Erreur lors du chargement.</div>';
+    });
+}
+</script>
 </body>
 </html>

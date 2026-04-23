@@ -1,42 +1,91 @@
-
 <?php
-require_once '../../config/config.php';
+require_once __DIR__ . '/../../model/config.php';
 require_once '../../controller/demandechequiercontroller.php';
+require_once '../../controller/chequiercontroller.php';
+require_once '../../model/chequier.php';
 
 $demandeC = new DemandeChequierController();
+$chequierC = new ChequierController();
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['creer_chequier'])) {
+    $id_demande = (int)$_POST['id_demande'];
+    $id_Compte = (int)$_POST['id_Compte'];
+    
+    $data = [
+        'numero_chequier' => $_POST['numero_chequier'],
+        'date_creation' => $_POST['date_creation'],
+        'date_expiration' => $_POST['date_expiration'],
+        'statut' => $_POST['statut_chequier'],
+        'nombre_feuilles' => (int)$_POST['nombre_feuilles'],
+        'id_demande' => $id_demande,
+        'id_Compte' => $id_Compte
+    ];
+    
+    $newChequier = new Chequier($data);
+    try {
+        if ($chequierC->addChequier($newChequier)) {
+            $demandeC->updateStatus($id_demande, 'Acceptée');
+            header('Location: backoffice_chequier.php?success=1');
+            exit();
+        }
+    } catch (Exception $e) {
+        $error_msg = "Erreur : " . $e->getMessage();
+    }
+}
 
-// Traitement des actions Accepter / Refuser
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modifier_chequier'])) {
+    $id_chequier = (int)$_POST['id_chequier'];
+    $data = [
+        'id_chequier' => $id_chequier,
+        'numero_chequier' => $_POST['numero_chequier'],
+        'date_expiration' => $_POST['date_expiration'],
+        'statut' => $_POST['statut_chequier'],
+        'nombre_feuilles' => (int)$_POST['nombre_feuilles']
+    ];
+    $chequier = new Chequier($data);
+    try {
+        if ($chequierC->updateChequier($chequier)) {
+            header('Location: backoffice_chequier.php?success=1&action_type=edit');
+            exit();
+        }
+    } catch (Exception $e) {
+        $error_msg = "Erreur : " . $e->getMessage();
+    }
+}
+
 if (isset($_GET['action']) && isset($_GET['id'])) {
     $action = $_GET['action'];
     $id = (int)$_GET['id'];
-    
     if ($action === 'accepter') {
-        $demandeC->updateStatus($id, 'Acceptée');
     } elseif ($action === 'refuser') {
         $demandeC->updateStatus($id, 'Refusée');
+        header('Location: backoffice_chequier.php?success=0&action_type=refus');
+        exit();
+    } elseif ($action === 'delete_chq') {
+        $chq = $chequierC->getChequierById($id);
+        if ($chq) {
+            $id_demande_reset = $chq['id_demande'];
+            if ($chequierC->deleteChequier($id)) {
+                $demandeC->updateStatus($id_demande_reset, 'En attente');
+                header('Location: backoffice_chequier.php?success=1&action_type=delete');
+                exit();
+            }
+        }
     }
-    header('Location: backoffice_chequier.php');
-    exit();
 }
 
 $demandes_db = $demandeC->listDemandes();
-
-// Calcul des statistiques réelles basées sur le statut
-$en_attente_count = 0;
-$refusees_count = 0;
-$acceptees_count = 0;
+$chequiers_db = $chequierC->listChequiers();
+$stats = [
+    'en_attente' => 0, 
+    'actifs' => 0,
+    'refusees' => 0
+];
 foreach($demandes_db as $d) {
     $s = $d['statut'] ?? 'En attente';
-    if($s === 'En attente') $en_attente_count++;
-    if($s === 'Refusée') $refusees_count++;
-    if($s === 'Acceptée') $acceptees_count++;
+    if($s === 'En attente') $stats['en_attente']++;
+    if($s === 'Refusée') $stats['refusees']++;
+    if($s === 'Acceptée') $stats['actifs']++;
 }
-
-$stats = [
-    'en_attente' => $en_attente_count, 
-    'actifs' => $acceptees_count,
-    'refusees' => $refusees_count
-]; 
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -44,12 +93,41 @@ $stats = [
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>LegalFin Admin — Gestion des Chéquiers</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap');
+</style>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="chequier.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="chequier.css?v=<?= time() ?>">
 </head>
 <body>
+<?php if (isset($_GET['success'])): ?>
+<div class="toast active" id="successToast">
+  <div class="toast-icon">
+    <i class="fa-solid fa-check"></i>
+  </div>
+  <div class="toast-msg">
+    <?php 
+      if($_GET['success'] == '1') {
+        if(isset($_GET['action_type'])) {
+            if($_GET['action_type'] == 'edit') echo "Chéquier mis à jour avec succès !";
+            else if($_GET['action_type'] == 'delete') echo "Chéquier supprimé avec succès !";
+            else echo "Chéquier émis avec succès !";
+        } else {
+            echo "Chéquier émis avec succès !";
+        }
+      }
+      else if(isset($_GET['action_type']) && $_GET['action_type'] == 'refus') echo "Demande refusée avec succès.";
+      else echo "Opération réussie !";
+    ?>
+  </div>
+  <div class="toast-close" onclick="closeToast()"><i class="fa-solid fa-xmark"></i></div>
+</div>
+<?php endif; ?>
 
-<!-- SIDEBAR -->
+<?php 
+$current_view = $_GET['view'] ?? 'backoffice'; 
+?>
 <div class="sidebar">
   <div class="sb-logo">
     <div class="sb-logo-name">Legal<span>Fin</span></div>
@@ -63,15 +141,29 @@ $stats = [
     </div>
   </div>
   <nav class="sb-nav">
-    <div class="nav-section">Gestion</div>
-    <a class="nav-item active" href="#">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/><path d="M14 3v4a1 1 0 001 1h4"/></svg>
-      Chéquiers
+    <div class="nav-section">MON COMPTE</div>
+    
+    <a class="nav-item <?= $current_view === 'dashboard' ? 'active' : '' ?>" href="backoffice_chequier.php?view=dashboard">
+      <i class="fa-solid fa-house" style="width:16px; margin-right:4px;"></i>
+      Tableau de bord
+    </a>
+
+    <a class="nav-item <?= $current_view === 'mes_chequiers' ? 'active' : '' ?>" href="backoffice_chequier.php?view=mes_chequiers">
+      <i class="fa-solid fa-paste" style="width:16px; margin-right:4px;"></i>
+      Mes chéquiers
+      <span class="nav-badge" style="background:rgba(220,38,38,0.25); color:#FCA5A5; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:50%; padding:0; margin-left:auto; font-size:0.65rem;"><?= count($chequiers_db) ?></span>
+    </a>
+
+    <a class="nav-item <?= ($current_view === 'backoffice' || $current_view === '') ? 'active' : '' ?>" href="backoffice_chequier.php?view=backoffice">
+      <i class="fa-solid fa-credit-card" style="width:16px; margin-right:4px;"></i>
+      backoffice
       <span class="nav-badge"><?= (int)$stats['en_attente'] ?></span>
     </a>
+    
+    <div class="nav-section" style="margin-top:1rem;">Actions Rapides</div>
     <a class="nav-item" href="../frontoffice/frontoffice_chequier.php">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
-      Frontoffice
+      <i class="fa-solid fa-arrow-right-to-bracket" style="width:16px; margin-right:4px;"></i>
+      Aller au Frontoffice
     </a>
   </nav>
   <div class="sb-footer">
@@ -79,12 +171,12 @@ $stats = [
   </div>
 </div>
 
-<!-- MAIN -->
+
 <div class="main">
   <div class="topbar">
     <div class="tb-left">
-      <div class="page-title">Gestion des chéquiers</div>
-      <div class="breadcrumb">/ Demandes &amp; Chéquiers / Détail</div>
+      <div class="page-title"><?= $current_view === 'mes_chequiers' ? 'Mes chéquiers' : 'Gestion des chéquiers' ?></div>
+      <div class="breadcrumb">/ <?= $current_view === 'mes_chequiers' ? 'Client' : 'Admin' ?> / Chéquiers / <?= ucfirst($current_view) ?></div>
     </div>
     <div class="tb-right">
       <div class="search-bar">
@@ -99,9 +191,78 @@ $stats = [
   </div>
 
   <div class="content">
+    <?php if ($current_view === 'mes_chequiers'): ?>
+      <!-- VIEW: MES CHEQUIERS (CARDS) -->
+      <div class="chq-grid-bo" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1.5rem;">
+        <?php foreach ($chequiers_db as $chq): 
+            $st = trim(strtolower($chq['statut'] ?? 'actif'));
+            $isActif = ($st === 'actif');
+            $statusClass = $isActif ? 'b-actif' : 'b-bloque';
+            $dotColor = $isActif ? 'var(--green)' : 'var(--rose)';
+            $creationDate = new DateTime($chq['date_creation']);
+            $expDate = new DateTime($chq['date_expiration']);
+        ?>
+        <div class="chq-card-bo" style="background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; transition:transform 0.2s, box-shadow 0.2s; cursor:default;">
+           <!-- Card Visual Top -->
+           <div class="bo-chq-visual" style="height:140px; background:linear-gradient(135deg, <?= $isActif ? '#0f172a, #1e293b' : '#450a0a, #7f1d1d' ?>); padding:1.2rem; color:white; position:relative; overflow:hidden;">
+              <div style="font-family:var(--fm); font-size:0.75rem; opacity:0.6; letter-spacing:0.1em;"><?= htmlspecialchars($chq['numero_chequier']) ?></div>
+              <div style="position:absolute; bottom:1.2rem; left:1.2rem;">
+                  <div style="font-size:0.6rem; text-transform:uppercase; opacity:0.5; margin-bottom:2px;">Détenteur</div>
+                  <div style="font-weight:600; font-size:0.85rem; letter-spacing:0.02em;"><?= htmlspecialchars($chq['nom et prenom'] ?? 'Inconnu') ?></div>
+              </div>
+              <div style="position:absolute; bottom:1.2rem; right:1.2rem; text-align:right;">
+                  <div style="font-size:1.2rem; font-weight:800; opacity:0.9;"><?= htmlspecialchars($chq['nombre_feuilles']) ?></div>
+                  <div style="font-size:0.55rem; text-transform:uppercase; opacity:0.5;">Feuilles</div>
+              </div>
+              <!-- Decorative elements -->
+              <div style="position:absolute; top:-20px; right:-20px; width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,0.03);"></div>
+           </div>
+           <!-- Card Details Body -->
+           <div style="padding:1.2rem; flex:1; display:flex; flex-direction:column; gap:1rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <span style="font-size:0.85rem; font-weight:700; color:var(--text);">Chéquier N° <?= htmlspecialchars($chq['numero_chequier']) ?></span>
+                  <span class="badge <?= $statusClass ?>" style="font-size:0.65rem;"><span class="badge-dot" style="background:<?= $dotColor ?>"></span><?= ucfirst($st) ?></span>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
+                  <div class="ci-item-bo">
+                      <div style="font-size:0.65rem; color:var(--muted); margin-bottom:2px;">Création</div>
+                      <div style="font-size:0.78rem; font-weight:500;"><?= $creationDate->format('d M. Y') ?></div>
+                  </div>
+                  <div class="ci-item-bo">
+                      <div style="font-size:0.65rem; color:var(--muted); margin-bottom:2px;">Expiration</div>
+                      <div style="font-size:0.78rem; font-weight:500;"><?= $expDate->format('d M. Y') ?></div>
+                  </div>
+                  <div class="ci-item-bo" style="grid-column: span 2;">
+                      <div style="font-size:0.65rem; color:var(--muted); margin-bottom:2px;">Compte lié</div>
+                      <div style="font-size:0.72rem; font-family:var(--fm); color:var(--navy3);"><?= htmlspecialchars($chq['iban'] ?? 'N/A') ?></div>
+                  </div>
+              </div>
+              <!-- Actions -->
+              <div style="margin-top:auto; padding-top:1rem; border-top:1px solid var(--border); display:flex; gap:0.6rem;">
+                  <?php 
+                  // Mock demand object for the modal
+                  $mockDem = [
+                      'id' => $chq['id_demande'],
+                      'idCompte' => $chq['id_Compte'],
+                      'name' => $chq['nom et prenom'] ?? 'Inconnu',
+                      'iban' => $chq['iban'] ?? 'N/A'
+                  ];
+                  ?>
+                  <button class="btn-primary" style="flex:1; justify-content:center; padding:0.5rem;" onclick='openPremiumModal(<?= json_encode($mockDem) ?>)'>
+                      <i class="fa-solid fa-pen-to-square"></i> Modifier
+                  </button>
+                  <button class="filter-btn" style="padding:0.5rem 0.8rem;" onclick="alert('Impression de l\'attestation...')">
+                      <i class="fa-solid fa-print"></i>
+                  </button>
+              </div>
+           </div>
+        </div>
+        <?php endforeach; ?>
+      </div>
 
-    <!-- KPIs -->
-    <div class="kpi-row">
+    <?php else: ?>
+      <!-- VIEW: DASHBOARD / BACKOFFICE (KPIs + Table) -->
+      <div class="kpi-row">
       <div class="kpi" onclick="filterByStatus('en-attente')" style="cursor:pointer">
         <div class="kpi-icon" style="background:var(--amber-light)">
           <svg width="18" height="18" fill="none" stroke="#D97706" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
@@ -144,12 +305,8 @@ $stats = [
       </div>
     </div>
 
-    <!-- TABS + FILTERS -->
-    <div style="display:flex;align-items:center;justify-content:space-between;">
-      <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab(this,'demandes')">Demandes de chéquier</button>
-        <button class="tab-btn" onclick="switchTab(this,'chequier')">Chéquiers émis</button>
-      </div>
+    <div style="display:flex;align-items:center;justify-content:space-between; margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--slate-900);">Gestion des Chéquiers</h2>
       <div class="filters">
         <button class="filter-btn active" onclick="filterByStatus('tous')">Tous</button>
         <button class="filter-btn" onclick="filterByStatus('en-attente')">En attente</button>
@@ -158,16 +315,11 @@ $stats = [
       </div>
     </div>
 
-    <!-- TABLE + DETAIL PANEL -->
     <div class="two-col-layout">
-
-      <!-- TABLE DEMANDES -->
       <div id="tabDemandes" class="table-card">
         <div class="table-toolbar">
-          <div class="table-toolbar-title">Demandes de chéquier <span style="font-size:.72rem;color:var(--muted);font-weight:400;margin-left:.4rem;">5 demandes</span></div>
+          <div class="table-toolbar-title">Demandes de chéquier <span style="font-size:.72rem;color:var(--muted);font-weight:400;margin-left:.4rem;"><?= count($demandes_db) ?> demandes</span></div>
         </div>
-
-        <!-- ✦ WRAPPER SCROLL -->
         <div class="table-scroll">
         <table>
           <thead>
@@ -203,6 +355,7 @@ $stats = [
              ?>
              <tr data-status="<?= strtolower(str_replace(['é', ' '], ['e', '-'], $statut)) ?>" 
                  data-id="<?= $dem['id_demande'] ?>"
+                 data-id-compte="<?= $dem['id_compte'] ?>"
                  data-name="<?= htmlspecialchars($dem['nom et prenom']) ?>"
                  data-iban="<?= htmlspecialchars($dem['iban']) ?>"
                  data-date="<?= $day . ' ' . $month . ' ' . $year ?>"
@@ -227,20 +380,18 @@ $stats = [
               <td><span class="badge <?= $badgeStatut ?>"><span class="badge-dot" style="background:<?= $dotColor ?>"></span><?= $statut ?></span></td>
               <td>
                 <div class="action-group">
-                  <button class="act-btn" title="Voir"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                  <button class="act-btn" title="Voir" onclick="showDetail(this.closest('tr'))"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                  <button class="act-btn success" title="Accepter et Émettre" onclick="event.stopPropagation(); showDetail(this.closest('tr')); openPremiumModal(this.closest('tr').dataset)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></button>
                 </div>
               </td>
             </tr>
             <?php endforeach; ?>
-
           </tbody>
         </table>
         </div>
-        <!-- FIN WRAPPER SCROLL -->
-
       </div>
 
-      <!-- DETAIL PANEL -->
+
       <div class="detail-panel">
         <div class="dp-header">
           <div class="dp-av">MN</div>
@@ -256,108 +407,124 @@ $stats = [
           <button class="panel-tab" onclick="switchPanel(this,'panelHistorique')">Historique</button>
         </div>
 
-        <!-- PANEL DEMANDE -->
         <div id="panelDemande">
           <div class="dp-section" id="dpSectionTitle">Détails de la demande</div>
           <div class="dp-row"><span class="dp-key">Date demande</span><span class="dp-val" id="dpDate">—</span></div>
-          <div class="dp-row"><span class="dp-key">Statut</span><span id="dpStatutBadge">—</span></div>
-          <div class="dp-row"><span class="dp-key">Type chéquier</span><span id="dpTypeBadge">—</span></div>
+          <div class="dp-row"><span class="dp-key">Statut</span><span class="dp-val" id="dpStatutBadge">—</span></div>
+          <div class="dp-row"><span class="dp-key">Type chéquier</span><span class="dp-val" id="dpTypeBadge">—</span></div>
           <div class="dp-row"><span class="dp-key">Nombre chèques</span><span class="dp-val" id="dpNb">—</span></div>
           <div class="dp-row"><span class="dp-key">Montant max/chèque</span><span class="dp-val" style="font-family:var(--fm)" id="dpMontant">—</span></div>
           <div class="dp-row"><span class="dp-key">Mode réception</span><span class="dp-val" id="dpMode">—</span></div>
-          <div class="dp-row"><span class="dp-key">Adresse agence</span><span class="dp-val" style="font-size:.72rem;text-align:right;max-width:160px;" id="dpAdresse">—</span></div>
-          <div class="dp-row"><span class="dp-key">Téléphone</span><span class="dp-val" style="font-family:var(--fm)" id="dpTel">—</span></div>
-          <div class="dp-row"><span class="dp-key">Email</span><span class="dp-val" style="font-size:.72rem" id="dpEmail">—</span></div>
-          <div class="dp-row"><span class="dp-key">Motif</span><span class="dp-val" style="font-size:.72rem;text-align:right;max-width:160px;" id="dpMotif">—</span></div>
+          <div class="dp-row"><span class="dp-key">Adresse agence</span><span class="dp-val" id="dpAdresse">—</span></div>
+          <div class="dp-row"><span class="dp-key">Téléphone</span><span class="dp-val" id="dpTel">—</span></div>
+          <div class="dp-row"><span class="dp-key">Email</span><span class="dp-val" id="dpEmail">—</span></div>
+          <div class="dp-row"><span class="dp-key">Motif</span><span class="dp-val" id="dpMotif">—</span></div>
           <div class="dp-row"><span class="dp-key">Compte lié</span><span class="dp-val-mono" id="dpIban">—</span></div>
         </div>
 
-        <!-- PANEL CHEQUIER -->
+        <!-- PANEL CHEQUIER (PRÉ-REMPLI / SAISIE) -->
         <div id="panelChequier" style="display:none">
-          <div class="dp-section">Chéquier à émettre</div>
-          <div class="chq-mini">
-            <div class="chq-mini-num" id="miniChqId"></div>
-            <div class="chq-mini-bottom">
-              <div>
-                <div class="chq-mini-name">Mouna Ncib</div>
-                <div style="font-size:.55rem;opacity:.45;margin-top:2px;">Émission: 09/04/2024</div>
-              </div>
-              <div style="text-align:right">
-                <div class="chq-mini-feuilles">25</div>
-                <div class="chq-mini-label">feuilles</div>
+          <div class="dp-section">Saisie du Chéquier</div>
+          
+          <form method="POST" action="" id="formChequier" class="premium-form">
+            <input type="hidden" name="id_demande" id="hidden_id_demande">
+            <input type="hidden" name="id_Compte" id="hidden_id_compte">
+            <input type="hidden" name="creer_chequier" value="1">
+
+            <!-- VISUAL PREVIEW -->
+            <div class="chq-mini chq-visual-premium">
+              <div class="chq-mini-num" id="prev_numero">CHQ-2026-XXXXX</div>
+              <div class="chq-mini-bottom">
+                <div>
+                  <div class="chq-mini-name" id="prev_name">NOM DU CLIENT</div>
+                  <div style="font-size:.55rem;opacity:.5;margin-top:2px;">Généré le: <?= date('d/m/Y') ?></div>
+                </div>
+                <div style="text-align:right">
+                  <div class="chq-mini-feuilles" id="prev_feuilles">25</div>
+                  <div class="chq-mini-label">feuilles</div>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="dp-row"><span class="dp-key">Nb. feuilles</span><span class="dp-val">25 feuilles</span></div>
-          <div class="dp-row"><span class="dp-key">Date expiration</span><span class="dp-val">09 avr. 2026</span></div>
-          <div class="dp-row"><span class="dp-key">Statut à émettre</span><span class="badge b-attente" style="font-size:.65rem"><span class="badge-dot" style="background:var(--amber)"></span>Actif (dès accept.)</span></div>
+
+            <!-- AUTO FIELDS -->
+            <div class="panel-section-title">Attributs Automatiques <span>AUTO</span></div>
+            <div class="attribute-group">
+              <div class="attribute-field">
+                <div class="attr-label-row"><span class="attr-label">Numéro Chéquier</span> <span class="attr-badge auto">Généré</span></div>
+                <div class="attr-auto-val" id="disp_numero">CHQ-2026-XXXXX</div>
+                <input type="hidden" name="numero_chequier" id="input_numero">
+              </div>
+              <div class="attribute-field">
+                <div class="attr-label-row"><span class="attr-label">Date Création</span> <span class="attr-badge auto">Aujourd'hui</span></div>
+                <div class="attr-auto-val"><?= date('d/m/Y') ?></div>
+                <input type="hidden" name="date_creation" value="<?= date('Y-m-d') ?>">
+              </div>
+              <div class="attribute-field">
+                <div class="attr-label-row"><span class="attr-label">Compte Lié (IBAN)</span> <span class="attr-badge auto">Verrouillé</span></div>
+                <div class="attr-auto-val" id="disp_iban" style="font-size:.7rem">TN59 ...</div>
+              </div>
+            </div>
+
+            <!-- MANUAL FIELDS -->
+            <div class="panel-section-title" style="margin-top:0.8rem;">Paramètres à Configurer <span>MANUEL</span></div>
+            <div class="attribute-group">
+              <div class="attribute-field">
+                <div class="attr-label-row"><span class="attr-label">Nombre de feuilles</span> <span class="attr-badge manual">Requis</span></div>
+                <select name="nombre_feuilles" id="input_feuilles" class="attr-input" onchange="document.getElementById('prev_feuilles').textContent = this.value">
+                  <option value="25">25 feuilles (Standard)</option>
+                  <option value="50">50 feuilles (Professionnel)</option>
+                  <option value="100">100 feuilles (Expert)</option>
+                </select>
+              </div>
+              <div class="attribute-field">
+                <div class="attr-label-row"><span class="attr-label">Date d'expiration</span> <span class="attr-badge manual">Modifiable</span></div>
+                <input type="date" name="date_expiration" class="attr-input" value="<?= date('Y-m-d', strtotime('+2 years')) ?>">
+              </div>
+              <div class="attribute-field">
+                <div class="attr-label-row"><span class="attr-label">Statut Initial</span> <span class="attr-badge manual">Défaut</span></div>
+                <select name="statut_chequier" class="attr-input">
+                  <option value="actif">✅ Actif</option>
+                  <option value="bloque">🔒 Bloqué</option>
+                  <option value="expire">⏳ Expiré</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-primary premium-submit">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              Confirmer et Émettre
+            </button>
+          </form>
         </div>
 
-        <!-- PANEL HISTORIQUE -->
         <div id="panelHistorique" style="display:none">
-          <div class="dp-section">Historique des demandes</div>
-          <div class="history-list">
-            <div class="hist-item">
-              <div class="hist-dot" style="background:var(--amber)"></div>
-              <div>
-                <div class="hist-text">Demande soumise</div>
-                <div class="hist-date">09 avr. 2024, 10:42</div>
-              </div>
-            </div>
-            <div class="hist-item">
-              <div class="hist-dot" style="background:var(--muted2)"></div>
-              <div>
-                <div class="hist-text">En cours de traitement</div>
-                <div class="hist-date">09 avr. 2024, 11:05</div>
-              </div>
-            </div>
-          </div>
+          <div class="dp-section">Historique</div>
         </div>
 
         <div class="dp-actions">
-          <button class="dp-action-btn da-success">
-            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-            Accepter la demande
-          </button>
-          <button class="dp-action-btn da-danger">
-            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            Refuser la demande
-          </button>
-          <button class="dp-action-btn da-neutral">
-            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/></svg>
-            Générer attestation
-          </button>
+          <button class="dp-action-btn da-success" id="btnAccepter">Accepter la demande</button>
+          <button class="dp-action-btn da-danger" id="btnRefuser">Refuser la demande</button>
         </div>
       </div>
-
-    </div>
+    <?php endif; ?>
   </div>
 </div>
 
 <script>
-function genChqId() {
-  const year = new Date().getFullYear();
-  const rand = String(Math.floor(Math.random() * 99999) + 1).padStart(5, '0');
-  return 'CHQ-' + year + '-' + rand;
-}
-
-document.querySelectorAll('.chq-id-val').forEach(el => {
-  const year = new Date().getFullYear();
-  const rand = String(Math.floor(Math.random() * 99999) + 1).padStart(5, '0');
-  el.textContent = year + '-' + rand;
-});
-
-(function() {
-  const id = genChqId();
-  const panelEl = document.getElementById('panelChqId');
-  const miniEl  = document.getElementById('miniChqId');
-  if (panelEl) panelEl.textContent = id;
-  if (miniEl)  miniEl.textContent  = id;
-})();
-
-function switchTab(btn, tab) {
+function switchTab(btn, tabId) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  
+  const tabDemandes = document.getElementById('tabDemandes');
+  const tabChequier = document.getElementById('tabChequier');
+  
+  if(tabId === 'demandes') {
+    tabDemandes.style.display = 'block';
+    tabChequier.style.display = 'none';
+  } else {
+    tabDemandes.style.display = 'none';
+    tabChequier.style.display = 'block';
+  }
 }
 
 function switchPanel(btn, panelId) {
@@ -369,162 +536,342 @@ function switchPanel(btn, panelId) {
   });
 }
 
-document.querySelectorAll('.filter-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    
-    const filterText = this.textContent.trim().toLowerCase();
-    const rows = document.querySelectorAll('#tabDemandes tbody tr');
-    
-    rows.forEach(row => {
-      const statusBadge = row.querySelector('td:nth-child(7)'); // Colonne statut
-      if (statusBadge) {
-        const statusText = statusBadge.textContent.trim().toLowerCase();
-        let show = false;
-        
-        if (filterText === 'tous') {
-          show = true;
-        } else if (filterText === 'en attente' && statusText.includes('attente')) {
-          show = true;
-        } else if (filterText === 'acceptées' && statusText.includes('acceptée')) {
-          show = true;
-        } else if (filterText === 'refusées' && statusText.includes('refusée')) {
-          show = true;
-        }
-        
-        row.style.display = show ? '' : 'none';
-      }
-    });
-  });
-});
-// --- NOUVEAU CODE POUR L'AFFICHAGE DU DÉTAIL ---
-function showDetail(row) {
-  // Retirer la sélection précédente
-  document.querySelectorAll('#tabDemandes tbody tr').forEach(r => r.classList.remove('row-selected'));
-  row.classList.add('row-selected');
-
-  // Extraire les données des attributs data-*
-  const id = row.getAttribute('data-id');
-  const name = row.getAttribute('data-name');
-  const iban = row.getAttribute('data-iban');
-  const date = row.getAttribute('data-date');
-  const type = row.getAttribute('data-type');
-  const nb = row.getAttribute('data-nb');
-  const montant = row.getAttribute('data-montant');
-  const mode = row.getAttribute('data-mode');
-  const adresse = row.getAttribute('data-adresse');
-  const tel = row.getAttribute('data-tel');
-  const email = row.getAttribute('data-email');
-  const motif = row.getAttribute('data-motif');
-  const statut = row.getAttribute('data-statut');
-
-  // Mise à jour de l'en-tête du panel
-  const nameEl = document.querySelector('.dp-name');
-  if(nameEl) nameEl.textContent = name;
-  
-  // Initiales
-  const parts = name.split(' ');
-  let init = parts[0] ? parts[0][0] : '';
-  if (parts.length > 1 && parts[1]) init += parts[1][0];
-  const avEl = document.querySelector('.dp-av');
-  if(avEl) avEl.textContent = init.toUpperCase();
-
-  // Titre section
-  const sectionTitle = document.getElementById('dpSectionTitle');
-  if(sectionTitle) sectionTitle.textContent = 'Demande — DEM-' + id;
-
-  // Remplissage des champs simples
-  if(document.getElementById('dpDate')) document.getElementById('dpDate').textContent = date;
-  if(document.getElementById('dpNb')) document.getElementById('dpNb').textContent = nb + ' chèques';
-  if(document.getElementById('dpMontant')) document.getElementById('dpMontant').textContent = parseFloat(montant).toLocaleString() + ' TND';
-  if(document.getElementById('dpMode')) document.getElementById('dpMode').textContent = mode;
-  if(document.getElementById('dpAdresse')) document.getElementById('dpAdresse').textContent = adresse;
-  if(document.getElementById('dpTel')) document.getElementById('dpTel').textContent = tel;
-  if(document.getElementById('dpEmail')) document.getElementById('dpEmail').textContent = email;
-  if(document.getElementById('dpMotif')) document.getElementById('dpMotif').textContent = motif;
-  if(document.getElementById('dpIban')) document.getElementById('dpIban').textContent = iban;
-
-  // Gestion des badges (Statut)
-  const badgeStatut = document.getElementById('dpStatutBadge');
-  if(badgeStatut) {
-    let bClass = 'b-attente';
-    let dotColor = 'var(--amber)';
-    const s = statut.toLowerCase();
-    if(s.includes('acceptee') || s.includes('acceptée')) { bClass = 'b-acceptee'; dotColor = 'var(--green)'; }
-    if(s.includes('refusee') || s.includes('refusée')) { bClass = 'b-refusee'; dotColor = 'var(--rose)'; }
-    badgeStatut.innerHTML = `<span class="badge ${bClass}" style="font-size:.65rem"><span class="badge-dot" style="background:${dotColor}"></span>${statut}</span>`;
-  }
-
-  // Gestion des badges (Type)
-  const badgeType = document.getElementById('dpTypeBadge');
-  if(badgeType) {
-    const isUrgent = type.toLowerCase() === 'urgent';
-    badgeType.innerHTML = `<span class="badge ${isUrgent ? 'b-urgent' : 'b-standard'}" style="font-size:.65rem">${type}</span>`;
-  }
-
-  // Activation des boutons d'action
-  const btnAccept = document.querySelector('.da-success');
-  const btnRefuse = document.querySelector('.da-danger');
-  const statusKey = row.getAttribute('data-status');
-
-  if (btnAccept && btnRefuse) {
-    if (statusKey === 'acceptee' || statusKey === 'refusee') {
-      btnAccept.style.display = 'none';
-      btnRefuse.style.display = 'none';
-    } else {
-      btnAccept.style.display = '';
-      btnRefuse.style.display = '';
-      btnAccept.setAttribute('onclick', `if(confirm('Accepter cette demande ?')) window.location.href='?action=accepter&id=${id}'`);
-      btnRefuse.setAttribute('onclick', `if(confirm('Refuser cette demande ?')) window.location.href='?action=refuser&id=${id}'`);
-    }
-  }
-}
-
 function filterByStatus(status) {
   const rows = document.querySelectorAll('#demandesTableBody tr');
-  const buttons = document.querySelectorAll('.filter-btn');
-  
-  // Mettre à jour les boutons visuellement
-  buttons.forEach(btn => {
-    btn.classList.remove('active');
-    if(status === 'tous' && btn.textContent === 'Tous') btn.classList.add('active');
-    if(status === 'en-attente' && btn.textContent === 'En attente') btn.classList.add('active');
-    if(status === 'acceptee' && btn.textContent === 'Acceptées') btn.classList.add('active');
-    if(status === 'refusee' && btn.textContent === 'Refusées') btn.classList.add('active');
-  });
-
-  // Filtrer les lignes
   rows.forEach(row => {
-    const rowStatus = row.getAttribute('data-status');
-    if (status === 'tous' || rowStatus === status) {
+    if (status === 'tous' || row.getAttribute('data-status') === status) {
       row.style.display = '';
     } else {
       row.style.display = 'none';
     }
   });
-
-  // Mettre à jour le compteur affiché à côté du titre "Demandes de chéquier"
-  const titleCounter = document.querySelector('.table-header .section-title');
-  if(titleCounter) {
-    const visibleRows = Array.from(rows).filter(r => r.style.display !== 'none').length;
-    // On met à jour le texte après le titre
-    const span = titleCounter.querySelector('span') || document.createElement('span');
-    span.style.fontSize = '0.75rem';
-    span.style.color = 'var(--muted)';
-    span.style.marginLeft = '10px';
-    span.style.fontWeight = '400';
-    span.textContent = visibleRows + ' demandes';
-    if(!titleCounter.querySelector('span')) titleCounter.appendChild(span);
-  }
 }
 
-// Attacher l'événement à toutes les lignes pour le détail
+function showDetail(row) {
+  document.querySelectorAll('#demandesTableBody tr').forEach(r => r.classList.remove('row-selected'));
+  row.classList.add('row-selected');
+  const d = row.dataset;
+  
+  // Basic Detail Tab
+  document.querySelector('.dp-name').textContent = d.name;
+  document.getElementById('dpDate').textContent = d.date;
+  document.getElementById('dpNb').textContent = d.nb;
+  document.getElementById('dpMontant').textContent = d.montant;
+  document.getElementById('dpMode').textContent = d.mode;
+  document.getElementById('dpAdresse').textContent = d.adresse;
+  document.getElementById('dpTel').textContent = d.tel;
+  document.getElementById('dpEmail').textContent = d.email;
+  document.getElementById('dpMotif').textContent = d.motif;
+  document.getElementById('dpIban').textContent = d.iban;
+  
+  // Statut Badge in Detail
+  const st = d.statut || 'En attente';
+  let bClass = 'b-attente';
+  let dot = 'var(--amber)';
+  if(st === 'Acceptée') { bClass = 'b-acceptee'; dot = 'var(--green)'; }
+  if(st === 'Refusée') { bClass = 'b-refusee'; dot = 'var(--rose)'; }
+  document.getElementById('dpStatutBadge').innerHTML = `<span class="badge ${bClass}"><span class="badge-dot" style="background:${dot}"></span>${st}</span>`;
+
+  // Type Badge in Detail
+  const ty = d.type || 'Standard';
+  const tyClass = (ty === 'Urgent') ? 'b-urgent' : 'b-standard';
+  document.getElementById('dpTypeBadge').innerHTML = `<span class="badge ${tyClass}">${ty}</span>`;
+  
+  // Prep Chequier Tab (Saisie)
+  document.getElementById('hidden_id_demande').value = d.id;
+  document.getElementById('hidden_id_compte').value = d.idCompte;
+  
+  // Generate Number
+  const num = 'CHQ-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 99999) + 1).padStart(5, '0');
+  document.getElementById('input_numero').value = num;
+  document.getElementById('disp_numero').textContent = num;
+  document.getElementById('prev_numero').textContent = num;
+  document.getElementById('prev_name').textContent = d.name;
+  document.getElementById('disp_iban').textContent = d.iban;
+  
+  // Reset fields
+  document.getElementById('input_feuilles').value = "25";
+  document.getElementById('prev_feuilles').textContent = "25";
+
+  // Actions
+  document.getElementById('btnAccepter').onclick = () => {
+    openPremiumModal(d);
+  };
+  
+  document.getElementById('btnRefuser').onclick = () => { 
+    if(confirm('Souhaitez-vous vraiment refuser cette demande ?')) {
+      window.location.href='?action=refuser&id='+d.id;
+    }
+  };
+}
+
+function openPremiumModal(d) {
+    const modal = document.getElementById('premiumChequeModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('active');
+    
+    // Rechercher si un chéquier existe déjà pour cette demande
+    const chq = existingChequiers.find(c => parseInt(c.id_demande) === parseInt(d.id));
+    const isEdit = !!chq;
+
+    // Remplissage des données cachées
+    document.getElementById('hidden_id_demande_modal').value = d.id;
+    document.getElementById('hidden_id_compte_modal').value = d.idCompte;
+    document.getElementById('hidden_id_chequier_modal').value = isEdit ? chq.id_chequier : "";
+
+    // Boutons visibilité
+    const btnE = document.getElementById('btnEmettreModal');
+    const btnM = document.getElementById('btnModifierModal');
+    const btnS = document.getElementById('btnSupprimerModal');
+
+    // On affiche toujours l'ajout
+    btnE.style.display = 'inline-flex';
+
+    if (isEdit) {
+        btnM.style.display = 'inline-flex';
+        btnS.style.display = 'inline-flex';
+        btnS.href = "?action=delete_chq&id=" + chq.id_chequier;
+    } else {
+        btnM.style.display = 'none';
+        btnS.style.display = 'none';
+    }
+
+    // Informations Client
+    document.getElementById('preview_signature').textContent = d.name;
+    document.getElementById('preview_iban').textContent = d.iban;
+    document.getElementById('disp_id_demande_modal').textContent = 'DEM-' + d.id;
+    
+    if (isEdit) {
+        document.getElementById('input_numero_chequier').value = chq.numero_chequier;
+        document.getElementById('disp_chequier_num_preview').textContent = chq.numero_chequier;
+        document.getElementById('modal_nb_feuilles').value = chq.nombre_feuilles;
+        document.getElementById('modal_date_exp').value = chq.date_expiration;
+        document.getElementById('modal_statut').value = chq.statut.toLowerCase().replace('é', 'e');
+    } else {
+        // Mode Création : Génération automatique
+        const num = 'CHQ-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 99999) + 1).padStart(5, '0');
+        document.getElementById('input_numero_chequier').value = num;
+        document.getElementById('disp_chequier_num_preview').textContent = num;
+        
+        document.getElementById('modal_nb_feuilles').value = "25";
+        document.getElementById('modal_date_exp').value = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0];
+        document.getElementById('modal_statut').value = "actif";
+    }
+    
+    updatePremiumPreview();
+}
+
+// Injections des données PHP dans JS
+const existingChequiers = <?= json_encode($chequiers_db) ?>;
+
+function closePremiumModal() {
+    const modal = document.getElementById('premiumChequeModal');
+    modal.classList.remove('active');
+    modal.classList.add('hidden');
+}
+
+// Initialisation des écouteurs de fermeture
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('premiumChequeModal');
+    const closeBtn = document.getElementById('premiumModalCloseBtn');
+    
+    if(closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closePremiumModal();
+        });
+    }
+    
+    if(modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closePremiumModal();
+            }
+        });
+        // Sécurité : Forcer le masquage au chargement
+        modal.classList.add('hidden');
+    }
+});
+
+function updatePremiumPreview() {
+    const num = document.getElementById('input_numero_chequier').value || 'CHQ-XXXX-XXXXX';
+    const sheets = document.getElementById('modal_nb_feuilles').value || '25';
+    const expDate = document.getElementById('modal_date_exp').value || '—';
+    const createDate = document.getElementById('modal_date_creation').value || '—';
+
+    document.getElementById('disp_chequier_num_preview').textContent = num;
+    document.getElementById('preview_nb_feuilles').textContent = sheets;
+    document.getElementById('preview_exp_date').textContent = expDate;
+    
+    // Format date for preview
+    if(createDate !== '—') {
+        const d = new Date(createDate);
+        document.getElementById('preview_create_date').textContent = d.toLocaleDateString('fr-FR');
+    }
+}
+
+function closeToast() {
+  const t = document.getElementById('successToast');
+  if(t) t.classList.remove('active');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const t = document.getElementById('successToast');
+  if(t) {
+    setTimeout(closeToast, 5000);
+  }
+});
+
 document.querySelectorAll('#demandesTableBody tr').forEach(row => {
-  row.addEventListener('click', function() {
-    showDetail(this);
-  });
+  row.addEventListener('click', () => showDetail(row));
 });
 </script>
+
+<!-- PREMIUM ÉMISSION CHÈQUIER MODAL -->
+<div class="modal-overlay" id="premiumChequeModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; overflow-y:auto; align-items:center !important; justify-content:center !important; padding:2rem;">
+    <div class="saisie-container" style="background: #ffffff !important; margin:auto !important; width:100%; max-width:900px; box-shadow: 0 0 100px rgba(0,0,0,0.5);">
+        <div class="saisie-header">
+            <div class="saisie-title">
+                <h1>Émettre un nouveau chéquier</h1>
+                <div class="saisie-subtitle">Demande associée : <span id="disp_id_demande_modal">DEM-Auto</span></div>
+            </div>
+            <button class="close-btn" id="premiumModalCloseBtn" title="Fermer" style="width: 40px; height: 40px; border-radius: 50%; background: #f1f5f9; border: none; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                <i class="fa-solid fa-xmark" style="font-size: 1.2rem;"></i>
+            </button>
+        </div>
+
+        <!-- VISUAL CHECKBOOK PREVIEW -->
+        <div class="visual-check" style="height:220px; background:linear-gradient(135deg, #1e3a8a, #0f172a);">
+            <div class="check-banner"></div>
+            <div class="check-top">
+                <div class="check-bank">
+                    <div class="bank-logo" style="background:#fff; color:var(--blue); width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.2rem;">LF</div>
+                    <div class="bank-info">
+                        <h2 style="font-size:1rem; font-weight:700; color:#fff;">LegalFin Bank</h2>
+                        <p style="font-size:0.65rem; color:rgba(255,255,255,0.6);">Chéquier Privilège — Service Premium</p>
+                    </div>
+                </div>
+                <div class="check-meta" style="text-align:right; font-size:0.75rem; color:rgba(255,255,255,0.7); display:flex; flex-direction:column; gap:4px;">
+                    <div style="font-family:var(--fm); font-size:0.9rem; color:#fff;" id="disp_chequier_num_preview">CHQ-2024-XXXXX</div>
+                    <div>CRÉÉ LE : <span style="color:#fff;" id="preview_create_date"><?= date('d/m/Y') ?></span></div>
+                    <div>EXPIRATION : <span id="preview_exp_date" style="color:#fff;">—</span></div>
+                </div>
+            </div>
+
+            <div style="margin-top:2rem; display:flex; justify-content:space-between; align-items:flex-end;">
+                <div>
+                    <div style="font-size:0.6rem; text-transform:uppercase; color:rgba(255,255,255,0.5); letter-spacing:0.1em;">Titulaire du compte</div>
+                    <div style="font-family:'Dancing Script', cursive; font-size:1.6rem; color:#fff;" id="preview_signature">Nom du Client</div>
+                    <div style="font-family:var(--fm); font-size:0.75rem; color:rgba(255,255,255,0.6); margin-top:4px;" id="preview_iban">TN59 1234 5678 9012 3456 7890</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-family:var(--fm); font-size:2rem; font-weight:700; color:#60A5FA; line-height:1;" id="preview_nb_feuilles">25</div>
+                    <div style="font-size:0.6rem; text-transform:uppercase; color:rgba(255,255,255,0.5); letter-spacing:0.1em;">Feuilles standard</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FORM SECTION -->
+        <div class="premium-form-body">
+            <div class="form-section-title">Informations du chéquier</div>
+            
+            <form method="POST" action="">
+                <input type="hidden" name="id_demande" id="hidden_id_demande_modal">
+                <input type="hidden" name="id_Compte" id="hidden_id_compte_modal">
+                <input type="hidden" name="id_chequier" id="hidden_id_chequier_modal">
+
+                <div class="form-grid">
+                    <!-- N° CHÉQUIER -->
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label>N° Chéquier (Référence officielle)</label>
+                        </div>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-hashtag input-icon"></i>
+                            <input type="text" name="numero_chequier" id="input_numero_chequier" class="premium-input" placeholder="CHQ-2026-XXXXX">
+                        </div>
+                        <div class="input-hint" style="color:var(--blue)">• Vous pouvez utiliser le numéro généré ou le saisir manuellement.</div>
+                    </div>
+
+                    <!-- DATE CRÉATION -->
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label>Date de création <span class="required-star">*</span></label>
+                        </div>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-calendar-plus input-icon"></i>
+                            <input type="date" name="date_creation" id="modal_date_creation" class="premium-input" value="<?= date('Y-m-d') ?>" oninput="updatePremiumPreview()" required>
+                        </div>
+                        <div class="input-hint" style="color:#94a3b8">• Date d'émission officielle</div>
+                    </div>
+
+                    <!-- NB FEUILLES -->
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label>Nombre de feuilles <span class="required-star">*</span></label>
+                        </div>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-layer-group input-icon"></i>
+                            <select name="nombre_feuilles" id="modal_nb_feuilles" class="premium-input" onchange="updatePremiumPreview()">
+                                <option value="25">25 feuilles (Standard)</option>
+                                <option value="50">50 feuilles (Professionnel)</option>
+                                <option value="100">100 feuilles (Grand Format)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- DATE EXPIRATION -->
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label>Date d'expiration <span class="required-star">*</span></label>
+                        </div>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-calendar-xmark input-icon"></i>
+                            <input type="date" name="date_expiration" id="modal_date_exp" class="premium-input" value="<?= date('Y-m-d', strtotime('+1 year')) ?>" oninput="updatePremiumPreview()" required>
+                        </div>
+                    </div>
+
+                    <!-- STATUT -->
+                    <div class="form-group full">
+                        <div class="label-row">
+                            <label>Statut Initial <span class="required-star">*</span></label>
+                        </div>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-shield-halved input-icon"></i>
+                            <select name="statut_chequier" id="modal_statut" class="premium-input">
+                                <option value="actif">Actif (Prêt à l'usage)</option>
+                                <option value="bloque">Bloqué (En suspens)</option>
+                                <option value="expire">Expiré (Ancien)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions" style="display:flex; justify-content:flex-end; gap:0.8rem; flex-wrap:wrap;">
+                    <button type="button" class="btn-secondary" id="premiumModalCancelBtn" onclick="closePremiumModal()">Annuler</button>
+                    
+                    <button type="submit" name="modifier_chequier" id="btnModifierModal" class="btn-submit" style="background:linear-gradient(135deg, #3b82f6, #2563eb); color:white; border:none; display:none;">
+                        <i class="fa-solid fa-pen-to-square" style="margin-right:8px;"></i>
+                        Modifier
+                    </button>
+
+                    <a href="#" id="btnSupprimerModal" class="btn-submit" style="background:linear-gradient(135deg, #3b82f6, #2563eb); color:white; text-decoration:none; display:none; align-items:center;" onclick="return confirm('Souhaitez-vous vraiment supprimer ce chéquier ? Cela l\'effacera également de votre espace client.')">
+                        <i class="fa-solid fa-trash-can" style="margin-right:8px;"></i>
+                        Supprimer
+                    </a>
+
+                    <button type="submit" name="creer_chequier" id="btnEmettreModal" class="btn-submit" style="background:linear-gradient(135deg, #3b82f6, #2563eb); color:white; border:none;">
+                        <i class="fa-solid fa-plus" style="margin-right:8px;"></i>
+                        Émettre (Ajouter)
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+    </div>
+</div>
+
 </body>
 </html>

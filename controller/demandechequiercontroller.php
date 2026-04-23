@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/demandechequier.php';
 
 class DemandeChequierController {
@@ -46,7 +46,6 @@ class DemandeChequierController {
                 ':statut' => $demande->getStatut()
             ]);
         } catch (PDOException $e) {
-            // Logique d'auto-réparation
             if (strpos($e->getMessage(), '1452') !== false) {
                 try {
                     $db->exec("ALTER TABLE demande_chequier DROP FOREIGN KEY demande_chequier_ibfk_1");
@@ -78,8 +77,8 @@ class DemandeChequierController {
             $stmt = $db->prepare($sql);
             return $stmt->execute([':status' => $status, ':id' => $id]);
         } catch (PDOException $e) {
-            // Si la colonne statut n'existe pas (erreur 1054)
-            if ($e->getCode() == "42S22") { 
+            
+            if ($e->getCode() == "42S22") {
                 try {
                     $db->exec("ALTER TABLE demande_chequier ADD COLUMN statut VARCHAR(20) DEFAULT 'En attente'");
                     // On retente l'update
@@ -90,6 +89,15 @@ class DemandeChequierController {
             throw $e;
         }
     }
+    public function getDemandeById($id) {
+    $db = Config::getConnexion();
+    $sql = "SELECT * FROM demande_chequier WHERE id_demande = :id";
+    
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':id' => $id]);
+    
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
 
     public function updateDemande(DemandeChequier $demande, $id) {
         $db = Config::getConnexion();
