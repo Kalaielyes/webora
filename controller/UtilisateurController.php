@@ -302,6 +302,14 @@ if ($action === 'admin_edit') {
         header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
     }
 
+    // Fetch existing user to lock the role (role cannot be changed)
+    $existingUser = $m->findById($id);
+    if (!$existingUser) {
+        Session::setFlash('error', 'Utilisateur non trouvé.');
+        header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
+    }
+    $role = $existingUser['role']; // Always use the DB role, ignore POST
+
     $nom        = trim($_POST['nom']     ?? '');
     $prenom     = trim($_POST['prenom']  ?? '');
     $numTel     = trim($_POST['numTel']  ?? '');
@@ -309,7 +317,6 @@ if ($action === 'admin_edit') {
     $status     = trim($_POST['status']     ?? 'ACTIF');
     $status_kyc = trim($_POST['status_kyc'] ?? 'EN_ATTENTE');
     $status_aml = trim($_POST['status_aml'] ?? 'EN_ATTENTE');
-    $role       = trim($_POST['role']       ?? 'CLIENT');
 
     $old    = compact('id','nom','prenom','numTel','adresse','status','status_kyc','status_aml','role');
     $errors = [];
@@ -335,9 +342,6 @@ if ($action === 'admin_edit') {
     if (!in_array($status_aml, ['EN_ATTENTE','CONFORME','ALERTE'])) {
         $errors[] = "Statut AML invalide.";
     }
-    if (!in_array($role, ['CLIENT','ADMIN','SUPER_ADMIN'])) {
-        $errors[] = "Role invalide.";
-    }
 
     if (!empty($errors)) {
         setErrors($errors, 'old_admin_edit', $old);
@@ -346,7 +350,7 @@ if ($action === 'admin_edit') {
 
     try {
         $m->updateProfil($id, compact('nom','prenom','numTel','adresse'));
-        $m->updateStatuts($id, $status, $status_kyc, $status_aml, $role);
+        $m->updateStatuts($id, $status, $status_kyc, $status_aml, $role); // role from DB
         Session::remove('old_admin_edit');
         Session::setFlash('success', 'Utilisateur modifie.');
     } catch (Exception $e) {
@@ -503,6 +507,53 @@ if ($action === 'admin_delete_file') {
     header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
 }
 
-header('Location: ../view/FrontOffice/login.php'); exit;
+if ($action === 'scan_aml') {
+    Session::requireAdmin('../view/FrontOffice/login.php');
+    $id = (int)($_POST['id'] ?? 0);
 
+    if ($id <= 0) {
+        Session::setFlash('error', 'ID invalide.');
+        header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
+    }
+
+    $user = $m->findById($id);
+    if (!$user) {
+        Session::setFlash('error', 'Utilisateur non trouvé.');
+        header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
+    }
+
+    require_once __DIR__ . '/../model/AmlApiService.php';
+    $amlService = new AmlApiService();
+    
+    // Preparer les donnees a envoyer a l'API
+    $userData = [
+        'nom' => $user['nom'],
+        'prenom' => $user['prenom'],
+        'email' => $user['email'],
+        'cin' => $user['cin'],
+        'date_naissance' => $user['date_naissance']
+    ];
+    
+    $apiResult = $amlService->analyzeUser($userData);
+    
+    if (!$apiResult['success']) {
+        Session::setFlash('error', $apiResult['error']);
+        header('Location: ../view/backoffice/backoffice_utilisateur.php?page=utilisateurs&detail=' . $id); exit;
+    }
+    
+    $score = $apiResult['aml_score'];
+    $m->updateAmlScore($id, $score, $apiResult['aml_reasons']);
+    
+    // Automatic suspension logic
+    if ($score > 70) {
+        $m->updateStatuts($id, 'SUSPENDU', $user['status_kyc'], 'ALERTE', $user['role']);
+        Session::setFlash('error', "Alerte de fraude ! Score AML : $score/100. Le compte a été automatiquement suspendu.");
+    } else {
+        Session::setFlash('success', "Scan AML terminé. Score : $score/100.");
+    }
+    
+    header('Location: ../view/backoffice/backoffice_utilisateur.php?page=utilisateurs&detail=' . $id); exit;
+}
+
+header('Location: ../view/FrontOffice/login.php'); exit;
 

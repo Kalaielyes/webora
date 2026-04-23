@@ -14,9 +14,10 @@ use Twilio\Rest\Client;
 Session::start();
 
 // ─── Credentials Twilio ───────────────────────────────────────
-define('TWILIO_SID',   'TWILIO_SID_HERE');
-define('TWILIO_TOKEN', 'TWILIO_TOKEN_HERE');
-define('TWILIO_FROM',  'whatsapp:+14155238886');            // ← numéro sandbox Twilio
+define('TWILIO_FROM', 'whatsapp:+14155238886');
+
+$twilio_sid   = getenv('TWILIO_SID');
+$twilio_token = getenv('TWILIO_TOKEN');            // ← numéro sandbox Twilio
 
 if (!defined('BASE_URL')) {
     define('BASE_URL', 'http://localhost/web');

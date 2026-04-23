@@ -299,24 +299,33 @@ class Utilisateur {
     public function findAll(string $filtre = 'tous') : array {
         $where = match($filtre) {
             'clients'     => "WHERE role='CLIENT'",
-            'admins'      => "WHERE role IN ('ADMIN','SUPER_ADMIN')",
-            'association' => "WHERE association=1",
-            'bloques'     => "WHERE status='SUSPENDU'",
-            'kyc_attente' => "WHERE status_kyc='EN_ATTENTE'",
-            default       => ''
+            'admins'      => "WHERE role='ADMIN'",
+            'association' => "WHERE association=1 AND role != 'SUPER_ADMIN'",
+            'bloques'     => "WHERE status='SUSPENDU' AND role != 'SUPER_ADMIN'",
+            'kyc_attente' => "WHERE status_kyc='EN_ATTENTE' AND role != 'SUPER_ADMIN'",
+            default       => "WHERE role != 'SUPER_ADMIN'"
         };
         return $this->db->query("SELECT * FROM utilisateur $where ORDER BY date_inscription DESC")->fetchAll();
     }
 
-    public function getStats() : array {
+    public function getStats(string $periode = 'tout') : array {
+        $where = "";
+        if ($periode === 'mois') {
+            $where = " WHERE MONTH(date_inscription)=MONTH(NOW()) AND YEAR(date_inscription)=YEAR(NOW())";
+        } elseif ($periode === 'annee') {
+            $where = " WHERE YEAR(date_inscription)=YEAR(NOW())";
+        }
+        
+        $wAnd = $where ? str_replace("WHERE", "AND", $where) : "";
+        
         $q = fn($sql) => (int)$this->db->query($sql)->fetchColumn();
         return [
-            'total'       => $q("SELECT COUNT(*) FROM utilisateur"),
-            'actifs'      => $q("SELECT COUNT(*) FROM utilisateur WHERE role='CLIENT' AND status='ACTIF'"),
-            'kyc'         => $q("SELECT COUNT(*) FROM utilisateur WHERE status_kyc='EN_ATTENTE'"),
-            'bloques'     => $q("SELECT COUNT(*) FROM utilisateur WHERE status='SUSPENDU'"),
-            'admins'      => $q("SELECT COUNT(*) FROM utilisateur WHERE role IN ('ADMIN','SUPER_ADMIN')"),
-            'association' => $q("SELECT COUNT(*) FROM utilisateur WHERE association=1"),
+            'total'       => $q("SELECT COUNT(*) FROM utilisateur $where"),
+            'actifs'      => $q("SELECT COUNT(*) FROM utilisateur WHERE role='CLIENT' AND status='ACTIF' $wAnd"),
+            'kyc'         => $q("SELECT COUNT(*) FROM utilisateur WHERE status_kyc='EN_ATTENTE' $wAnd"),
+            'bloques'     => $q("SELECT COUNT(*) FROM utilisateur WHERE status='SUSPENDU' $wAnd"),
+            'admins'      => $q("SELECT COUNT(*) FROM utilisateur WHERE role IN ('ADMIN','SUPER_ADMIN') $wAnd"),
+            'association' => $q("SELECT COUNT(*) FROM utilisateur WHERE association=1 $wAnd"),
             'mois'        => $q("SELECT COUNT(*) FROM utilisateur WHERE MONTH(date_inscription)=MONTH(NOW()) AND YEAR(date_inscription)=YEAR(NOW())"),
         ];
     }
@@ -446,6 +455,15 @@ class Utilisateur {
         $this->setAssociation($assoc);
         $s = $this->db->prepare("UPDATE utilisateur SET association=:a WHERE id=:id");
         return $s->execute([':a'=>(int)$this->association, ':id'=>$id]);
+    }
+
+    public function updateAmlScore(int $id, int $score, array $reasons) : bool {
+        $s = $this->db->prepare("UPDATE utilisateur SET aml_score=:score, aml_reasons=:reasons WHERE id=:id");
+        return $s->execute([
+            ':score' => $score,
+            ':reasons' => json_encode($reasons),
+            ':id' => $id
+        ]);
     }
 
     
