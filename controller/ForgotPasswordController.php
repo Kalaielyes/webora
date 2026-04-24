@@ -3,7 +3,7 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 
-require_once __DIR__ . '/../vendor/autoload.php';   // Twilio SDK (Composer)
+require_once __DIR__ . '/../model/vendor/autoload.php';   // Twilio SDK (Composer)
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/Session.php';
 require_once __DIR__ . '/../model/Utilisateur.php';
@@ -14,6 +14,8 @@ use Twilio\Rest\Client;
 Session::start();
 
 // ─── Credentials Twilio ───────────────────────────────────────
+define('TWILIO_SID', 'ACb014940e92f2b423b0804d27285bf010'); 
+define('TWILIO_TOKEN', '0865765a1caf0aa8d1ca3f54b99363db'); 
 define('TWILIO_FROM', 'whatsapp:+14155238886');
 
 $twilio_sid   = getenv('TWILIO_SID');
@@ -149,7 +151,7 @@ if ($action === 'reset_password') {
 }
 
 // Fallback
-header('Location: ../view/FrontOffice/login.php');
+header('Location: ../../view/FrontOffice/login.php');
 exit;
 
 

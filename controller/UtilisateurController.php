@@ -180,11 +180,11 @@ if ($action === 'upload_file') {
         exit;
     }
 
-    $uploadDir = __DIR__ . '/../uploads/';
+    $uploadDir = __DIR__ . '/../model/uploads/';
     $cleanName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', basename($file['name']));
     $fileName = uniqid() . '_' . $cleanName;
     $filePath = $uploadDir . $fileName;
-    $relativePath = 'uploads/' . $fileName;
+    $relativePath = 'model/uploads/' . $fileName;
 
     if (move_uploaded_file($file['tmp_name'], $filePath)) {
         
