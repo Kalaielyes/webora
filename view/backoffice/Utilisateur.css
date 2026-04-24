@@ -89,7 +89,7 @@ tr:hover td{background:var(--bg3);}
 .kyc-ko{background:var(--rose-light);color:var(--rose);border-radius:5px;padding:2px 7px;font-size:.65rem;font-weight:600;}
 
 /* ACTION BUTTONS */
-.action-group{display:flex;gap:.35rem;}
+.action-group{display:flex;gap:.35rem;white-space:nowrap;flex-wrap:nowrap;}
 .act-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:all .15s;}
 .act-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-light);}
 .act-btn.danger:hover{border-color:var(--rose);color:var(--rose);background:var(--rose-light);}

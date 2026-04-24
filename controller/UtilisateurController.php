@@ -181,7 +181,8 @@ if ($action === 'upload_file') {
     }
 
     $uploadDir = __DIR__ . '/../uploads/';
-    $fileName = uniqid() . '_' . basename($file['name']);
+    $cleanName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', basename($file['name']));
+    $fileName = uniqid() . '_' . $cleanName;
     $filePath = $uploadDir . $fileName;
     $relativePath = 'uploads/' . $fileName;
 
@@ -189,9 +190,17 @@ if ($action === 'upload_file') {
         
         try {
             $m->updateFilePath($id, $relativePath);
-            Session::setFlash('success', 'ID déposé avec succès.');
-        } catch (Exception $e) {
             
+            // Lancer l'OCR automatique
+            require_once __DIR__ . '/../model/OcrApiService.php';
+            $ocr = new OcrApiService();
+            $ocrResult = $ocr->scanDocument($relativePath);
+            if ($ocrResult['success']) {
+                $m->updateOcrResult($id, $ocrResult);
+            }
+            
+            Session::setFlash('success', 'ID déposé avec succès. Analyse automatique en cours.');
+        } catch (Exception $e) {
             unlink($filePath);
             Session::setFlash('error', 'Erreur lors de la sauvegarde en base de données.');
         }
@@ -550,6 +559,35 @@ if ($action === 'scan_aml') {
         Session::setFlash('error', "Alerte de fraude ! Score AML : $score/100. Le compte a été automatiquement suspendu.");
     } else {
         Session::setFlash('success', "Scan AML terminé. Score : $score/100.");
+    }
+    
+    header('Location: ../view/backoffice/backoffice_utilisateur.php?page=utilisateurs&detail=' . $id); exit;
+}
+
+if ($action === 'scan_ocr') {
+    Session::requireAdmin('../view/FrontOffice/login.php');
+    $id = (int)($_POST['id'] ?? 0);
+
+    if ($id <= 0) {
+        Session::setFlash('error', 'ID invalide.');
+        header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
+    }
+
+    $user = $m->findById($id);
+    if (empty($user['id_file_path'])) {
+        Session::setFlash('error', 'Aucun document à scanner.');
+        header('Location: ../view/backoffice/backoffice_utilisateur.php?page=utilisateurs&detail=' . $id); exit;
+    }
+
+    require_once __DIR__ . '/../model/OcrApiService.php';
+    $ocr = new OcrApiService();
+    $ocrResult = $ocr->scanDocument($user['id_file_path']);
+    
+    if ($ocrResult['success']) {
+        $m->updateOcrResult($id, $ocrResult);
+        Session::setFlash('success', 'Analyse OCR terminée.');
+    } else {
+        Session::setFlash('error', 'Échec de l\'analyse OCR.');
     }
     
     header('Location: ../view/backoffice/backoffice_utilisateur.php?page=utilisateurs&detail=' . $id); exit;

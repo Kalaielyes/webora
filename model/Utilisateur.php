@@ -240,8 +240,8 @@ class Utilisateur {
     public function setIdFilePath(string $v) : void {
         $v = trim($v);
         
-        if (!empty($v) && !preg_match('/^[a-zA-Z0-9_\-\.\/]+$/', $v)) {
-            throw new InvalidArgumentException("Chemin de fichier invalide.");
+        if (!empty($v) && !preg_match('/^[a-zA-Z0-9_\-\.\/ \(\)\[\]]+$/', $v)) {
+            throw new InvalidArgumentException("Chemin de fichier invalide (caractères spéciaux non autorisés).");
         }
         $this->id_file_path = $v;
     }
@@ -462,6 +462,14 @@ class Utilisateur {
         return $s->execute([
             ':score' => $score,
             ':reasons' => json_encode($reasons),
+            ':id' => $id
+        ]);
+    }
+
+    public function updateOcrResult(int $id, array $ocrData) : bool {
+        $s = $this->db->prepare("UPDATE utilisateur SET ocr_result=:res WHERE id=:id");
+        return $s->execute([
+            ':res' => json_encode($ocrData),
             ':id' => $id
         ]);
     }

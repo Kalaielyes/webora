@@ -356,6 +356,13 @@ tr:hover td{background:var(--bg3);}
 
 /* ── USER ROW ─────────────────────────────────────────────────────────────── */
 .user-row.detail-active td{background:var(--blue-light);}
+.perm-toggle-v2{transition:all .15s; cursor:pointer;}
+.perm-toggle-v2:hover{border-color:var(--blue) !important; background:var(--bg3) !important;}
+.perm-toggle-v2.active{background:var(--blue-light) !important; border-color:var(--blue) !important;}
+.perm-toggle-v2 .switch{position:relative; display:inline-block; width:34px; height:18px; background-color:var(--border2); border-radius:20px; transition:.2s; flex-shrink:0;}
+.perm-toggle-v2 .switch:before{position:absolute; content:""; height:14px; width:14px; left:2px; bottom:2px; background-color:white; transition:.2s; border-radius:50%;}
+.perm-toggle-v2.active .switch{background-color:var(--blue);}
+.perm-toggle-v2.active .switch:before{transform:translateX(16px);}
 </style>
 </head>
 <body>
@@ -552,7 +559,7 @@ tr:hover td{background:var(--bg3);}
         <div style="overflow-x:auto;">
         <table id="user-table">
           <thead><tr>
-            <th>Utilisateur</th><th>Email</th><th>Rôle</th><th>KYC</th><th>AML</th><th>Statut</th><th>Inscription</th><th>Actions</th>
+            <th>Utilisateur</th><th>Email</th><th>Rôle</th><th>KYC</th><th>AML</th><th>Statut</th><th>Inscription</th><th style="min-width:110px; text-align:right;">Actions</th>
           </tr></thead>
           <tbody>
           <?php foreach($users as $u): $ini=initials($u['nom'],$u['prenom']); ?>
@@ -569,8 +576,8 @@ tr:hover td{background:var(--bg3);}
             <td><span class="<?= badge_kyc($u['status_aml']) ?>"><?= $u['status_aml'] ?></span></td>
             <td><span class="badge <?= badge_status($u['status']) ?>"><span class="badge-dot" style="background:<?= badge_dot($u['status']) ?>"></span><?= $u['status'] ?></span></td>
             <td><span class="td-mono"><?= date('d/m/Y', strtotime($u['date_inscription'])) ?></span></td>
-            <td>
-              <div class="action-group">
+            <td style="text-align:right;">
+              <div class="action-group" style="justify-content:flex-end;">
                 <button class="act-btn" title="Voir" onclick="showDetail(<?= $u['id'] ?>)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                 <button class="act-btn" title="Modifier" onclick='openEdit(<?= htmlspecialchars(json_encode($u)) ?>)'><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                 <?php if($u['id']!==$currentUserId): ?>
@@ -614,6 +621,16 @@ tr:hover td{background:var(--bg3);}
           <div class="dp-row"><span class="dp-key">Statut</span><span class="badge <?= badge_status($detail['status']) ?>"><?= $detail['status'] ?></span></div>
           <div class="dp-row"><span class="dp-key">Inscription</span><span class="dp-val-mono"><?= date('d/m/Y',strtotime($detail['date_inscription'])) ?></span></div>
           <div class="dp-row"><span class="dp-key">Dernière connexion</span><span class="dp-val-mono"><?= $detail['derniere_connexion'] ? date('d/m H:i',strtotime($detail['derniere_connexion'])) : 'N/A' ?></span></div>
+          <div class="dp-row">
+            <span class="dp-key">Justificatif ID</span>
+            <?php if(!empty($detail['id_file_path'])): ?>
+              <a href="../../<?= htmlspecialchars($detail['id_file_path']) ?>" target="_blank" class="badge" style="background:var(--blue-light);color:var(--blue);border:none;text-decoration:none">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:2px"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Voir le document
+              </a>
+            <?php else: ?>
+              <span class="badge" style="background:var(--bg3);color:var(--muted)">Aucun déposé</span>
+            <?php endif; ?>
+          </div>
         </div>
 
         <!-- AML SCAN SECTION -->
@@ -653,6 +670,45 @@ tr:hover td{background:var(--bg3);}
             </div>
             <?php endforeach; ?>
           </div>
+          <?php endif; ?>
+        </div>
+
+        <!-- OCR SCAN SECTION -->
+        <div style="background:var(--bg2);padding:1rem;border-radius:12px;border:1px solid var(--border);margin-top:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
+            <div class="dp-section" style="margin:0">Analyse OCR (Document)</div>
+            <form method="POST" action="../../controller/UtilisateurController.php" style="margin:0">
+              <input type="hidden" name="action" value="scan_ocr">
+              <input type="hidden" name="id" value="<?= $detail['id'] ?>">
+              <button type="submit" class="badge" style="background:var(--blue-light);color:var(--blue);border:none;cursor:pointer">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:2px"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> Scanner ID
+              </button>
+            </form>
+          </div>
+          <?php
+          $ocr = json_decode($detail['ocr_result'] ?? '[]', true) ?: null;
+          if($ocr):
+            $matchNom = strtolower($ocr['nom'] ?? '') === strtolower($detail['nom']);
+            $matchPrenom = strtolower($ocr['prenom'] ?? '') === strtolower($detail['prenom']);
+            $matchCin = ($ocr['cin'] ?? '') === $detail['cin'];
+          ?>
+            <div style="display:flex;flex-direction:column;gap:.4rem">
+              <div class="dp-row" style="border:none;padding:0">
+                <span class="dp-key">Nom extrait</span>
+                <span class="dp-val"><?= htmlspecialchars($ocr['nom'] ?? 'N/A') ?> <?= $matchNom ? '<span style="color:var(--green)">✅</span>' : '<span style="color:var(--rose)">❌</span>' ?></span>
+              </div>
+              <div class="dp-row" style="border:none;padding:0">
+                <span class="dp-key">Prénom extrait</span>
+                <span class="dp-val"><?= htmlspecialchars($ocr['prenom'] ?? 'N/A') ?> <?= $matchPrenom ? '<span style="color:var(--green)">✅</span>' : '<span style="color:var(--rose)">❌</span>' ?></span>
+              </div>
+              <div class="dp-row" style="border:none;padding:0">
+                <span class="dp-key">CIN extrait</span>
+                <span class="dp-val-mono"><?= htmlspecialchars($ocr['cin'] ?? 'N/A') ?> <?= $matchCin ? '<span style="color:var(--green)">✅</span>' : '<span style="color:var(--rose)">❌</span>' ?></span>
+              </div>
+              <div style="font-size:.65rem;color:var(--muted);margin-top:.3rem;text-align:right">Confiance : <?= (int)(($ocr['confiance'] ?? 0)*100) ?>%</div>
+            </div>
+          <?php else: ?>
+            <div style="font-size:.75rem;color:var(--muted);text-align:center;padding:.5rem">Aucune analyse OCR effectuée.</div>
           <?php endif; ?>
         </div>
         <div class="dp-actions">
@@ -754,49 +810,83 @@ tr:hover td{background:var(--bg3);}
     <!-- ══════════════════════ PAGE: PERMISSIONS ═══════════════════════════ -->
     <?php elseif($page==='permissions' && $currentUserRole==='SUPER_ADMIN'): ?>
     <?php
-      $allAdmins = $m->findAll('admins');
-      $admins = array_filter($allAdmins, fn($a) => $a['role'] !== 'SUPER_ADMIN');
+      $admins = array_filter($m->findAll('admins'), fn($a) => $a['role'] !== 'SUPER_ADMIN');
     ?>
-    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.2rem;">
-      En tant que <strong>Super Admin</strong>, vous pouvez accorder ou retirer l'accès aux modules pour chaque administrateur.
-    </div>
-    <div class="table-card" style="margin-top:1rem;">
-      <div class="table-toolbar">
-        <div class="table-toolbar-title">Administrateurs (<?= count($admins) ?>)</div>
+    <div class="two-col-layout">
+      <div class="table-card">
+        <div class="table-toolbar">
+          <div class="table-toolbar-title">Administrateurs (<?= count($admins) ?>)</div>
+          <div class="search-bar" style="width:250px">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" id="perm-search" placeholder="Rechercher un admin..." oninput="filterPermTable()">
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="perm-table">
+            <thead><tr><th>Admin</th><th>Email</th><th>Modules</th></tr></thead>
+            <tbody>
+            <?php foreach($admins as $adm):
+              $adm_ini = initials($adm['nom'], $adm['prenom']);
+              $adm_perms = $perms[$adm['id']] ?? [];
+            ?>
+            <tr class="user-row" onclick="showPermPanel(<?= $adm['id'] ?>)" data-id="<?= $adm['id'] ?>">
+              <td>
+                <div style="display:flex;align-items:center;gap:.6rem">
+                  <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#6366F1);display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-size:.65rem;font-weight:700;color:#fff;flex-shrink:0"><?= $adm_ini ?></div>
+                  <div class="td-name"><?= htmlspecialchars($adm['nom'].' '.$adm['prenom']) ?></div>
+                </div>
+              </td>
+              <td><span class="td-mono"><?= htmlspecialchars($adm['email']) ?></span></td>
+              <td><span class="badge b-attente"><?= count($adm_perms) ?>/<?= count($ALL_MODULES) ?></span></td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead><tr>
-            <th>Administrateur</th><th>Email</th><th>Modules accordés</th><th>Actions</th>
-          </tr></thead>
-          <tbody>
-          <?php if(empty($admins)): ?>
-          <tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--muted);font-size:.82rem;">Aucun administrateur trouvé.</td></tr>
-          <?php else: ?>
-          <?php foreach($admins as $adm):
-            $adm_ini = initials($adm['nom'], $adm['prenom']);
-            $adm_perms = $perms[$adm['id']] ?? [];
-          ?>
-          <tr class="user-row">
-            <td>
-              <div style="display:flex;align-items:center;gap:.6rem">
-                <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#6366F1);display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-size:.65rem;font-weight:700;color:#fff;flex-shrink:0"><?= $adm_ini ?></div>
-                <div><div class="td-name"><?= htmlspecialchars($adm['nom'].' '.$adm['prenom']) ?></div></div>
-              </div>
-            </td>
-            <td><span class="td-mono"><?= htmlspecialchars($adm['email']) ?></span></td>
-            <td>
-              <span class="badge b-attente"><?= count($adm_perms) ?>/<?= count($ALL_MODULES) ?> modules</span>
-            </td>
-            <td>
-              <button class="btn-ghost" onclick='openPermModal(<?= $adm['id'] ?>, <?= htmlspecialchars(json_encode($adm_perms)) ?>, <?= htmlspecialchars(json_encode($adm['nom'].' '.$adm['prenom'])) ?>)'>
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Gérer
-              </button>
-            </td>
-          </tr>
-          <?php endforeach; endif; ?>
-          </tbody>
-        </table>
+
+      <div class="detail-panel" id="perm-detail-panel">
+        <div id="perm-empty-msg" style="text-align:center;padding:4rem 1rem;color:var(--muted);">
+          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24" style="margin-bottom:1rem;opacity:.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="12" r="3"/></svg>
+          <p style="font-size:.82rem">Sélectionnez un administrateur pour gérer ses accès.</p>
+        </div>
+
+        <?php foreach($admins as $adm): $adm_perms = $perms[$adm['id']] ?? []; ?>
+        <div class="perm-form-container" id="perm-form-<?= $adm['id'] ?>" style="display:none">
+          <div class="dp-header" style="margin-bottom:1.5rem">
+            <div class="dp-av"><?= initials($adm['nom'], $adm['prenom']) ?></div>
+            <div>
+              <div class="dp-name"><?= htmlspecialchars($adm['nom'].' '.$adm['prenom']) ?></div>
+              <div class="dp-cin" style="color:var(--blue);font-weight:600">ADMINISTRATEUR</div>
+            </div>
+          </div>
+          
+          <form method="POST" action="?page=permissions">
+            <input type="hidden" name="action" value="save_permissions">
+            <input type="hidden" name="target_id" value="<?= $adm['id'] ?>">
+            <div class="dp-section">Accès aux modules</div>
+            <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem">
+              <?php foreach($ALL_MODULES as $mk => $md): $checked = in_array($mk, $adm_perms); ?>
+              <label class="perm-toggle-v2 <?= $checked?'active':'' ?>" style="padding:.7rem; border-radius:12px; border:1px solid var(--border); display:flex; align-items:center; gap:.8rem; cursor:pointer;">
+                <input type="checkbox" name="modules[]" value="<?= $mk ?>" <?= $checked?'checked':'' ?> onchange="this.parentElement.classList.toggle('active', this.checked)" style="position:absolute;opacity:0;width:0;height:0">
+                <div class="switch"></div>
+                <div style="background:<?= str_replace('var(--','rgba(', str_replace(')',',0.12)',$md['color'])) ?>; width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="14" height="14" fill="none" stroke="<?= $md['color'] ?>" stroke-width="2" viewBox="0 0 24 24"><?= $md['icon'] ?></svg>
+                </div>
+                <div style="font-size:.82rem;font-weight:600;"><?= $md['label'] ?></div>
+              </label>
+              <?php endforeach; ?>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem">
+              <button type="button" class="filter-btn" onclick="selectAll(this.closest('form'))">Tout cocher</button>
+              <button type="button" class="filter-btn" onclick="clearAll(this.closest('form'))">Tout décocher</button>
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:.8rem">
+              Sauvegarder les permissions
+            </button>
+          </form>
+        </div>
+        <?php endforeach; ?>
       </div>
     </div>
 
@@ -1167,6 +1257,20 @@ function filterTable() {
   document.querySelectorAll('#user-table tbody tr').forEach(function(row) {
     row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
   });
+}
+function filterPermTable() {
+  var q = document.getElementById('perm-search').value.toLowerCase();
+  document.querySelectorAll('#perm-table tbody tr').forEach(function(row) {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+function showPermPanel(id) {
+  document.getElementById('perm-empty-msg').style.display = 'none';
+  document.querySelectorAll('.perm-form-container').forEach(c => c.style.display = 'none');
+  document.querySelectorAll('#perm-table tr').forEach(r => r.classList.remove('detail-active'));
+  
+  document.getElementById('perm-form-' + id).style.display = 'block';
+  document.querySelector('#perm-table tr[data-id="'+id+'"]').classList.add('detail-active');
 }
 // Permission helpers
 function openPermModal(id, perms, name) {

@@ -13,5 +13,13 @@
         "dons_collectes",
         "utilisateurs",
         "statistiques"
+    ],
+    "15": [
+        "comptes",
+        "actions",
+        "credit",
+        "dons_collectes",
+        "utilisateurs",
+        "statistiques"
     ]
 }
