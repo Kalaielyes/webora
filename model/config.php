@@ -34,3 +34,11 @@ class Config
         return self::$pdo;
     }
 }
+// Twilio Configuration
+if (file_exists(__DIR__ . '/../config.local.php')) {
+    require_once __DIR__ . '/../config.local.php';
+} else {
+    define('TWILIO_SID', 'YOUR_TWILIO_SID_HERE');
+    define('TWILIO_TOKEN', 'YOUR_TWILIO_TOKEN_HERE');
+    define('TWILIO_FROM', 'YOUR_TWILIO_PHONE_NUMBER_HERE');
+}

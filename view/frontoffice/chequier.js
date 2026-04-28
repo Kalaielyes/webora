@@ -48,3 +48,79 @@ function afficherErreur(elementId, message) {
     el.style.display = 'block';
   }
 }
+
+function validerSaisieChequier() {
+  let valide = true;
+  
+  // Reset all error messages
+  document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+
+  const numInput = document.getElementById('input_numero_chequier');
+  const dateCreateInput = document.getElementById('modal_date_creation');
+  const sheetsInput = document.getElementById('modal_nb_feuilles');
+  const dateExpInput = document.getElementById('modal_date_exp');
+
+  // Validate Number
+  if (numInput && numInput.value.trim() === "") {
+    const errNum = document.getElementById('errModalNum');
+    if (errNum) {
+      errNum.textContent = "Le numéro de chéquier est obligatoire.";
+      errNum.style.display = 'block';
+    }
+    valide = false;
+  }
+
+  // Validate Creation Date
+  if (dateCreateInput && dateCreateInput.value.trim() === "") {
+    const errCreate = document.getElementById('errModalDateCreate');
+    if (errCreate) {
+      errCreate.textContent = "La date de création est obligatoire.";
+      errCreate.style.display = 'block';
+    }
+    valide = false;
+  }
+
+  // Validate Sheets
+  if (sheetsInput && sheetsInput.value.trim() === "") {
+    const errSheets = document.getElementById('errModalSheets');
+    if (errSheets) {
+      errSheets.textContent = "Le nombre de feuilles est obligatoire.";
+      errSheets.style.display = 'block';
+    }
+    valide = false;
+  }
+
+  // Validate Expiration Date
+  if (dateExpInput) {
+    if (dateExpInput.value.trim() === "") {
+      const errDateExp = document.getElementById('errModalDateExp');
+      if (errDateExp) {
+        errDateExp.textContent = "La date d'expiration est obligatoire.";
+        errDateExp.style.display = 'block';
+      }
+      valide = false;
+    } else {
+      const selectedDate = new Date(dateExpInput.value);
+      const maxDate = new Date('2035-12-30T23:59:59');
+      if (selectedDate > maxDate) {
+        const errDateExp = document.getElementById('errModalDateExp');
+        if (errDateExp) {
+          errDateExp.textContent = "La date d'expiration ne peut pas dépasser le 30/12/2035.";
+          errDateExp.style.display = 'block';
+        }
+        valide = false;
+      }
+    }
+  }
+  
+  return valide;
+}
+
+/* ── Attestation PDF ── */
+function generateAttestation(idChequier) {
+    window.open(`attestation_pdf.php?id=${idChequier}`, '_blank');
+}
+
+function generateChequeAttestation(idCheque) {
+    window.open(`attestation_pdf.php?id_cheque=${idCheque}`, '_blank');
+}

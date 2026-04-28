@@ -99,6 +99,7 @@ foreach($demandes_db as $d) {
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="chequier.css?v=<?= time() ?>">
+<script src="../frontoffice/chequier.js?v=<?= time() ?>"></script>
 </head>
 <body>
 <?php if (isset($_GET['success'])): ?>
@@ -165,6 +166,10 @@ $current_view = $_GET['view'] ?? 'backoffice';
       <i class="fa-solid fa-arrow-right-to-bracket" style="width:16px; margin-right:4px;"></i>
       Aller au Frontoffice
     </a>
+    <a class="nav-item" href="statistiques.php">
+      <i class="fa-solid fa-chart-bar" style="width:16px; margin-right:4px;"></i>
+      Statistique
+    </a>
   </nav>
   <div class="sb-footer">
     <div class="sb-status"><span class="status-dot"></span>Système opérationnel</div>
@@ -181,7 +186,7 @@ $current_view = $_GET['view'] ?? 'backoffice';
     <div class="tb-right">
       <div class="search-bar">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input placeholder="Rechercher n° chéquier, client..."/>
+        <input id="searchInput" oninput="updateSearch()" placeholder="Rechercher n° chéquier, client..."/>
       </div>
       <button class="btn-primary">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
@@ -202,7 +207,7 @@ $current_view = $_GET['view'] ?? 'backoffice';
             $creationDate = new DateTime($chq['date_creation']);
             $expDate = new DateTime($chq['date_expiration']);
         ?>
-        <div class="chq-card-bo" style="background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; transition:transform 0.2s, box-shadow 0.2s; cursor:default;">
+        <div class="chq-card-bo" data-name="<?= htmlspecialchars($chq['nom et prenom'] ?? 'Inconnu') ?>" data-num="<?= htmlspecialchars($chq['numero_chequier']) ?>" style="background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; transition:transform 0.2s, box-shadow 0.2s; cursor:default;">
            <!-- Card Visual Top -->
            <div class="bo-chq-visual" style="height:140px; background:linear-gradient(135deg, <?= $isActif ? '#0f172a, #1e293b' : '#450a0a, #7f1d1d' ?>); padding:1.2rem; color:white; position:relative; overflow:hidden;">
               <div style="font-family:var(--fm); font-size:0.75rem; opacity:0.6; letter-spacing:0.1em;"><?= htmlspecialchars($chq['numero_chequier']) ?></div>
@@ -251,8 +256,8 @@ $current_view = $_GET['view'] ?? 'backoffice';
                   <button class="btn-primary" style="flex:1; justify-content:center; padding:0.5rem;" onclick='openPremiumModal(<?= json_encode($mockDem) ?>)'>
                       <i class="fa-solid fa-pen-to-square"></i> Modifier
                   </button>
-                  <button class="filter-btn" style="padding:0.5rem 0.8rem;" onclick="alert('Impression de l\'attestation...')">
-                      <i class="fa-solid fa-print"></i>
+                  <button class="filter-btn" style="padding:0.5rem 0.8rem;" onclick="window.location.href='../../controller/generate_attestation.php?id=<?= $chq['id_chequier'] ?>'">
+                      <i class="fa-solid fa-print"></i> Attestation
                   </button>
               </div>
            </div>
@@ -536,15 +541,86 @@ function switchPanel(btn, panelId) {
   });
 }
 
+let currentStatusFilter = 'tous';
+
+function updateSearch() {
+  applyFilters();
+}
+
 function filterByStatus(status) {
-  const rows = document.querySelectorAll('#demandesTableBody tr');
-  rows.forEach(row => {
-    if (status === 'tous' || row.getAttribute('data-status') === status) {
-      row.style.display = '';
+  currentStatusFilter = status;
+  
+  // Update UI for filter buttons
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    const btnText = btn.textContent.toLowerCase();
+    const statusText = status.replace('-', ' ').toLowerCase();
+    
+    if (btnText.includes(statusText) || (status === 'tous' && btnText === 'tous')) {
+      btn.classList.add('active');
     } else {
-      row.style.display = 'none';
+      btn.classList.remove('active');
     }
   });
+
+  applyFilters();
+}
+
+function applyFilters() {
+  const searchInput = document.getElementById('searchInput');
+  if (!searchInput) return;
+  
+  const query = searchInput.value.toLowerCase().trim();
+  
+  // 1. Filter Table Rows (Backoffice View)
+  const tableBody = document.getElementById('demandesTableBody');
+  if (tableBody) {
+    const rows = tableBody.querySelectorAll('tr');
+    rows.forEach(row => {
+      const rowStatus = row.getAttribute('data-status') || '';
+      const statusMatch = (currentStatusFilter === 'tous' || rowStatus === currentStatusFilter);
+      
+      const name = (row.getAttribute('data-name') || '').toLowerCase();
+      const id = (row.getAttribute('data-id') || '').toLowerCase();
+      const iban = (row.getAttribute('data-iban') || '').toLowerCase();
+      
+      // Also check text content as fallback
+      const textContent = row.textContent.toLowerCase();
+      
+      const searchMatch = !query || 
+                          name.includes(query) || 
+                          id.includes(query) || 
+                          iban.includes(query) || 
+                          ("dem-" + id).includes(query) ||
+                          textContent.includes(query);
+      
+      if (statusMatch && searchMatch) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  }
+
+  // 2. Filter Cards (Mes Chéquiers View)
+  const cards = document.querySelectorAll('.chq-card-bo');
+  if (cards.length > 0) {
+    cards.forEach(card => {
+      const name = (card.getAttribute('data-name') || '').toLowerCase();
+      const num = (card.getAttribute('data-num') || '').toLowerCase();
+      const textContent = card.textContent.toLowerCase();
+      
+      const searchMatch = !query || 
+                          name.includes(query) || 
+                          num.includes(query) ||
+                          textContent.includes(query);
+      
+      if (searchMatch) {
+        card.style.display = '';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
 }
 
 function showDetail(row) {
@@ -775,7 +851,7 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
         <div class="premium-form-body">
             <div class="form-section-title">Informations du chéquier</div>
             
-            <form method="POST" action="">
+            <form method="POST" action="" onsubmit="return validerSaisieChequier()">
                 <input type="hidden" name="id_demande" id="hidden_id_demande_modal">
                 <input type="hidden" name="id_Compte" id="hidden_id_compte_modal">
                 <input type="hidden" name="id_chequier" id="hidden_id_chequier_modal">
@@ -790,6 +866,7 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
                             <i class="fa-solid fa-hashtag input-icon"></i>
                             <input type="text" name="numero_chequier" id="input_numero_chequier" class="premium-input" placeholder="CHQ-2026-XXXXX">
                         </div>
+                        <div id="errModalNum" class="error-msg" style="color:var(--rose); font-size:0.75rem; margin-top:4px; display:none;"></div>
                         <div class="input-hint" style="color:var(--blue)">• Vous pouvez utiliser le numéro généré ou le saisir manuellement.</div>
                     </div>
 
@@ -802,6 +879,7 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
                             <i class="fa-solid fa-calendar-plus input-icon"></i>
                             <input type="date" name="date_creation" id="modal_date_creation" class="premium-input" value="<?= date('Y-m-d') ?>" oninput="updatePremiumPreview()" required>
                         </div>
+                        <div id="errModalDateCreate" class="error-msg" style="color:var(--rose); font-size:0.75rem; margin-top:4px; display:none;"></div>
                         <div class="input-hint" style="color:#94a3b8">• Date d'émission officielle</div>
                     </div>
 
@@ -818,6 +896,7 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
                                 <option value="100">100 feuilles (Grand Format)</option>
                             </select>
                         </div>
+                        <div id="errModalSheets" class="error-msg" style="color:var(--rose); font-size:0.75rem; margin-top:4px; display:none;"></div>
                     </div>
 
                     <!-- DATE EXPIRATION -->
@@ -829,6 +908,7 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
                             <i class="fa-solid fa-calendar-xmark input-icon"></i>
                             <input type="date" name="date_expiration" id="modal_date_exp" class="premium-input" value="<?= date('Y-m-d', strtotime('+1 year')) ?>" oninput="updatePremiumPreview()" required>
                         </div>
+                        <div id="errModalDateExp" class="error-msg" style="color:var(--rose); font-size:0.75rem; margin-top:4px; display:none;"></div>
                     </div>
 
                     <!-- STATUT -->

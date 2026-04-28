@@ -173,6 +173,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
         $error_msg = "Erreur lors de la modification : " . $e->getMessage();
     }
 }
+if (isset($_GET['action']) && $_GET['action'] === 'generate_pdf' && isset($_GET['cheque_id'])) {
+    require_once __DIR__ . '/../../controller/chequecontroller.php';
+
+    $chequeController = new ChequeController();
+    try {
+        $fileName = $chequeController->generateChequePDF($_GET['cheque_id']);
+        $filePath = __DIR__ . '/../../exports/' . $fileName;
+
+        if (file_exists($filePath)) {
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="' . $fileName . '"');
+            readfile($filePath);
+            exit;
+        } else {
+            echo "Erreur : le fichier PDF n'a pas pu être généré.";
+        }
+    } catch (Exception $e) {
+        echo "Erreur : " . $e->getMessage();
+    }
+}
+
 $toutes_les_demandes = $demandeC->listDemandes();
 $tous_les_chequiers = $chequierC->listChequiers();
 $countActifs = 0;
@@ -467,7 +488,7 @@ $current_view = $_GET['view'] ?? 'dashboard';
                 
                 // Styles pour le refus
                 $actionStyle = $isRefused ? 'border-color:var(--rose-light); color:var(--rose); cursor:not-allowed; opacity:0.7;' : '';
-                $actionCursor = $isRefused ? 'onclick="return false;"' : '';
+                $actionCursor = $isRefused ? 'onclick="return false;"' : 'onclick="generateAttestation('.$chq['id_chequier'].')"';
         ?>
         <div class="chq-card" <?= $isRefused ? 'style="border-color:var(--rose-light);"' : '' ?>>
           <div class="chq-visual" <?= $isRefused ? 'style="background:linear-gradient(135deg, #fecaca 0%, #ef4444 100%);"' : '' ?>>
@@ -883,7 +904,7 @@ $current_view = $_GET['view'] ?? 'dashboard';
                 $statutLabel = ucfirst($s);
                 
                 $actionStyle = $isRefused ? 'border-color:var(--rose-light); color:var(--rose); cursor:not-allowed; opacity:0.7;' : '';
-                $actionCursor = $isRefused ? 'onclick="return false;"' : '';
+                $actionCursor = $isRefused ? 'onclick="return false;"' : 'onclick="generateAttestation('.$chq['id_chequier'].')"';
         ?>
         <div class="chq-card" <?= $isRefused ? 'style="border-color:var(--rose-light);"' : '' ?>>
           <div class="chq-visual" <?= $isRefused ? 'style="background:linear-gradient(135deg, #fecaca 0%, #ef4444 100%);"' : '' ?>>
@@ -1116,6 +1137,94 @@ function preparerModif(d) {
   form.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function openAttestation(chqNum, owner, iban, statut, feuilles, creation, expiration) {
+
+  const win = window.open('', '_blank');
+
+  if (!win) {
+    alert("Veuillez autoriser les popups pour générer l'attestation.");
+    return;
+  }
+
+  // Sécuriser les valeurs (éviter undefined)
+  owner = owner || "Non renseigné";
+  chqNum = chqNum || "Non renseigné";
+  iban = iban || "Non renseigné";
+  statut = statut || "Non renseigné";
+  feuilles = feuilles || "0";
+  creation = creation || "Non renseignée";
+  expiration = expiration || "Non renseignée";
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="fr">
+  <head>
+    <meta charset="UTF-8">
+    <title>Attestation de Chéquier</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f7f8fb;
+        padding: 40px;
+      }
+      .card {
+        max-width: 700px;
+        margin: auto;
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .field {
+        margin-bottom: 10px;
+      }
+      .label {
+        font-weight: bold;
+      }
+      .btn {
+        margin-top: 20px;
+        padding: 10px 15px;
+        background: #4f46e5;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="card">
+      <h1>Attestation de Chéquier</h1>
+
+      <div class="field"><span class="label">Titulaire :</span> ${owner}</div>
+      <div class="field"><span class="label">Numéro :</span> ${chqNum}</div>
+      <div class="field"><span class="label">IBAN :</span> ${iban}</div>
+      <div class="field"><span class="label">Création :</span> ${creation}</div>
+      <div class="field"><span class="label">Expiration :</span> ${expiration}</div>
+      <div class="field"><span class="label">Statut :</span> ${statut}</div>
+      <div class="field"><span class="label">Feuilles :</span> ${feuilles}</div>
+
+      <p style="margin-top:20px;">
+        Cette attestation est générée automatiquement.
+      </p>
+
+      <button class="btn" onclick="window.print()">Imprimer</button>
+    </div>
+
+  </body>
+  </html>
+  `;
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
+
 function openHistoriqueModal(num, id) {
   console.log("Opening history v4 for:", num, id);
   const modal = document.getElementById('historiqueChequeModal');
@@ -1164,6 +1273,7 @@ function openHistoriqueModal(num, id) {
               <td style="padding:12px; color:var(--muted);">${dateStr}</td>
               <td style="padding:12px; text-align:right;">
                 <div style="display:flex; gap:8px; justify-content:flex-end;">
+                  <button type="button" onclick="generateChequeAttestation(${chq.id_cheque})" style="background:#10b981; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:10px; font-weight:bold; letter-spacing:0.5px;">ATTESTATION</button>
                   <button type="button" onclick="editCheque(${chq.id_cheque})" style="background:#4f46e5; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:10px; font-weight:bold; letter-spacing:0.5px;">MODIFIER</button>
                   <button type="button" onclick="deleteCheque(${chq.id_cheque}, ${id})" style="background:#dc2626; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:10px; font-weight:bold; letter-spacing:0.5px;">SUPPRIMER</button>
                 </div>

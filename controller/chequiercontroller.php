@@ -76,4 +76,18 @@ class ChequierController {
         $stmt->execute([':id' => $id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+
+    public function getChequiersExpirantDans15Jours() {
+        $db = Config::getConnexion();
+        $sql = "SELECT ch.*, d.`nom et prenom` AS nom, d.email, ch.date_expiration 
+                FROM chequier ch
+                LEFT JOIN demande_chequier d ON ch.id_demande = d.id_demande
+                WHERE ch.date_expiration = DATE_ADD(CURDATE(), INTERVAL 15 DAY)";
+        try {
+            $stmt = $db->query($sql);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            return [];
+        }
+    }
 }

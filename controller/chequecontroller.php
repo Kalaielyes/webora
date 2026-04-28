@@ -114,5 +114,37 @@ class ChequeController {
         return false;
         }
     }
+
+    /*
+    public function generateChequePDF($chequeId) {
+        require_once __DIR__ . '/../vendor/fpdf/fpdf.php';
+
+        $cheque = Cheque::getChequeById($chequeId);
+        if (!$cheque) {
+            throw new Exception("Chèque introuvable.");
+        }
+
+        $pdf = new FPDF();
+        $pdf->AddPage();
+        $pdf->SetFont('Arial', 'B', 16);
+
+        $pdf->Cell(0, 10, 'Attestation de Chèque', 0, 1, 'C');
+        $pdf->Ln(10);
+
+        $pdf->SetFont('Arial', '', 12);
+        $pdf->Cell(0, 10, 'Titulaire : ' . $cheque->getBeneficiaire(), 0, 1);
+        $pdf->Cell(0, 10, 'Numéro de chèque : ' . $cheque->getNumeroCheque(), 0, 1);
+        $pdf->Cell(0, 10, 'Montant : ' . $cheque->getMontant() . ' TND', 0, 1);
+        $pdf->Cell(0, 10, 'Date d\'émission : ' . $cheque->getDateEmission(), 0, 1);
+        $pdf->Cell(0, 10, 'RIB Bénéficiaire : ' . $cheque->getRibBeneficiaire(), 0, 1);
+        $pdf->Cell(0, 10, 'CIN Bénéficiaire : ' . $cheque->getCinBeneficiaire(), 0, 1);
+
+        $fileName = 'cheque_attestation_' . $chequeId . '.pdf';
+        $filePath = __DIR__ . '/../exports/' . $fileName;
+        $pdf->Output('F', $filePath);
+
+        return $fileName;
+    }
+    */
 }
 ?>
