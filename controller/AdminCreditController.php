@@ -3,6 +3,7 @@ session_start();
 require_once __DIR__ . '/../model/Demande_Credit.php';
 require_once __DIR__ . '/../model/Garantie.php';
 require_once __DIR__ . '/../model/config.php';
+require_once __DIR__ . '/../model/mailcredit.php';
 
 class AdminCreditController
 {
@@ -28,6 +29,7 @@ class AdminCreditController
             'create_garantie' => $this->createGarantie(),
             'update_garantie' => $this->updateGarantie(),
             'delete_garantie' => $this->deleteGarantie(),
+            'download_garantie_file' => $this->downloadGarantieFile(),
             default => $this->renderView(),
         };
     }
@@ -53,7 +55,12 @@ class AdminCreditController
             return;
         }
 
-        $this->renderView(success: 'Demande soumise.');
+        $pdo = config::getConnexion();
+        $admins = $pdo->query("SELECT email, prenom, nom FROM admin")->fetchAll();
+        foreach ($admins as $admin) {
+            sendAdminCreditNotification($admin['email'], $data);
+        }
+        $this->renderView(success: 'Demande soumise. Admins notifiés: ' . count($admins));
     }
 
     private function updateDemande(): void
@@ -119,6 +126,65 @@ class AdminCreditController
         if ($id > 0)
             $this->garantieModel->delete($id);
         $this->renderView(success: "Garantie #$id supprimée.", activeTab: 'gar');
+    }
+
+    /**
+     * Handles file download/viewing for guarantee documents
+     */
+    private function downloadGarantieFile(): void
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            http_response_code(400);
+            echo 'ID invalid.';
+            exit;
+        }
+
+        $garantie = $this->garantieModel->getById($id);
+        if (!$garantie || empty($garantie['document'])) {
+            http_response_code(404);
+            echo 'File not found.';
+            exit;
+        }
+
+        $filePath = __DIR__ . '/../' . $garantie['document'];
+
+        // Verify the file exists and is within the uploads directory
+        if (!file_exists($filePath)) {
+            http_response_code(404);
+            echo 'File not found on server.';
+            exit;
+        }
+
+        $realPath = realpath($filePath);
+        $uploadDir = realpath(__DIR__ . '/../uploads/garanties/');
+        
+        if ($realPath === false || strpos($realPath, $uploadDir) !== 0) {
+            http_response_code(403);
+            echo 'Access denied.';
+            exit;
+        }
+
+        // Get file info
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mimeType = $finfo->file($filePath);
+        $filename = basename($filePath);
+
+        // Set headers for viewing (not downloading) for PDFs and images
+        if (in_array($mimeType, ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], true)) {
+            header('Content-Type: ' . $mimeType);
+            header('Content-Disposition: inline; filename="' . $filename . '"');
+        } else {
+            // Force download for other file types
+            header('Content-Type: application/octet-stream');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+        }
+
+        header('Content-Length: ' . filesize($filePath));
+        header('Cache-Control: public, max-age=3600');
+
+        readfile($filePath);
+        exit;
     }
 
     // ── Render ────────────────────────────────────────────────────────────────

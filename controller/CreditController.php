@@ -3,6 +3,7 @@ session_start();
 require_once __DIR__ . '/../model/Demande_Credit.php';
 require_once __DIR__ . '/../model/Garantie.php';
 require_once __DIR__ . '/../model/config.php';
+require_once __DIR__ . '/../model/mailcredit.php';
 
 class CreditController
 {
@@ -53,6 +54,7 @@ class CreditController
             $this->renderView(errors: ['Erreur DB : ' . $e->getMessage()]);
             return;
         }
+        
         $this->renderView(success: 'Demande soumise.');
     }
     private function updateDemande(): void
@@ -171,6 +173,7 @@ class CreditController
         $garanties = $this->garantieModel->getAll();
         $demandesSelect = $demandes;
         $editDemande = $editDemandeId ? $this->demandeModel->getById($editDemandeId) : null;
+        $stats = $this->demandeModel->getStats();
         $editGarantie = $editGarantieId ? $this->garantieModel->getById($editGarantieId) : null;
         $controllerSelf = $_SERVER['SCRIPT_NAME']; // always the controller since we're running from it
         $dbStatus = config::testConnexion();

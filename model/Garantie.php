@@ -58,36 +58,43 @@ class Garantie
  */
 public function handleUpload(array $file): string|false
 {
-    $allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
     $maxSize = 5 * 1024 * 1024; // 5 Mo
 
-    if ($file['error'] !== UPLOAD_ERR_OK)
+    // Check for upload errors
+    if ($file['error'] !== UPLOAD_ERR_OK) {
         return false;
+    }
 
-    if ($file['size'] > $maxSize)
+    // Check file size
+    if ($file['size'] > $maxSize) {
         return false;
+    }
 
-    $finfo = new \finfo(FILEINFO_MIME_TYPE);
-    $mime = $finfo->file($file['tmp_name']);
-    if (!in_array($mime, $allowedTypes, true))
+    // Check if temp file exists
+    if (!is_uploaded_file($file['tmp_name'])) {
         return false;
+    }
 
-    $ext = match ($mime) {
-        'application/pdf' => 'pdf',
-        'image/jpeg'      => 'jpg',
-        'image/png'       => 'png',
-        'image/webp'      => 'webp',
-    };
+    // Get file extension
+    $pathInfo = pathinfo($file['name']);
+    $ext = strtolower($pathInfo['extension'] ?? '');
+    
+    if (!in_array($ext, $allowedExtensions, true)) {
+        return false;
+    }
 
     $uploadDir = __DIR__ . '/../uploads/garanties/';
-    if (!is_dir($uploadDir))
+    if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0755, true);
+    }
 
     $filename = 'gar_' . uniqid() . '.' . $ext;
     $dest = $uploadDir . $filename;
 
-    if (!move_uploaded_file($file['tmp_name'], $dest))
+    if (!move_uploaded_file($file['tmp_name'], $dest)) {
         return false;
+    }
 
     return 'uploads/garanties/' . $filename;
 }
@@ -159,16 +166,6 @@ public function handleUpload(array $file): string|false
         // Description (optionnelle mais limitée)
         if (!empty($data['description']) && mb_strlen($data['description']) > 500)
             $errors['description'] = 'La description ne peut pas dépasser 500 caractères.';
-        // Fichier uploadé (optionnel, mais validé si présent)
-if (!empty($_FILES['document_file']['name'])) {
-    $allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-    $finfo = new \finfo(FILEINFO_MIME_TYPE);
-    $mime = $finfo->file($_FILES['document_file']['tmp_name']);
-    if (!in_array($mime, $allowedMimes, true))
-        $errors['document_file'] = 'Format de fichier non autorisé (PDF, JPG, PNG, WEBP uniquement).';
-    elseif ($_FILES['document_file']['size'] > 5 * 1024 * 1024)
-        $errors['document_file'] = 'Le fichier ne peut pas dépasser 5 Mo.';
-}
 
         return $errors;
     }

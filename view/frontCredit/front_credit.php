@@ -31,7 +31,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
   <link
     href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=Cabinet+Grotesk:wght@300;400;500;700&display=swap"
     rel="stylesheet" />
-  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -57,6 +57,9 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
           <?= count($demandes) ?>
         </span>
       </a>
+      <a class="sb-item" onclick="showPage('statistique',this)">
+        <span class="sb-ico">📊</span> Statistiques
+      </a>
       <div class="sb-sec">Support</div>
       <a class="sb-item" onclick="showPage('reclamations',this)"><span class="sb-ico">📣</span> Réclamations <span
           class="sb-badge br">5</span></a>
@@ -77,7 +80,10 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
       </div>
       <div class="tb-right">
         <div class="live"><span class="ldot"></span> Live</div>
-        <button class="tb-btn">📥 Exporter</button>
+        <div style="display:flex;gap:.4rem;">
+  <a href="<?= htmlspecialchars($controllerRoot) ?>/ExportController.php?type=demandes" class="tb-btn" style="text-decoration:none;">📥 Demandes</a>
+  <a href="<?= htmlspecialchars($controllerRoot) ?>/ExportController.php?type=garanties" class="tb-btn" style="text-decoration:none;">📥 Garanties</a>
+</div>
         <a href="<?= htmlspecialchars($controllerRoot) ?>/AdminCreditController.php" class="btn-frontoffice">👤 Back →</a>
       </div>
     </header>
@@ -450,8 +456,16 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                           <?= $tgL[$g['type']] ?? htmlspecialchars($g['type']) ?>
                         </td>
                         <td>
-                          <?= htmlspecialchars($g['document']) ?>
-                        </td>
+  <?php if (!empty($g['document']) && str_starts_with($g['document'], 'uploads/')): ?>
+    <a href="<?= htmlspecialchars($controllerRoot) ?>/AdminCreditController.php?action=download_garantie_file&id=<?= (int)$g['id'] ?>" 
+       target="_blank" 
+       style="color:var(--blue);text-decoration:none;font-size:.75rem;">
+      📎 Voir document
+    </a>
+  <?php else: ?>
+    <?= htmlspecialchars($g['document'] ?: '—') ?>
+  <?php endif; ?>
+</td>
                         <td><strong>
                             <?= number_format($g['valeur_estimee'], 0, ',', ' ') ?> TND
                           </strong></td>
@@ -510,6 +524,218 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
         </div>
       </div>
 
+      <!-- ══════════════════════════════════════════
+           PAGE : STATISTIQUES
+      ══════════════════════════════════════════ -->
+      <div class="page" id="page-statistique">
+
+        <?php
+          // ── Compute stats data ──────────────────────────────────────────────
+          $totalDecided = ($stats['approuvee'] + $stats['refusee']);
+          $approvalRate = $totalDecided > 0 ? round(($stats['approuvee'] / $totalDecided) * 100, 1) : 0;
+          $refusalRate  = $totalDecided > 0 ? round(($stats['refusee']  / $totalDecided) * 100, 1) : 0;
+
+          $approuveesList = array_filter($demandes, fn($d) => $d['resultat'] === 'approuvee');
+          $avgMontant = count($approuveesList) ? array_sum(array_column($approuveesList, 'montant')) / count($approuveesList) : 0;
+          $avgDuree   = count($approuveesList) ? array_sum(array_column($approuveesList, 'duree_mois')) / count($approuveesList) : 0;
+          $avgTaux    = count($demandes) ? array_sum(array_column($demandes, 'taux_interet')) / count($demandes) : 0;
+
+          // Monthly (last 6 months)
+          $monthly = [];
+          for ($i = 5; $i >= 0; $i--) {
+            $mKey = date('Y-m', strtotime("-$i months"));
+            $monthly[$mKey] = ['label' => date('M', strtotime("-$i months")), 'total' => 0, 'approuvee' => 0, 'refusee' => 0, 'montant' => 0.0];
+          }
+          foreach ($demandes as $d) {
+            $mKey = substr($d['date_demande'], 0, 7);
+            if (isset($monthly[$mKey])) {
+              $monthly[$mKey]['total']++;
+              if ($d['resultat'] === 'approuvee') { $monthly[$mKey]['approuvee']++; $monthly[$mKey]['montant'] += (float)$d['montant']; }
+              if ($d['resultat'] === 'refusee')   { $monthly[$mKey]['refusee']++; }
+            }
+          }
+
+          // Guarantee types
+          $garTypes = [];
+          foreach ($garanties as $g) {
+            $t = $g['type'] ?? 'autre';
+            $garTypes[$t] = ($garTypes[$t] ?? 0) + 1;
+          }
+
+          // Status breakdown
+          $statusBreakdown = ['en_cours' => 0, 'traitee' => 0, 'annulee' => 0];
+          foreach ($demandes as $d) {
+            $s = $d['statut'] ?? 'en_cours';
+            $statusBreakdown[$s] = ($statusBreakdown[$s] ?? 0) + 1;
+          }
+
+          $monthlyJson  = json_encode(array_values($monthly));
+          $garTypesJson = json_encode($garTypes);
+          $statusJson   = json_encode($statusBreakdown);
+        ?>
+
+        <!-- ── KPI Row ───────────────────────────────────────────── -->
+        <div class="stat-kpi-grid">
+
+          <div class="stat-kpi-card sk-blue">
+            <div class="sk-icon">📋</div>
+            <div class="sk-value"><?= $stats['total'] ?></div>
+            <div class="sk-label">Total demandes</div>
+            <div class="sk-sub">Toutes périodes</div>
+          </div>
+
+          <div class="stat-kpi-card sk-green">
+            <div class="sk-icon">✅</div>
+            <div class="sk-value"><?= $approvalRate ?>%</div>
+            <div class="sk-label">Taux d'approbation</div>
+            <div class="sk-sub"><?= $stats['approuvee'] ?> approuvées / <?= $totalDecided ?> décidées</div>
+          </div>
+
+          <div class="stat-kpi-card sk-amber">
+            <div class="sk-icon">⏳</div>
+            <div class="sk-value"><?= $stats['attente'] ?></div>
+            <div class="sk-label">En attente</div>
+            <div class="sk-sub">Décision en cours</div>
+          </div>
+
+          <div class="stat-kpi-card sk-rose">
+            <div class="sk-icon">💰</div>
+            <div class="sk-value"><?= number_format($stats['encours'], 0, ',', ' ') ?></div>
+            <div class="sk-label">Encours (TND)</div>
+            <div class="sk-sub">Montant total approuvé</div>
+          </div>
+
+          <div class="stat-kpi-card sk-purple">
+            <div class="sk-icon">📐</div>
+            <div class="sk-value"><?= number_format($avgMontant, 0, ',', ' ') ?></div>
+            <div class="sk-label">Montant moy. (TND)</div>
+            <div class="sk-sub">Sur dossiers approuvés</div>
+          </div>
+
+          <div class="stat-kpi-card sk-teal">
+            <div class="sk-icon">📅</div>
+            <div class="sk-value"><?= round($avgDuree) ?> mois</div>
+            <div class="sk-label">Durée moyenne</div>
+            <div class="sk-sub">Dossiers approuvés</div>
+          </div>
+
+        </div>
+
+        <!-- ── Charts Row ──────────────────────────────────────────── -->
+        <div class="stat-charts-row">
+
+          <!-- Bar chart — monthly -->
+          <div class="stat-chart-card" style="flex:2">
+            <div class="sc-header">
+              <div class="sc-title">📅 Activité mensuelle (6 derniers mois)</div>
+              <div class="sc-legend">
+                <span class="leg-dot" style="background:#3b82f6"></span>Total
+                <span class="leg-dot" style="background:#10b981;margin-left:.8rem"></span>Approuvées
+                <span class="leg-dot" style="background:#ef4444;margin-left:.8rem"></span>Refusées
+              </div>
+            </div>
+            <div class="sc-body">
+              <canvas id="chartMonthly" height="180"></canvas>
+            </div>
+          </div>
+
+          <!-- Donut — résultats -->
+          <div class="stat-chart-card" style="flex:1">
+            <div class="sc-header">
+              <div class="sc-title">🎯 Résultats</div>
+            </div>
+            <div class="sc-body" style="display:flex;align-items:center;justify-content:center;height:180px">
+              <canvas id="chartResultat" width="180" height="180"></canvas>
+            </div>
+            <div class="donut-legend">
+              <div><span class="leg-dot" style="background:#10b981"></span>Approuvées (<?= $stats['approuvee'] ?>)</div>
+              <div><span class="leg-dot" style="background:#f59e0b"></span>En attente (<?= $stats['attente'] ?>)</div>
+              <div><span class="leg-dot" style="background:#ef4444"></span>Refusées (<?= $stats['refusee'] ?>)</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── Second Charts Row ──────────────────────────────────── -->
+        <div class="stat-charts-row">
+
+          <!-- Guarantee types -->
+          <div class="stat-chart-card" style="flex:1">
+            <div class="sc-header">
+              <div class="sc-title">🔒 Types de garanties</div>
+            </div>
+            <div class="sc-body" style="display:flex;align-items:center;justify-content:center;height:160px">
+              <canvas id="chartGarTypes" width="160" height="160"></canvas>
+            </div>
+            <div class="donut-legend">
+              <?php foreach ($garTypes as $type => $cnt): ?>
+              <div><span class="leg-dot" style="background:<?= ['vehicule'=>'#3b82f6','immobilier'=>'#a78bfa','garant'=>'#10b981','autre'=>'#f59e0b'][$type] ?? '#8b949e' ?>"></span>
+                <?= $tgL[$type] ?? $type ?> (<?= $cnt ?>)
+              </div>
+              <?php endforeach; ?>
+              <?php if (empty($garTypes)): ?><div style="color:var(--muted);font-size:.8rem">Aucune garantie</div><?php endif; ?>
+            </div>
+          </div>
+
+          <!-- Statut dossiers -->
+          <div class="stat-chart-card" style="flex:1">
+            <div class="sc-header">
+              <div class="sc-title">📂 Statut des dossiers</div>
+            </div>
+            <div class="sc-body">
+              <div class="stat-bar-list">
+                <?php
+                  $statusLabels = ['en_cours' => ['En cours', '#f59e0b'], 'traitee' => ['Traitée', '#10b981'], 'annulee' => ['Annulée', '#ef4444']];
+                  $totalSt = array_sum($statusBreakdown) ?: 1;
+                  foreach ($statusBreakdown as $sk => $sv):
+                    [$slLabel, $slColor] = $statusLabels[$sk];
+                    $pct = round(($sv / $totalSt) * 100);
+                ?>
+                <div class="sbl-item">
+                  <div class="sbl-label"><span><?= $slLabel ?></span><span class="sbl-count"><?= $sv ?></span></div>
+                  <div class="sbl-track"><div class="sbl-fill" style="width:<?= $pct ?>%;background:<?= $slColor ?>"></div></div>
+                  <div class="sbl-pct"><?= $pct ?>%</div>
+                </div>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          </div>
+
+          <!-- Taux intérêt moyen -->
+          <div class="stat-chart-card" style="flex:1">
+            <div class="sc-header">
+              <div class="sc-title">📉 Indicateurs clés</div>
+            </div>
+            <div class="sc-body">
+              <div class="stat-indicator-list">
+                <div class="sil-item">
+                  <div class="sil-label">Taux d'intérêt moyen</div>
+                  <div class="sil-val" style="color:var(--amber)"><?= number_format($avgTaux, 2) ?>%</div>
+                </div>
+                <div class="sil-item">
+                  <div class="sil-label">Taux de refus</div>
+                  <div class="sil-val" style="color:var(--rose)"><?= $refusalRate ?>%</div>
+                </div>
+                <div class="sil-item">
+                  <div class="sil-label">Durée moy. remboursement</div>
+                  <div class="sil-val" style="color:var(--blue)"><?= round($avgDuree) ?> mois</div>
+                </div>
+                <div class="sil-item">
+                  <div class="sil-label">Total garanties</div>
+                  <div class="sil-val" style="color:var(--purple)"><?= count($garanties) ?></div>
+                </div>
+                <div class="sil-item">
+                  <div class="sil-label">Garanties / Demande</div>
+                  <div class="sil-val" style="color:var(--emerald)"><?= $stats['total'] ? round(count($garanties) / $stats['total'], 1) : 0 ?></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div><!-- /page-statistique -->
+
     </div>
   </div>
 
@@ -520,10 +746,11 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
       if (pg) pg.classList.add('on');
       document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('on'));
       if (el) el.classList.add('on');
-      const titles = { dashboard: 'Dashboard Administration', credits: 'Dossiers Crédit', reclamations: 'Réclamations' };
-      const bcs = { dashboard: "Admin › Vue d'ensemble", credits: 'Admin › Crédits', reclamations: 'Admin › Réclamations' };
+      const titles = { dashboard: 'Dashboard Administration', credits: 'Dossiers Crédit', statistique: 'Statistiques', reclamations: 'Réclamations' };
+      const bcs = { dashboard: "Admin › Vue d'ensemble", credits: 'Admin › Crédits', statistique: 'Admin › Statistiques', reclamations: 'Admin › Réclamations' };
       document.querySelector('.pt').textContent = titles[id] || id;
       document.querySelector('.bc').textContent = bcs[id] || '';
+      if (id === 'statistique') { setTimeout(() => renderCharts(), 100); }
     }
 
     function switchTab(name, el) {
@@ -589,6 +816,107 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
     // Auto-activate correct page on load
     showPage('credits', document.querySelector('.sb-item[onclick*="credits"]'));
   <?php if ($activeTab === 'gar'): ?>switchTab('gar', null); <?php endif; ?>
+
+    // ────── STATISTICS CHARTS ─────────────────────────────────────────────
+    const monthlyData = <?= $monthlyJson ?>;
+    const garTypesData = <?= $garTypesJson ?>;
+    const statusData = <?= $statusJson ?>;
+    let chartsInst = {};
+
+    function renderCharts() {
+      // Monthly Activity Chart
+      const ctxMonthly = document.getElementById('chartMonthly');
+      if (ctxMonthly && !chartsInst.monthly) {
+        chartsInst.monthly = new Chart(ctxMonthly, {
+          type: 'bar',
+          data: {
+            labels: monthlyData.map(m => m.label),
+            datasets: [
+              {
+                label: 'Total',
+                data: monthlyData.map(m => m.total),
+                backgroundColor: '#3b82f6',
+                borderRadius: 4,
+                barPercentage: 0.7
+              },
+              {
+                label: 'Approuvées',
+                data: monthlyData.map(m => m.approuvee),
+                backgroundColor: '#10b981',
+                borderRadius: 4,
+                barPercentage: 0.7
+              },
+              {
+                label: 'Refusées',
+                data: monthlyData.map(m => m.refusee),
+                backgroundColor: '#ef4444',
+                borderRadius: 4,
+                barPercentage: 0.7
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.05)' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+      }
+
+      // Results Donut Chart
+      const ctxRes = document.getElementById('chartResultat');
+      if (ctxRes && !chartsInst.resultat) {
+        chartsInst.resultat = new Chart(ctxRes, {
+          type: 'doughnut',
+          data: {
+            labels: ['Approuvées', 'En attente', 'Refusées'],
+            datasets: [{
+              data: [<?= $stats['approuvee'] ?>, <?= $stats['attente'] ?>, <?= $stats['refusee'] ?>],
+              backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+
+      // Guarantee Types Chart
+      const ctxGar = document.getElementById('chartGarTypes');
+      if (ctxGar && !chartsInst.garTypes) {
+        const garLabels = Object.keys(garTypesData);
+        const garValues = Object.values(garTypesData);
+        const colors = { vehicule: '#3b82f6', immobilier: '#a78bfa', garant: '#10b981', autre: '#f59e0b' };
+        chartsInst.garTypes = new Chart(ctxGar, {
+          type: 'doughnut',
+          data: {
+            labels: garLabels.map(l => ({'vehicule':'🚗 Véhicule','immobilier':'🏠 Immobilier','garant':'🤝 Garant','autre':'📄 Autre'}[l] || l)),
+            datasets: [{
+              data: garValues,
+              backgroundColor: garLabels.map(l => colors[l] || '#8b949e'),
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+    }
+
+    // Render charts when page loads if statistique is visible
+    if (document.getElementById('page-statistique').classList.contains('on')) {
+      renderCharts();
+    }
   </script>
 </body>
 

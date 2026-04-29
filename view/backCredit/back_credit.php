@@ -47,6 +47,8 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
     <nav class="sb-nav">
       <div class="sb-sec">COMPTE</div>
       <a class="sb-item on" onclick="showPage('credits',this)"><span class="sb-ico">📈</span> Crédits</a>
+      <a class="sb-item" onclick="showPage('mes-credits',this)"><span class="sb-ico">📋</span> Mes crédits <span class="sb-badge ba"><?= count($demandes) ?></span></a>
+      <a class="sb-item" onclick="showPage('mes-garanties',this)"><span class="sb-ico">🔒</span> Mes garanties <span class="sb-badge ba"><?= count($garanties) ?></span></a>
       <div class="sb-sec">AUTRES</div>
       <a class="sb-item" onclick="showPage('dashboard',this)"><span class="sb-ico">📊</span> Tableau de bord</a>
       <a class="sb-item" onclick="showPage('profil',this)"><span class="sb-ico">👤</span> Profil</a>
@@ -113,10 +115,10 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
         <!-- SECTION TABS -->
         <div class="tabs-crud">
           <div class="tab-c <?= $activeTab === 'demande' ? 'on' : '' ?>" onclick="switchTab('demande',this)">
-            📋 Demandes (<?= count($demandes) ?>)
+            📋 Nouvelle demande
           </div>
           <div class="tab-c <?= $activeTab === 'garantie' ? 'on' : '' ?>" onclick="switchTab('garantie',this)">
-            🔒 Garanties (<?= count($garanties) ?>)
+            🔒 Nouvelle garantie
           </div>
           <div class="tab-c <?= $activeTab === 'simulateur' ? 'on' : '' ?>" onclick="switchTab('simulateur',this)">
             🧮 Simulateur
@@ -188,54 +190,6 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
             </div>
           </div>
 
-          <!-- TABLE: DEMANDES -->
-          <div class="sc">
-            <div class="sc-hd">
-              <div class="sc-title">📋 Vos demandes (<?= count($demandes) ?>)</div>
-            </div>
-            <?php if (empty($demandes)): ?>
-              <div style="padding:2rem;text-align:center;color:var(--muted);">
-                <div style="font-size:3rem;margin-bottom:.5rem;">📋</div>
-                Aucune demande de crédit pour le moment.
-              </div>
-            <?php else: ?>
-              <div style="overflow-x:auto;">
-                <table class="tbl-crud">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Montant</th>
-                      <th>Durée</th>
-                      <th>Taux</th>
-                      <th>Date</th>
-                      <th style="text-align:center;">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <?php foreach ($demandes as $d): ?>
-                      <tr>
-                        <td><strong>#<?= (int) $d['id'] ?></strong></td>
-                        <td><strong><?= number_format($d['montant'], 0, ',', ' ') ?> TND</strong></td>
-                        <td><?= (int) $d['duree_mois'] ?> m</td>
-                        <td><?= $d['taux_interet'] ?>%</td>
-                        <td><?= htmlspecialchars($d['date_demande']) ?></td>
-                        <td style="text-align:center;">
-                          <div class="td-acts-row" style="justify-content:center;">
-                            <a href="<?= $self ?>?edit_d=<?= $d['id'] ?>" class="btn-edt">✏️</a>
-                            <form method="POST" action="<?= $self ?>" style="display:inline;" onsubmit="return confirm('Êtes-vous sûr ?')">
-                              <input type="hidden" name="action" value="delete_demande" />
-                              <input type="hidden" name="id" value="<?= $d['id'] ?>" />
-                              <button type="submit" class="btn-del">🗑️</button>
-                            </form>
-                          </div>
-                        </td>
-                      </tr>
-                    <?php endforeach; ?>
-                  </tbody>
-                </table>
-              </div>
-            <?php endif; ?>
-          </div>
         </div><!-- /tab-demande -->
 
         <!-- ══════════════════════════════════════════════════
@@ -336,54 +290,6 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
             </div>
           </div>
 
-          <!-- TABLE: GARANTIES -->
-          <div class="sc">
-            <div class="sc-hd">
-              <div class="sc-title">🔒 Vos garanties (<?= count($garanties) ?>)</div>
-            </div>
-            <?php if (empty($garanties)): ?>
-              <div style="padding:2rem;text-align:center;color:var(--muted);">
-                <div style="font-size:3rem;margin-bottom:.5rem;">🔒</div>
-                Aucune garantie pour le moment.
-              </div>
-            <?php else: ?>
-              <div style="overflow-x:auto;">
-                <table class="tbl-crud">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Demande</th>
-                      <th>Type</th>
-                      <th>Document</th>
-                      <th>Valeur</th>
-                      <th style="text-align:center;">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <?php foreach ($garanties as $g): ?>
-                      <tr>
-                        <td><strong>#<?= (int) $g['id'] ?></strong></td>
-                        <td><span class="claim-st cs-open">#<?= (int) $g['demande_credit_id'] ?> <?= $g['dc_montant'] ? ' — ' . number_format($g['dc_montant'], 0, ',', ' ') . ' TND' : '' ?></span></td>
-                        <td><?= $tgL[$g['type']] ?? htmlspecialchars($g['type']) ?></td>
-                        <td><?= htmlspecialchars($g['document']) ?></td>
-                        <td><strong><?= number_format($g['valeur_estimee'], 0, ',', ' ') ?> TND</strong></td>
-                        <td style="text-align:center;">
-                          <div class="td-acts-row" style="justify-content:center;">
-                            <a href="<?= $self ?>?edit_g=<?= $g['id'] ?>&tab=garantie" class="btn-edt">✏️</a>
-                            <form method="POST" action="<?= $self ?>" style="display:inline;" onsubmit="return confirm('Êtes-vous sûr ?')">
-                              <input type="hidden" name="action" value="delete_garantie" />
-                              <input type="hidden" name="id" value="<?= $g['id'] ?>" />
-                              <button type="submit" class="btn-del">🗑️</button>
-                            </form>
-                          </div>
-                        </td>
-                      </tr>
-                    <?php endforeach; ?>
-                  </tbody>
-                </table>
-              </div>
-            <?php endif; ?>
-          </div>
         </div><!-- /tab-garantie -->
 
         <!-- ══════════════════════════════════════════════════
@@ -444,6 +350,122 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
         </div>
       </div>
 
+      <!-- ════════════════════════════════════════════════════
+           PAGE: MES CRÉDITS (DEMANDES TABLE)
+      ════════════════════════════════════════════════════ -->
+      <div class="page" id="page-mes-credits">
+        <div class="sc">
+          <div class="sc-hd">
+            <div class="sc-title">📋 Vos demandes (<?= count($demandes) ?>)</div>
+          </div>
+          <?php if (empty($demandes)): ?>
+            <div style="padding:2rem;text-align:center;color:var(--muted);">
+              <div style="font-size:3rem;margin-bottom:.5rem;">📋</div>
+              Aucune demande de crédit pour le moment.
+            </div>
+          <?php else: ?>
+            <div style="overflow-x:auto;">
+              <table class="tbl-crud">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Montant</th>
+                    <th>Durée</th>
+                    <th>Taux</th>
+                    <th>Date</th>
+                    <th style="text-align:center;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($demandes as $d): ?>
+                    <tr>
+                      <td><strong>#<?= (int) $d['id'] ?></strong></td>
+                      <td><strong><?= number_format($d['montant'], 0, ',', ' ') ?> TND</strong></td>
+                      <td><?= (int) $d['duree_mois'] ?> m</td>
+                      <td><?= $d['taux_interet'] ?>%</td>
+                      <td><?= htmlspecialchars($d['date_demande']) ?></td>
+                      <td style="text-align:center;">
+                        <div class="td-acts-row" style="justify-content:center;">
+                          <a href="<?= $self ?>?edit_d=<?= $d['id'] ?>" class="btn-edt">✏️</a>
+                          <form method="POST" action="<?= $self ?>" style="display:inline;" onsubmit="return confirm('Êtes-vous sûr ?')">
+                            <input type="hidden" name="action" value="delete_demande" />
+                            <input type="hidden" name="id" value="<?= $d['id'] ?>" />
+                            <button type="submit" class="btn-del">🗑️</button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════
+           PAGE: MES GARANTIES (GARANTIES TABLE)
+      ════════════════════════════════════════════════════ -->
+      <div class="page" id="page-mes-garanties">
+        <div class="sc">
+          <div class="sc-hd">
+            <div class="sc-title">🔒 Vos garanties (<?= count($garanties) ?>)</div>
+          </div>
+          <?php if (empty($garanties)): ?>
+            <div style="padding:2rem;text-align:center;color:var(--muted);">
+              <div style="font-size:3rem;margin-bottom:.5rem;">🔒</div>
+              Aucune garantie pour le moment.
+            </div>
+          <?php else: ?>
+            <div style="overflow-x:auto;">
+              <table class="tbl-crud">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Demande</th>
+                    <th>Type</th>
+                    <th>Document</th>
+                    <th>Valeur</th>
+                    <th style="text-align:center;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($garanties as $g): ?>
+                    <tr>
+                      <td><strong>#<?= (int) $g['id'] ?></strong></td>
+                      <td><span class="claim-st cs-open">#<?= (int) $g['demande_credit_id'] ?> <?= $g['dc_montant'] ? ' — ' . number_format($g['dc_montant'], 0, ',', ' ') . ' TND' : '' ?></span></td>
+                      <td><?= $tgL[$g['type']] ?? htmlspecialchars($g['type']) ?></td>
+                      <td>
+                        <?php if (str_starts_with($g['document'], 'uploads/')): ?>
+                          <a href="<?= $self ?>?action=download_garantie_file&id=<?= $g['id'] ?>" 
+                             target="_blank" 
+                             style="color:var(--blue);text-decoration:underline;cursor:pointer;">
+                            📄 <?= htmlspecialchars(basename($g['document'])) ?> ↗
+                          </a>
+                        <?php else: ?>
+                          <?= htmlspecialchars($g['document']) ?>
+                        <?php endif; ?>
+                      </td>
+                      <td><strong><?= number_format($g['valeur_estimee'], 0, ',', ' ') ?> TND</strong></td>
+                      <td style="text-align:center;">
+                        <div class="td-acts-row" style="justify-content:center;">
+                          <a href="<?= $self ?>?edit_g=<?= $g['id'] ?>&tab=garantie" class="btn-edt">✏️</a>
+                          <form method="POST" action="<?= $self ?>" style="display:inline;" onsubmit="return confirm('Êtes-vous sûr ?')">
+                            <input type="hidden" name="action" value="delete_garantie" />
+                            <input type="hidden" name="id" value="<?= $g['id'] ?>" />
+                            <button type="submit" class="btn-del">🗑️</button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -453,7 +475,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
       document.getElementById('page-' + id).classList.add('on');
       document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('on'));
       if (el) el.classList.add('on');
-      const titles = { dashboard: 'Tableau de bord', credits: 'Gestion des Crédits', profil: 'Mon Profil' };
+      const titles = { dashboard: 'Tableau de bord', credits: 'Gestion des Crédits', profil: 'Mon Profil', 'mes-credits': 'Mes demandes de crédit', 'mes-garanties': 'Mes garanties' };
       document.getElementById('page-title').textContent = titles[id] || id;
     }
 

@@ -271,7 +271,6 @@ input[type="range"]::-moz-range-fill{background:#F59E0B;}
 /* ── SECTION LINKS ───────────────────────────────── */
 .sc-link{background:transparent;border:1px solid rgba(148,163,184,.2);border-radius:8px;padding:.4rem .9rem;font-size:.75rem;color:#94A3B8;cursor:pointer;font-family:var(--fb);text-decoration:none;transition:all .15s;display:inline-flex;align-items:center;gap:.3rem;}
 .sc-link:hover{border-color:#EF4444;color:#FCA5A5;background:rgba(220,38,38,.1);}
-
 /* ── RESPONSIVE ──────────────────────────────────── */
 @media(max-width:1024px){
   .sidebar{width:190px;}
