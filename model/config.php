@@ -3,6 +3,11 @@
 
 class Config
 {
+    // Stripe API keys — test mode
+    // WARNING: do not commit real secret keys to version control
+    public const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TQTz7Cz4nvPjL6ZoAoVbcjpuFDbesqOzGqOYMVyS8w20gZy1SN9XAYkCWt7B2cJN0d7DwZWt0rjlTR7I2m2RMl400kp6PpOQu';
+    public const STRIPE_SECRET_KEY      = 'sk_test_51TQTz7Cz4nvPjL6ZUYTiUqdVxKs4E58t6XqZEEkgt3MKYVvyWr1tD4KyUG8QV2NoML1gHjroZXAbUzig7bXiedKT00MDTdVXuE';
+
     private static ?PDO $pdo = null;
 
     private function __construct() {}
@@ -35,6 +40,11 @@ class Config
                 
                 try {
                     self::$pdo->exec("ALTER TABLE utilisateur ADD COLUMN association VARCHAR(150) NULL");
+                } catch (PDOException $me) {
+                }
+
+                try {
+                    self::$pdo->exec("ALTER TABLE utilisateur ADD COLUMN association TINYINT(1) NOT NULL DEFAULT 0");
                 } catch (PDOException $me) {
                 }
 

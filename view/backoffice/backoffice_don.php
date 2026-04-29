@@ -70,7 +70,7 @@ $paymentOptions = [
 <link rel="stylesheet" href="<?= htmlspecialchars(rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\')) ?>/cagnotte.css">
 </head>
 <body>
-<?php renderBackofficeSidebar('dons', $pendingCount, $donsToConfirm); ?>
+<?php renderBackofficeSidebar('dons'); ?>
 
 <div class="main">
   <div class="topbar">

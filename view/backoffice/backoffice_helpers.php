@@ -45,7 +45,7 @@ function cagnotteCategoryBadgeClass($category) {
     return $classes[$category] ?? 'cat-urgence';
 }
 
-function renderBackofficeSidebar($activePage, $pendingCount, $donsToConfirm) {
+function renderBackofficeSidebar($activePage) {
     $items = [
         'stats' => backofficeBuildUrl('backoffice_stats.php'),
         'cagnottes' => backofficeBuildUrl('backoffice_cagnotte.php'),
@@ -75,20 +75,10 @@ function renderBackofficeSidebar($activePage, $pendingCount, $donsToConfirm) {
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           Toutes les cagnottes
         </a>
-        <a class="nav-item <?= $activePage === 'cagnottes' ? 'active' : '' ?>" href="<?= backofficeBuildUrl('backoffice_cagnotte.php', ['status' => 'en_attente']) ?>">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          En attente validation
-          <span class="nav-badge"><?= (int)$pendingCount ?></span>
-        </a>
         <div class="nav-section">Dons</div>
         <a class="nav-item <?= $activePage === 'dons' ? 'active' : '' ?>" href="<?= $items['dons'] ?>">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
           Tous les dons
-        </a>
-        <a class="nav-item <?= $activePage === 'dons' ? 'active' : '' ?>" href="<?= backofficeBuildUrl('backoffice_don.php', ['status' => 'en_attente']) ?>">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-          Dons à confirmer
-          <span class="nav-badge"><?= (int)$donsToConfirm ?></span>
         </a>
         <div class="nav-section">Rapports</div>
         <a class="nav-item <?= $activePage === 'stats' ? 'active' : '' ?>" href="<?= $items['stats'] ?>#analytics-overview">

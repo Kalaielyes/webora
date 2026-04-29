@@ -20,12 +20,11 @@ if ($currentUserName === '') {
   $currentUserName = 'Utilisateur';
 }
 $currentUserEmail = trim((string)($currentUser['email'] ?? ''));
-$currentUserAssociation = trim((string)($currentUser['association'] ?? ''));
+$currentUserIsAssociation = (bool)($currentUser['association'] ?? 0);
 $currentUserInitials = strtoupper(substr((string)($currentUser['prenom'] ?? ''), 0, 1) . substr((string)($currentUser['nom'] ?? ''), 0, 1));
 if ($currentUserInitials === '') {
   $currentUserInitials = 'US';
 }
-$userAssociation = $currentUserAssociation;
 $createSuccess = isset($_GET['create_success']) && $_GET['create_success'] === '1';
 $createError = $_GET['error'] ?? null;
 $actionMessage = $_GET['msg'] ?? null;
@@ -75,8 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         'categorie' => $_POST['categorie'] ?? '',
         'objectif_montant' => $_POST['objectif_montant'] ?? 0,
         'date_debut' => $_POST['date_debut'] ?? null,
-        'date_fin' => $_POST['date_fin'] ?? null,
-        'association' => $userAssociation
+        'date_fin' => $_POST['date_fin'] ?? null
       ];
       $ok = $cagCtrl->ajouterCagnotte($data, $selectedUserId);
       frontRedirectWith(['create_success' => $ok ? '1' : '0', 'msg' => $ok ? 'Cagnotte créée' : ($cagCtrl->getLastError() ?: 'Erreur création')]);
@@ -92,7 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
       if (isset($_POST['objectif_montant'])) $data['objectif_montant'] = $_POST['objectif_montant'];
       if (isset($_POST['date_debut'])) $data['date_debut'] = $_POST['date_debut'];
       if (isset($_POST['date_fin'])) $data['date_fin'] = $_POST['date_fin'];
-      if (isset($_POST['association'])) $data['association'] = $_POST['association'];
       $ok = $cagCtrl->modifierCagnotte($id, $data);
       frontRedirectWith(['msg' => $ok ? 'Cagnotte modifiée' : ($cagCtrl->getLastError() ?: 'Erreur modification')]);
     } elseif ($act === 'toggle_status' && isset($_POST['id']) && isset($_POST['new_status'])) {
@@ -147,11 +144,27 @@ foreach ($userDons as $d) {
 <title>Cagnotte Solidaire — Espace Donateur</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="cagnotte.css">
+<script src="https://js.stripe.com/v3/"></script>
 
 </head>
 <body>
 <?php if ($createSuccess): ?>
 <script>document.addEventListener('DOMContentLoaded',function(){document.getElementById('success-overlay').style.display='flex';});</script>
+<?php endif; ?>
+<?php if ($actionMessage || $createError): ?>
+<?php $toastStyle = $createError
+  ? 'background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.4);color:#fca5a5;'
+  : 'background:rgba(45,212,191,.12);border:1px solid rgba(45,212,191,.35);color:#5eead4;'; ?>
+<div id="front-toast" style="position:fixed;top:1.2rem;right:1.2rem;z-index:99999;max-width:380px;padding:.8rem 1.1rem;border-radius:12px;font-size:.82rem;font-weight:500;display:flex;align-items:center;gap:.7rem;box-shadow:0 4px 24px rgba(0,0,0,.35);transition:opacity .4s;<?= $toastStyle ?>">
+  <?php if ($createError): ?>
+    <svg width="15" height="15" fill="none" stroke="#f87171" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <?= htmlspecialchars($createError) ?>
+  <?php else: ?>
+    <svg width="15" height="15" fill="none" stroke="#2DD4BF" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    <?= htmlspecialchars($actionMessage) ?>
+  <?php endif; ?>
+</div>
+<script>document.addEventListener('DOMContentLoaded',function(){var t=document.getElementById('front-toast');if(t)setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},400);},4000);});</script>
 <?php endif; ?>
 
 <div class="sidebar">
@@ -191,10 +204,12 @@ foreach ($userDons as $d) {
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Mes cagnottes
     </a>
-    <a class="nav-item" id="nav-creer" onclick="showView('creer')" href="#">
+    <?php if ($currentUserIsAssociation): ?>
+    <a class="nav-item" id="nav-creer" onclick="isEditMode=false;showView('creer')" href="#">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       Créer une cagnotte
     </a>
+    <?php endif; ?>
     <div class="nav-section">Dons</div>
     <a class="nav-item" href="#">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
@@ -230,10 +245,6 @@ foreach ($userDons as $d) {
           <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
           <div class="notif-dot"></div>
         </div>
-        <button class="btn-primary" onclick="showView('creer')">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Nouvelle cagnotte
-        </button>
       </div>
     </div>
   </div>
@@ -244,14 +255,14 @@ foreach ($userDons as $d) {
       <div class="hero-row">
         <div class="hero-card">
           <div class="hc-label">Total collecté (mes cagnottes)</div>
-          <div class="hc-val"><?= number_format($totalCollectedMy,3,',',' ') ?><span>TND</span></div>
+          <div class="hc-val"><?= number_format($totalCollectedMy,2,',',' ') ?><span>€</span></div>
           <div class="hc-badge">↑ +0% ce mois</div>
           <div class="hc-sub" style="margin-top:.8rem">Sur <?= (int)$userActiveCount ?> cagnottes actives</div>
         </div>
         <div class="stat-mini">
           <div class="sm-label"><svg width="13" height="13" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg> Mes dons</div>
           <div class="sm-val" style="color:var(--blue)"><?= (int)$mesDonsCount ?></div>
-          <div class="sm-sub">Total : <?= number_format($mesDonsTotal,3,',',' ') ?> TND</div>
+          <div class="sm-sub">Total : <?= number_format($mesDonsTotal,2,',',' ') ?> €</div>
         </div>
         <div class="stat-mini">
           <div class="sm-label"><svg width="13" height="13" fill="none" stroke="var(--amber)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Cagnottes en attente</div>
@@ -277,7 +288,7 @@ foreach ($userDons as $d) {
                   <span class="<?= htmlspecialchars($userCagStatusClass) ?>"><?= htmlspecialchars($userCagStatusLabel) ?></span>
                 </div>
                 <div style="font-size:.85rem;color:var(--muted)"><?=htmlspecialchars(substr($uc['description'] ?? '',0,80))?></div>
-                <div style="font-size:.75rem;color:var(--muted)">Organisation: <?= htmlspecialchars($uc['association'] ?? '—') ?></div>
+                <div style="font-size:.75rem;color:var(--muted)"><?= ($uc['association'] ?? 0) ? 'Association' : 'Particulier' ?></div>
               </div>
               <div style="display:flex;gap:.5rem;">
                 <form method="post" style="display:inline;margin:0;padding:0;">
@@ -310,9 +321,9 @@ foreach ($userDons as $d) {
               <div class="cc-cat <?= $catUi ?>"><?=htmlspecialchars($c['categorie'])?></div>
               <div class="cc-title"><?=htmlspecialchars($c['titre'])?></div>
               <div class="cc-desc"><?=htmlspecialchars(substr($c['description'] ?? '',0,120))?></div>
-              <div style="font-size:.68rem;color:var(--muted);margin-bottom:.45rem;">Organisation: <?= htmlspecialchars($c['association'] ?? '—') ?></div>
+              <div style="font-size:.68rem;color:var(--muted);margin-bottom:.45rem;"><?= ($c['association'] ?? 0) ? 'Association' : 'Particulier' ?></div>
               <div class="progress-bar"><div class="progress-fill" style="width:<?=$pct?>%"></div></div>
-              <div class="cc-amounts"><span class="cc-collected"><?=number_format($collected,3,',',' ')?></span><span class="cc-goal">/ <?=number_format($objectif,0,',',' ')?></span></div>
+              <div class="cc-amounts"><span class="cc-collected"><?=number_format($collected,2,',',' ')?> €</span><span class="cc-goal">/ <?=number_format($objectif,0,',',' ')?> €</span></div>
               <div class="cc-footer"><span class="cc-donateurs">❤️ <?=intval($c['nb_dons'])?> donateurs</span><span class="cc-status"><?=htmlspecialchars(ucfirst(str_replace('_',' ', $c['statut'])))?></span></div>
             </div>
           </div>
@@ -338,7 +349,7 @@ foreach ($userDons as $d) {
                       $donStatusClass = 'status-refuse';
                     }
                   ?>
-                  <div><div class="don-amount">+ <?=number_format($ud['montant'],3,',',' ')?></div><div class="don-status <?= htmlspecialchars($donStatusClass) ?>"><?= htmlspecialchars($donStatusLabel) ?></div></div>
+                  <div><div class="don-amount">+ <?=number_format($ud['montant'],2,',',' ')?> €</div><div class="don-status <?= htmlspecialchars($donStatusClass) ?>"><?= htmlspecialchars($donStatusLabel) ?></div></div>
                   <form method="post" style="display:inline;margin:0;padding:0;">
                     <input type="hidden" name="action" value="delete_don" />
                     <input type="hidden" name="don_id" value="<?= (int)($ud['id_don'] ?? 0) ?>" />
@@ -370,6 +381,7 @@ foreach ($userDons as $d) {
         <form id="create-cagnotte-form" method="post" enctype="multipart/form-data">
         <input type="hidden" id="create-action" name="action" value="create_cagnotte" />
         <input type="hidden" id="create-id" name="id" value="" />
+        <input type="hidden" id="form-is-edit" value="0" />
         <input type="hidden" name="categorie" id="inp-categorie" value="" />
         <div class="create-form-main">
 
@@ -443,12 +455,12 @@ foreach ($userDons as $d) {
             </div>
             <div class="row-2">
               <div class="field">
-                <div class="field-label">Montant objectif (TND) <span class="req">*</span></div>
+                <div class="field-label">Montant objectif (€) <span class="req">*</span></div>
                 <div class="inp-wrap">
-                  <input class="fi" type="number" id="inp-objectif" name="objectif_montant" placeholder="Min. 100 TND" oninput="validateObjectif()" onblur="validateObjectif()"/>
+                  <input class="fi" type="number" id="inp-objectif" name="objectif_montant" placeholder="Min. 100 €" oninput="validateObjectif()" onblur="validateObjectif()"/>
                   <span class="inp-icon" id="icon-objectif"></span>
                 </div>
-                <div class="field-error" id="err-objectif">⚠ Montant entre 100 et 9 999 999 TND</div>
+                <div class="field-error" id="err-objectif">⚠ Montant entre 100 et 9 999 999 €</div>
                 <div class="field-ok" id="ok-objectif">✔ Montant valide</div>
               </div>
               <!-- statut is managed by admin; hidden on creation -->
@@ -490,15 +502,6 @@ foreach ($userDons as $d) {
             </div>
             <div class="divider"></div>
 
-            <!-- Association -->
-            <div class="field" style="margin-top:.8rem;">
-              <div class="field-label">Association liée <span class="req">*</span></div>
-              <input class="fi" id="inp-asso" name="association" type="text" value="<?= htmlspecialchars($userAssociation) ?>" readonly />
-              <div class="field-error" id="err-asso">⚠ Aucune association liée au compte</div>
-              <div class="field-ok" id="ok-asso">✔ Association du compte appliquée</div>
-              <div class="field-hint">Cette valeur provient de votre profil et ne peut pas être modifiée ici.</div>
-            </div>
-
             <!-- Bénéficiaire -->
             <div class="field">
               <div class="field-label">Nom du bénéficiaire</div>
@@ -538,7 +541,7 @@ foreach ($userDons as $d) {
               <div class="pv-titre" id="pv-titre" style="color:var(--muted)">Titre de votre cagnotte</div>
               <div class="pv-desc" id="pv-desc" style="color:var(--muted)">La description apparaîtra ici…</div>
               <div class="pv-progress"><div class="pv-fill" id="pv-fill"></div></div>
-              <div class="pv-amounts"><span class="pv-collected">0 TND</span><span class="pv-goal-txt" id="pv-goal">/ — TND</span></div>
+              <div class="pv-amounts"><span class="pv-collected">0 €</span><span class="pv-goal-txt" id="pv-goal">/ — €</span></div>
               <div class="pv-footer"><span class="pv-donateurs">❤️ 0 donateurs</span><span class="pv-status-badge active" id="pv-status">Active</span></div>
             </div>
           </div>
@@ -569,19 +572,19 @@ foreach ($userDons as $d) {
       <!-- Montants rapides -->
       <div style="font-size:.7rem;color:#6B7280;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem;">Montant rapide</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:1rem;">
-        <button class="qbtn" onclick="setMt(10)">10 TND</button>
-        <button class="qbtn" onclick="setMt(25)">25 TND</button>
-        <button class="qbtn" onclick="setMt(50)">50 TND</button>
-        <button class="qbtn" onclick="setMt(100)">100 TND</button>
+        <button class="qbtn" onclick="setMt(10)">10 €</button>
+        <button class="qbtn" onclick="setMt(25)">25 €</button>
+        <button class="qbtn" onclick="setMt(50)">50 €</button>
+        <button class="qbtn" onclick="setMt(100)">100 €</button>
       </div>
 
       <!-- Montant libre -->
       <div style="font-size:.7rem;color:#6B7280;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem;">Ou saisir un montant</div>
       <div style="position:relative;margin-bottom:.25rem;">
-        <input id="inp-mt" type="number" min="1" max="999999" step="0.001" placeholder="0.000" oninput="validateMontantDon();document.querySelectorAll('.qbtn').forEach(b=>b.classList.remove('qsel'))" onblur="validateMontantDon()" style="width:100%;background:#1F2232;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:.7rem 3.5rem .7rem 1rem;color:#F0F2FF;font-size:1rem;outline:none;box-sizing:border-box;transition:border .18s;" onfocus="this.style.borderColor='#2DD4BF'" onblur="validateMontantDon()"/>
-        <span style="position:absolute;right:1rem;top:50%;transform:translateY(-50%);font-size:.75rem;color:#6B7280;">TND</span>
+        <input id="inp-mt" type="number" min="1" max="999999" step="0.01" placeholder="0.00" oninput="validateMontantDon();document.querySelectorAll('.qbtn').forEach(b=>b.classList.remove('qsel'))" onblur="validateMontantDon()" style="width:100%;background:#1F2232;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:.7rem 3.5rem .7rem 1rem;color:#F0F2FF;font-size:1rem;outline:none;box-sizing:border-box;transition:border .18s;" onfocus="this.style.borderColor='#2DD4BF'" onblur="validateMontantDon()"/>
+        <span style="position:absolute;right:1rem;top:50%;transform:translateY(-50%);font-size:.75rem;color:#6B7280;">€</span>
       </div>
-      <div class="don-field-err" id="err-mt-don">⚠ Montant invalide — min. 1 TND, max. 999 999 TND</div>
+      <div class="don-field-err" id="err-mt-don">⚠ Montant invalide — min. 1 €, max. 999 999 €</div>
 
       <!-- Paiement -->
       <div style="font-size:.7rem;color:#6B7280;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem;margin-top:.9rem;">Moyen de paiement <span style="color:#F43F5E">*</span></div>
@@ -610,12 +613,22 @@ foreach ($userDons as $d) {
           <div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid rgba(255,255,255,.07);"><span style="font-size:.78rem;color:#6B7280;">Cagnotte</span><span id="r-cag" style="font-size:.82rem;font-weight:500;">—</span></div>
         <div style="display:flex;justify-content:space-between;padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.07);"><span style="font-size:.78rem;color:#6B7280;">Montant</span><span id="r-mt" style="font-size:1.1rem;font-weight:700;color:#2DD4BF;font-family:'DM Mono',monospace;">—</span></div>
         <div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid rgba(255,255,255,.07);"><span style="font-size:.78rem;color:#6B7280;">Paiement</span><span id="r-pay" style="font-size:.82rem;font-weight:500;">—</span></div>
-        <div style="display:flex;justify-content:space-between;padding:.4rem 0;"><span style="font-size:.78rem;color:#6B7280;">Organisation</span><span id="r-org" style="font-size:.82rem;"><?= htmlspecialchars($userAssociation !== '' ? $userAssociation : '—') ?></span></div>
         <div id="r-msg-row" style="display:none;border-top:1px solid rgba(255,255,255,.07);padding-top:.5rem;margin-top:.4rem;"><div style="font-size:.72rem;color:#6B7280;margin-bottom:.25rem;">Message</div><div id="r-msg" style="font-size:.8rem;color:#9CA3AF;font-style:italic;"></div></div>
+      </div>
+      <!-- Stripe card element (carte only) -->
+      <div id="stripe-card-container" style="display:none;margin-bottom:1rem;">
+        <div style="font-size:.7rem;color:#6B7280;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem;">Informations de carte</div>
+        <div id="stripe-card-element" style="background:#1F2232;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:.85rem 1rem;transition:border .18s;"></div>
+        <div id="stripe-error" style="display:none;color:#F43F5E;font-size:.75rem;margin-top:.45rem;padding:.4rem .7rem;background:rgba(244,63,94,.08);border-radius:6px;border:1px solid rgba(244,63,94,.2);"></div>
+      </div>
+      <!-- Virement info -->
+      <div id="virement-info-container" style="display:none;margin-bottom:1rem;background:#1F2232;border:1px solid rgba(79,142,247,.2);border-radius:10px;padding:.9rem 1rem;">
+        <div style="font-size:.74rem;color:#4F8EF7;font-weight:600;margin-bottom:.35rem;">Paiement par virement</div>
+        <div style="font-size:.78rem;color:#9CA3AF;line-height:1.5;">Votre don sera enregistré comme <strong style="color:#F5F5F5;">en attente</strong> jusqu'à confirmation par l'administrateur.</div>
       </div>
       <div style="display:flex;gap:.75rem;">
         <button onclick="donStep1()" style="flex:1;background:#1F2232;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:.75rem;color:#9CA3AF;cursor:pointer;font-family:'Syne',sans-serif;font-size:.85rem;">← Modifier</button>
-        <button onclick="confirmerDon()" style="flex:2;background:#2DD4BF;color:#0C0E14;border:none;border-radius:10px;padding:.75rem;font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;">Confirmer le don 💙</button>
+        <button id="btn-confirmer-don" onclick="confirmerDon()" style="flex:2;background:#2DD4BF;color:#0C0E14;border:none;border-radius:10px;padding:.75rem;font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;">Confirmer le don 💙</button>
       </div>
     </div>
 
@@ -657,10 +670,17 @@ function showView(v) {
     document.getElementById('topbar-back').style.display = 'none';
     document.getElementById('topbar-dashboard-btns').style.display = 'flex';
   } else if (v === 'creer') {
-    document.getElementById('nav-creer').classList.add('active');
+    var navCreer = document.getElementById('nav-creer');
+    if (navCreer) navCreer.classList.add('active');
     document.getElementById('topbar-title').textContent = 'Créer une cagnotte';
     document.getElementById('topbar-back').style.display = 'block';
     document.getElementById('topbar-dashboard-btns').style.display = 'none';
+    // Reset to create mode if coming from navigation (not openEdit)
+    if (!isEditMode) {
+      document.getElementById('create-action').value = 'create_cagnotte';
+      document.getElementById('create-id').value = '';
+      document.getElementById('form-is-edit').value = '0';
+    }
     checkStepper();
   }
 }
@@ -686,6 +706,7 @@ function setField(inputId, errId, okId, iconId, isValid, errMsg, okMsg) {
 }
 
 var selectedCat = '';
+var isEditMode = false;
 var uiToDbCategory = {medical:'sante', education:'education', humanitaire:'solidarite', urgence:'autre'};
 var dbToUiCategory = {sante:'medical', education:'education', solidarite:'humanitaire', autre:'urgence', medical:'medical', humanitaire:'humanitaire', urgence:'urgence'};
 var catEmojis = {medical:'🏥', education:'📚', urgence:'⚡', humanitaire:'🌍'};
@@ -724,7 +745,7 @@ function validateObjectif() {
   var raw = document.getElementById('inp-objectif').value;
   if (raw === '') { document.getElementById('inp-objectif').classList.remove('valid','error'); document.getElementById('err-objectif').classList.remove('visible'); document.getElementById('ok-objectif').classList.remove('visible'); document.getElementById('icon-objectif').classList.remove('visible'); checkStepper(); return; }
   var ok = !isNaN(v) && v >= 100 && v <= 9999999;
-  setField('inp-objectif','err-objectif','ok-objectif','icon-objectif', ok, 'Montant minimum 100 TND', 'Montant valide');
+  setField('inp-objectif','err-objectif','ok-objectif','icon-objectif', ok, 'Montant minimum 100 €', 'Montant valide');
 }
 
 function validateDates() {
@@ -736,8 +757,8 @@ function validateDates() {
   var el = document.getElementById('inp-debut');
   var err = document.getElementById('err-debut');
   if (debut) {
-    var d = new Date(debut);
-    var startOk = d >= today;
+    var dp = debut.split('-'); var d = new Date(parseInt(dp[0]), parseInt(dp[1])-1, parseInt(dp[2]));
+    var startOk = true;
     el.classList.toggle('valid', startOk); el.classList.toggle('error', !startOk);
     err.textContent = startOk ? '⚠ Date de début requise' : '⚠ Date de début antérieure à aujourd\'hui interdite';
     err.classList.toggle('visible', !startOk);
@@ -759,17 +780,6 @@ function validateDates() {
   } else {
     el2.classList.remove('valid','error'); err2.classList.remove('visible');
   }
-  checkStepper();
-}
-
-function validateAsso() {
-  var v = document.getElementById('inp-asso').value;
-  var el = document.getElementById('inp-asso');
-  var err = document.getElementById('err-asso');
-  var ok2 = document.getElementById('ok-asso');
-  if (!v) { el.classList.remove('valid','error'); err.classList.remove('visible'); ok2.classList.remove('visible'); checkStepper(); return; }
-  el.classList.add('valid'); el.classList.remove('error');
-  err.classList.remove('visible'); ok2.classList.add('visible');
   checkStepper();
 }
 
@@ -820,7 +830,7 @@ function updatePv() {
   var pvDesc = document.getElementById('pv-desc');
   pvDesc.textContent = desc || 'La description apparaîtra ici…';
   pvDesc.style.color = desc ? 'var(--muted2)' : 'var(--muted)';
-  document.getElementById('pv-goal').textContent = obj ? '/ ' + parseInt(obj).toLocaleString('fr') + ' TND' : '/ — TND';
+  document.getElementById('pv-goal').textContent = obj ? '/ ' + parseInt(obj).toLocaleString('fr') + ' €' : '/ — €';
   if (selectedCat) {
     var pvCat = document.getElementById('pv-cat');
     pvCat.textContent = selectedCat.charAt(0).toUpperCase() + selectedCat.slice(1);
@@ -848,9 +858,13 @@ function checkStepper() {
   var debut = document.getElementById('inp-debut').value;
   var fin = document.getElementById('inp-fin').value;
   var today = new Date(); today.setHours(0,0,0,0);
-  var datesOk = debut !== '' && fin !== '' && new Date(debut) >= today && new Date(fin) >= new Date(debut);
+  var _dp = debut ? debut.split('-') : null; var _fp = fin ? fin.split('-') : null;
+  var _d = _dp ? new Date(parseInt(_dp[0]),parseInt(_dp[1])-1,parseInt(_dp[2])) : null;
+  var _f = _fp ? new Date(parseInt(_fp[0]),parseInt(_fp[1])-1,parseInt(_fp[2])) : null;
+  var startDateOk = true;
+  var datesOk = debut !== '' && fin !== '' && startDateOk && _f >= _d;
   var s2 = s1 && !isNaN(obj) && obj >= 100 && obj <= 9999999 && datesOk;
-  var s3 = s2 && document.getElementById('inp-asso').value !== '';
+  var s3 = s2;
   setStep(1, true, s1);
   setStep(2, s1, s2);
   setStep(3, s2, s3);
@@ -877,10 +891,8 @@ function validateForm() {
   if (!debut) { document.getElementById('inp-debut').classList.add('error'); document.getElementById('err-debut').classList.add('visible'); ok=false; }
   var fin = document.getElementById('inp-fin').value;
   var today = new Date(); today.setHours(0,0,0,0);
-  if (debut && new Date(debut) < today) { document.getElementById('inp-debut').classList.add('error'); document.getElementById('err-debut').textContent='⚠ Date de début antérieure à aujourd\'hui interdite'; document.getElementById('err-debut').classList.add('visible'); ok=false; }
   if (!fin) { document.getElementById('inp-fin').classList.add('error'); document.getElementById('err-fin').textContent='⚠ Date de fin requise'; document.getElementById('err-fin').classList.add('visible'); ok=false; }
   if (fin && debut && new Date(fin) < new Date(debut)) { document.getElementById('inp-fin').classList.add('error'); document.getElementById('err-fin').classList.add('visible'); ok=false; }
-  if (!document.getElementById('inp-asso').value) { document.getElementById('inp-asso').classList.add('error'); document.getElementById('err-asso').classList.add('visible'); ok=false; }
   return ok;
 }
 
@@ -946,7 +958,7 @@ function donStep2() {
     document.getElementById('err-msg-don').classList.add('show');
     return;
   }
-  document.getElementById('r-mt').textContent = m.toFixed(3) + ' TND';
+  document.getElementById('r-mt').textContent = m.toFixed(2) + ' €';
   document.getElementById('r-pay').textContent = {carte:'Carte bancaire', virement:'Virement bancaire'}[payOn];
   var tgt = document.getElementById('don-target-title');
   if (tgt) document.getElementById('r-cag').textContent = tgt.textContent;
@@ -954,12 +966,53 @@ function donStep2() {
   if (msg) { document.getElementById('r-msg').textContent = msg; document.getElementById('r-msg-row').style.display = 'block'; }
   else { document.getElementById('r-msg-row').style.display = 'none'; }
   ['don-step1','don-step2','don-step3'].forEach(s => document.getElementById(s).style.display = s === 'don-step2' ? 'block' : 'none');
+  var cardCont = document.getElementById('stripe-card-container');
+  var virCont  = document.getElementById('virement-info-container');
+  if (payOn === 'carte') {
+    if (cardCont) cardCont.style.display = 'block';
+    if (virCont)  virCont.style.display  = 'none';
+    mountStripeCard();
+  } else {
+    if (cardCont) cardCont.style.display = 'none';
+    if (virCont)  virCont.style.display  = 'block';
+  }
 }
 
 // ═══════════════════════════════════════════
 // MODAL DON
 // ═══════════════════════════════════════════
 var payOn = 'carte';
+
+// ── Stripe ────────────────────────────────────────────────────────────────────
+var stripe          = Stripe('<?= htmlspecialchars(Config::STRIPE_PUBLISHABLE_KEY, ENT_QUOTES) ?>');
+var stripeCardElement = null;
+
+function mountStripeCard() {
+  if (stripeCardElement) {
+    try { stripeCardElement.unmount(); } catch(e) {}
+    stripeCardElement.destroy();
+    stripeCardElement = null;
+  }
+  var elements = stripe.elements();
+  stripeCardElement = elements.create('card', {
+    style: {
+      base: {
+        color: '#F0F2FF',
+        fontFamily: "'DM Mono', monospace, sans-serif",
+        fontSmoothing: 'antialiased',
+        fontSize: '14px',
+        '::placeholder': { color: '#6B7280' }
+      },
+      invalid: { color: '#F43F5E', iconColor: '#F43F5E' }
+    }
+  });
+  stripeCardElement.mount('#stripe-card-element');
+  stripeCardElement.on('change', function(event) {
+    var errEl = document.getElementById('stripe-error');
+    if (event.error) { errEl.textContent = event.error.message; errEl.style.display = 'block'; }
+    else { errEl.style.display = 'none'; }
+  });
+}
 
 function openDon(id, title) {
   try {
@@ -970,7 +1023,10 @@ function openDon(id, title) {
   } catch (e) {}
   document.getElementById('don-overlay').style.display='flex'; donStep1();
 }
-function closeDon() { document.getElementById('don-overlay').style.display='none'; }
+function closeDon() {
+  document.getElementById('don-overlay').style.display = 'none';
+  if (stripeCardElement) { try { stripeCardElement.unmount(); } catch(e) {} stripeCardElement.destroy(); stripeCardElement = null; }
+}
 function setMt(v) {
   document.getElementById('inp-mt').value = v;
   document.querySelectorAll('.qbtn').forEach(b => b.classList.toggle('qsel', parseInt(b.textContent) === v));
@@ -980,21 +1036,76 @@ function setMt(v) {
 function selPay(v) { payOn=v; ['carte','virement'].forEach(p => document.getElementById('lbl-'+p).classList.toggle('psel', p===v)); }
 function donStep1() {
   ['don-step1','don-step2','don-step3'].forEach(s => document.getElementById(s).style.display = s === 'don-step1' ? 'block' : 'none');
+  if (stripeCardElement) { try { stripeCardElement.unmount(); } catch(e) {} stripeCardElement.destroy(); stripeCardElement = null; }
 }
 function confirmerDon() {
-  // Populate hidden form and submit to create the donation server-side
-  var form = document.getElementById('create-don-form');
-  if (!form) {
-    document.getElementById('r-final').textContent = document.getElementById('r-mt').textContent;
-    ['don-step1','don-step2','don-step3'].forEach(s => document.getElementById(s).style.display = s === 'don-step3' ? 'block' : 'none');
+  var montant    = parseFloat(document.getElementById('inp-mt').value) || 0;
+  var idCagnotte = document.getElementById('inp-cag-id').value || '';
+  var message    = document.getElementById('inp-msg').value.trim();
+
+  // ── Virement: existing server-side form flow ──────────────────────────────
+  if (payOn === 'virement') {
+    var form = document.getElementById('create-don-form');
+    if (form) {
+      form.querySelector('input[name="montant"]').value       = montant;
+      form.querySelector('input[name="id_cagnotte"]').value   = idCagnotte;
+      form.querySelector('input[name="moyen_paiement"]').value = 'virement';
+      form.querySelector('input[name="message"]').value       = message;
+      form.submit();
+    }
     return;
   }
-  var montant = parseFloat(document.getElementById('inp-mt').value) || 0;
-  form.querySelector('input[name="montant"]').value = montant;
-  form.querySelector('input[name="id_cagnotte"]').value = document.getElementById('inp-cag-id').value || '';
-  form.querySelector('input[name="moyen_paiement"]').value = payOn;
-  form.querySelector('input[name="message"]').value = document.getElementById('inp-msg').value.trim();
-  form.submit();
+
+  // ── Carte: Stripe payment flow ────────────────────────────────────────────
+  if (!stripeCardElement) return;
+  var btn   = document.getElementById('btn-confirmer-don');
+  var errEl = document.getElementById('stripe-error');
+  btn.disabled    = true;
+  btn.textContent = 'Traitement…';
+  if (errEl) errEl.style.display = 'none';
+
+  // Step 1: ask server to create a PaymentIntent
+  fetch('../../controller/stripe_payment.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ action: 'create_intent', montant: montant, id_cagnotte: idCagnotte })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) throw new Error(data.error);
+    // Step 2: confirm the payment via Stripe.js (handles 3DS etc.)
+    return stripe.confirmCardPayment(data.client_secret, {
+      payment_method: { card: stripeCardElement }
+    });
+  })
+  .then(function(result) {
+    if (result.error) throw new Error(result.error.message);
+    // Step 3: record the don in the DB (server verifies payment status)
+    return fetch('../../controller/stripe_payment.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        action:             'confirm_don',
+        payment_intent_id:  result.paymentIntent.id,
+        montant:            montant,
+        id_cagnotte:        idCagnotte,
+        message:            message
+      })
+    });
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) throw new Error(data.error);
+    document.getElementById('r-final').textContent = montant.toFixed(2) + ' €';
+    ['don-step1','don-step2','don-step3'].forEach(function(s) {
+      document.getElementById(s).style.display = s === 'don-step3' ? 'block' : 'none';
+    });
+  })
+  .catch(function(err) {
+    if (errEl) { errEl.textContent = err.message || 'Erreur de paiement'; errEl.style.display = 'block'; }
+    btn.disabled    = false;
+    btn.textContent = 'Confirmer le don 💙';
+  });
 }
 document.getElementById('don-overlay').addEventListener('click', function(e) { if(e.target===this) closeDon(); });
 
@@ -1010,11 +1121,10 @@ window.addEventListener('load', function() {
     var start = document.getElementById('inp-debut').value || todayStr;
     document.getElementById('inp-fin').setAttribute('min', start);
   });
-  ['inp-titre','inp-desc','inp-objectif','inp-debut','inp-fin','inp-asso'].forEach(function(id) {
+  ['inp-titre','inp-desc','inp-objectif','inp-debut','inp-fin'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) { el.addEventListener('input', checkStepper); el.addEventListener('change', checkStepper); }
   });
-  validateAsso();
   var form = document.getElementById('create-cagnotte-form');
   if (form) {
     form.addEventListener('submit', function(e) {
@@ -1032,6 +1142,8 @@ window.addEventListener('load', function() {
 function openEdit(id, title, desc, categorie, objectif, datedebut, datefin) {
   try {
     // Prefill the create form and switch it to update mode
+    isEditMode = true;
+    document.getElementById('form-is-edit').value = '1';
     document.getElementById('create-action').value = 'update_cagnotte';
     document.getElementById('create-id').value = id;
     if (typeof title !== 'undefined') document.getElementById('inp-titre').value = title;
@@ -1063,7 +1175,7 @@ document.addEventListener('DOMContentLoaded', function(){
   try {
     document.getElementById('don-overlay').style.display='flex';
     ['don-step1','don-step2','don-step3'].forEach(s => document.getElementById(s).style.display = s === 'don-step3' ? 'block' : 'none');
-    var mt = '<?= isset($_GET['don_amount']) ? number_format((float)$_GET['don_amount'],3,',',' ') : '—' ?> TND';
+    var mt = '<?= isset($_GET['don_amount']) ? number_format((float)$_GET['don_amount'],2,',',' ') : '—' ?> €';
     document.getElementById('r-final').textContent = mt;
   } catch(e){}
 });

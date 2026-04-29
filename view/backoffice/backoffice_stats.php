@@ -36,7 +36,7 @@ function percentValue($value, $total) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-<?php renderBackofficeSidebar('stats', $pendingCount, $donsToConfirm); ?>
+<?php renderBackofficeSidebar('stats'); ?>
 
 <div class="main">
   <div class="topbar">
@@ -93,9 +93,9 @@ function percentValue($value, $total) {
           <svg width="18" height="18" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
         </div>
         <div>
-          <div class="kpi-val" style="font-size:1.2rem"><?= number_format((float)($confirmedStats['total_conf'] ?? 0), 3, ',', ' ') ?></div>
-          <div class="kpi-label">Montant confirmé (TND)</div>
-          <div class="kpi-sub" style="color:var(--green)">Objectif <?= number_format((float)($overviewStats['total_objectif'] ?? 0), 3, ',', ' ') ?></div>
+          <div class="kpi-val" style="font-size:1.2rem"><?= number_format((float)($confirmedStats['total_conf'] ?? 0), 2, ',', ' ') ?> €</div>
+          <div class="kpi-label">Montant confirmé (€)</div>
+          <div class="kpi-sub" style="color:var(--green)">Objectif <?= number_format((float)($overviewStats['total_objectif'] ?? 0), 2, ',', ' ') ?> €</div>
         </div>
       </div>
       <div class="kpi">
@@ -178,13 +178,13 @@ function percentValue($value, $total) {
           <?php if (empty($paymentStats)): ?>
             <div class="chart-summary-row">
               <span class="chart-summary-label">Aucun paiement</span>
-              <span class="chart-summary-value">0.000 TND (0.0%)</span>
+              <span class="chart-summary-value">0.00 € (0.0%)</span>
             </div>
           <?php else: foreach ($paymentStats as $paymentStat): ?>
             <?php $paymentAmount = (float)($paymentStat['montant_total'] ?? 0); ?>
             <div class="chart-summary-row">
               <span class="chart-summary-label"><?= htmlspecialchars(ucfirst((string)($paymentStat['moyen_paiement'] ?? 'Inconnu'))) ?></span>
-              <span class="chart-summary-value"><?= number_format($paymentAmount, 3, ',', ' ') ?> TND (<?= percentValue($paymentAmount, $paymentTotal) ?>%)</span>
+              <span class="chart-summary-value"><?= number_format($paymentAmount, 2, ',', ' ') ?> € (<?= percentValue($paymentAmount, $paymentTotal) ?>%)</span>
             </div>
           <?php endforeach; endif; ?>
         </div>
@@ -212,7 +212,7 @@ function percentValue($value, $total) {
             <tr>
               <td><?= htmlspecialchars($topCagnotte['titre'] ?? '—') ?></td>
               <td class="td-mono"><?= (int)($topCagnotte['nb_dons'] ?? 0) ?></td>
-              <td class="td-bold"><?= number_format((float)($topCagnotte['total_confirme'] ?? 0), 3, ',', ' ') ?> TND</td>
+              <td class="td-bold"><?= number_format((float)($topCagnotte['total_confirme'] ?? 0), 2, ',', ' ') ?> €</td>
             </tr>
           <?php endforeach; endif; ?>
         </tbody>
@@ -295,7 +295,7 @@ function buildBar(id, labels, values) {
     type: 'bar',
     data: {
       labels,
-      datasets: [{ label: 'TND', data: values, backgroundColor: '#93c5fd', borderColor: '#60a5fa', borderWidth: 1, borderRadius: 8 }]
+      datasets: [{ label: 'EUR', data: values, backgroundColor: '#93c5fd', borderColor: '#60a5fa', borderWidth: 1, borderRadius: 8 }]
     },
     options: {
       maintainAspectRatio: false,

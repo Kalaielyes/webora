@@ -115,7 +115,7 @@ $categoryOptions = [
 <link rel="stylesheet" href="<?= htmlspecialchars(rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\')) ?>/cagnotte.css">
 </head>
 <body>
-<?php renderBackofficeSidebar('cagnottes', $pendingCount, $donsToConfirm); ?>
+<?php renderBackofficeSidebar('cagnottes'); ?>
 
 <div class="main">
   <div class="topbar">
@@ -263,7 +263,7 @@ $categoryOptions = [
               data-id="<?= (int)$c['id_cagnotte'] ?>"
               data-titre="<?= htmlspecialchars($c['titre'] ?? '', ENT_QUOTES) ?>"
               data-categorie="<?= htmlspecialchars(cagnotteCategoryLabel($categoryKey !== '' ? $categoryKey : (string)($c['categorie'] ?? '')), ENT_QUOTES) ?>"
-              data-association="<?= htmlspecialchars($c['association'] ?? '', ENT_QUOTES) ?>"
+              data-association="<?= ($c['association'] ?? 0) ? 'Association' : 'Particulier' ?>"
               data-statut="<?= htmlspecialchars($c['statut'] ?? '', ENT_QUOTES) ?>"
               data-date-debut="<?= htmlspecialchars(substr((string)($c['date_debut'] ?? ''), 0, 10), ENT_QUOTES) ?>"
               data-objectif="<?= htmlspecialchars(number_format($objectif, 3, ',', ' '), ENT_QUOTES) ?>"
@@ -276,7 +276,7 @@ $categoryOptions = [
               data-objectif-raw="<?= (float)$objectif ?>">
               <td>
                 <div class="td-name"><?= htmlspecialchars(trim(($c['nom'] ?? '') . ' ' . ($c['prenom'] ?? ''))) ?></div>
-                <div class="td-mono">Org: <?= htmlspecialchars($c['association'] ?? '—') ?></div>
+                <div class="td-mono"><?= ($c['association'] ?? 0) ? 'Association' : 'Particulier' ?></div>
                 <div class="td-mono"><?= htmlspecialchars($c['titre'] ?? '—') ?></div>
               </td>
               <td><span class="<?= htmlspecialchars(cagnotteCategoryBadgeClass($categoryKey !== '' ? $categoryKey : (string)($c['categorie'] ?? ''))) ?>"><?= htmlspecialchars(cagnotteCategoryLabel($categoryKey !== '' ? $categoryKey : (string)($c['categorie'] ?? ''))) ?></span></td>
@@ -342,7 +342,7 @@ $categoryOptions = [
           <div class="dp-section">Cagnotte sélectionnée</div>
           <div class="dp-row"><span class="dp-key">Titre</span><span class="dp-val" id="detail-title"><?= htmlspecialchars($selected['titre'] ?? '—') ?></span></div>
           <div class="dp-row"><span class="dp-key">Catégorie</span><span class="<?= htmlspecialchars(cagnotteCategoryBadgeClass($selectedCategoryKey !== '' ? $selectedCategoryKey : (string)($selected['categorie'] ?? ''))) ?>" id="detail-category"><?= htmlspecialchars(cagnotteCategoryLabel($selectedCategoryKey !== '' ? $selectedCategoryKey : (string)($selected['categorie'] ?? ''))) ?></span></div>
-          <div class="dp-row"><span class="dp-key">Organisation</span><span class="dp-val" id="detail-association"><?= htmlspecialchars($selected['association'] ?? '—') ?></span></div>
+          <div class="dp-row"><span class="dp-key">Type</span><span class="dp-val" id="detail-association"><?= ($selected['association'] ?? 0) ? 'Association' : 'Particulier' ?></span></div>
           <div class="dp-row"><span class="dp-key">Statut</span><span class="badge <?= htmlspecialchars(cagnotteStatusBadgeClass($selected['statut'] ?? 'en_attente')) ?>" id="detail-status"><?= htmlspecialchars(cagnotteStatusLabel($selected['statut'] ?? 'en_attente')) ?></span></div>
           <div class="dp-row"><span class="dp-key">Date début</span><span class="dp-val" id="detail-date"><?= htmlspecialchars(substr((string)($selected['date_debut'] ?? ''), 0, 10)) ?></span></div>
           <div class="dp-row"><span class="dp-key">Objectif</span><span class="dp-val-mono" id="detail-objectif" style="color:var(--blue)"><?= number_format($selObjectif, 3, ',', ' ') ?> TND</span></div>

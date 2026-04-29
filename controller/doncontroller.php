@@ -5,6 +5,12 @@ require_once __DIR__ . "/cagnottecontroller.php";
 
 class doncontroller {
 
+    /**
+     * Last error message for the controller (kept for callers to inspect)
+     * @var string|null
+     */
+    private $lastError = null;
+
     private const ALLOWED_STATUSES = ['en_attente', 'confirme', 'refuse'];
 
     private function normalizeDonStatus($status) {
@@ -117,10 +123,12 @@ class doncontroller {
 
     public function ajouterDon($data, $donateurId = null) {
         if (!isset($data['montant']) || !is_numeric($data['montant']) || $data['montant'] <= 0) {
-            die("Montant invalide");
+            $this->lastError = 'Montant invalide';
+            return false;
         }
         if (!isset($data['id_cagnotte']) || !is_numeric($data['id_cagnotte'])) {
-            die("Cagnotte invalide");
+            $this->lastError = 'Cagnotte invalide';
+            return false;
         }
         
         $moyen_paiement = isset($data['moyen_paiement']) && in_array($data['moyen_paiement'], ['carte', 'virement']) ? $data['moyen_paiement'] : 'carte';
@@ -129,6 +137,11 @@ class doncontroller {
 
         $cagnotteCtrl = new cagnottecontroller();
         $id_donateur = is_numeric($donateurId) ? (int)$donateurId : (int)$cagnotteCtrl->ensureDefaultUser();
+
+        if ($cagnotteCtrl->isUserAssociation($id_donateur)) {
+            $this->lastError = "Les associations ne peuvent pas faire un don";
+            return false;
+        }
 
         $pdo = Config::getConnexion();
 
@@ -157,8 +170,8 @@ class doncontroller {
     }
 
     public function modifierDon($id, $data) {
-        if (!is_numeric($id)) die("ID invalide");
-        if (!isset($data['montant']) || $data['montant'] <= 0) die("Montant invalide");
+        if (!is_numeric($id)) { $this->lastError = 'ID invalide'; return false; }
+        if (!isset($data['montant']) || $data['montant'] <= 0) { $this->lastError = 'Montant invalide'; return false; }
 
         $pdo = Config::getConnexion();
         $sql = "UPDATE don SET montant = :montant WHERE id_don = :id";
@@ -314,6 +327,14 @@ class doncontroller {
         $pdo = Config::getConnexion();
         $stmt = $pdo->prepare("UPDATE don SET statut = 'refuse' WHERE id_don = :id AND statut = 'en_attente'");
         return $stmt->execute(['id' => $id]);
+    }
+
+    /**
+     * Return the last error message (if any) produced by this controller.
+     * @return string|null
+     */
+    public function getLastError(): ?string {
+        return $this->lastError;
     }
 }
 ?>

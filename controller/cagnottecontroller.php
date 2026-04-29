@@ -12,13 +12,13 @@ class cagnottecontroller {
         return $this->lastError;
     }
 
-    public function getUserAssociation($userId) {
-        if (!is_numeric($userId)) return '';
+    public function isUserAssociation($userId) {
+        if (!is_numeric($userId)) return false;
         $pdo = Config::getConnexion();
         $stmt = $pdo->prepare("SELECT association FROM utilisateur WHERE id = :id LIMIT 1");
         $stmt->execute(['id' => (int)$userId]);
         $row = $stmt->fetch();
-        return trim((string)($row['association'] ?? ''));
+        return (bool)($row['association'] ?? 0);
     }
 
     public function getUserById($userId) {
@@ -84,7 +84,7 @@ class cagnottecontroller {
         return $dt;
     }
 
-    private function validateCagnottePayload($data, $requireAssociation = false) {
+    private function validateCagnottePayload($data, $isCreate = true) {
         $this->lastError = '';
 
         $titre = trim((string)($data['titre'] ?? ''));
@@ -101,14 +101,7 @@ class cagnottecontroller {
         if ($dateDebut === null) return $this->fail("Date de début invalide");
         if ($dateFin === null) return $this->fail("Date de fin invalide");
 
-        $today = new DateTime('today');
-        if ($dateDebut < $today) return $this->fail("La date de début ne peut pas être antérieure à aujourd'hui");
         if ($dateFin < $dateDebut) return $this->fail("La date de fin doit être supérieure ou égale à la date de début");
-
-        if ($requireAssociation || array_key_exists('association', $data)) {
-            $association = trim((string)($data['association'] ?? ''));
-            if ($association === '') return $this->fail("Association requise");
-        }
 
         return [
             'titre' => htmlspecialchars($titre),
@@ -116,8 +109,7 @@ class cagnottecontroller {
             'categorie' => $category,
             'objectif_montant' => (float)$objectif,
             'date_debut' => $dateDebut->format('Y-m-d'),
-            'date_fin' => $dateFin->format('Y-m-d'),
-            'association' => trim((string)($data['association'] ?? ''))
+            'date_fin' => $dateFin->format('Y-m-d')
         ];
     }
 
@@ -165,16 +157,19 @@ class cagnottecontroller {
         }
         
         $sql = "INSERT INTO utilisateur (nom, prenom, email, mdp, numTel, date_naissance, adresse, cin, role, association) 
-            VALUES ('Doe', 'John', 'john.doe@example.com', 'password123', '00000000', '1990-01-01', '123 Placeholder St', '00000000', 'CLIENT', 'Association Demo')";
+            VALUES ('Doe', 'John', 'john.doe@example.com', 'password123', '00000000', '1990-01-01', '123 Placeholder St', '00000000', 'CLIENT', 1)";
         $pdo->exec($sql);
         return $pdo->lastInsertId();
     }
 
     public function ajouterCagnotte($data, $userId = null) {
-        $validated = $this->validateCagnottePayload($data, true);
+        $validated = $this->validateCagnottePayload($data);
         if ($validated === false) return false;
 
         $id_createur = is_numeric($userId) ? (int)$userId : (int)$this->ensureDefaultUser();
+        if (!$this->isUserAssociation($id_createur)) {
+            return $this->fail("Seules les associations peuvent créer une cagnotte");
+        }
         $pdo = Config::getConnexion();
 
         $sql = "INSERT INTO cagnotte (id_createur, titre, description, categorie, objectif_montant, statut, date_debut, date_fin)
@@ -212,16 +207,6 @@ class cagnottecontroller {
         if ($validated === false) return false;
 
         $pdo = Config::getConnexion();
-        if ($validated['association'] !== '') {
-            $owner = $pdo->prepare("SELECT id_createur FROM cagnotte WHERE id_cagnotte = :id LIMIT 1");
-            $owner->execute(['id' => (int)$id]);
-            $row = $owner->fetch();
-            if ($row && isset($row['id_createur'])) {
-                $up = $pdo->prepare("UPDATE utilisateur SET association = :association WHERE id = :id");
-                $up->execute(['association' => $validated['association'], 'id' => (int)$row['id_createur']]);
-            }
-        }
-
         $sql = "UPDATE cagnotte 
                 SET titre = :titre,
                     description = :description,
@@ -265,11 +250,10 @@ class cagnottecontroller {
             $params['categorie'] = $filters['category'];
         }
         if ($filters['query'] !== '') {
-            $where[] = "(c.titre LIKE :query_titre OR c.categorie LIKE :query_categorie OR COALESCE(u.association, '') LIKE :query_association OR CONCAT(COALESCE(u.nom, ''), ' ', COALESCE(u.prenom, '')) LIKE :query_createur OR CONCAT(COALESCE(u.prenom, ''), ' ', COALESCE(u.nom, '')) LIKE :query_createur_inv)";
+            $where[] = "(c.titre LIKE :query_titre OR c.categorie LIKE :query_categorie OR CONCAT(COALESCE(u.nom, ''), ' ', COALESCE(u.prenom, '')) LIKE :query_createur OR CONCAT(COALESCE(u.prenom, ''), ' ', COALESCE(u.nom, '')) LIKE :query_createur_inv)";
             $queryValue = '%' . $filters['query'] . '%';
             $params['query_titre'] = $queryValue;
             $params['query_categorie'] = $queryValue;
-            $params['query_association'] = $queryValue;
             $params['query_createur'] = $queryValue;
             $params['query_createur_inv'] = $queryValue;
         }
