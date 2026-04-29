@@ -42,8 +42,8 @@ function getConnexion(): PDO
 
 function createProject(array $data): int
 {
-    $sql = "INSERT INTO projet (titre, description, montant_objectif, secteur, date_limite, date_creation, status, id_createur, request_code)
-            VALUES (:titre, :description, :montant, :secteur, :date_limite, CURDATE(), :status, :idCreateur, '')";
+    $sql = "INSERT INTO projet (titre, description, montant_objectif, secteur, date_limite, date_creation, status, id_createur, request_code, taux_rentabilite, temps_retour_brut)
+            VALUES (:titre, :description, :montant, :secteur, :date_limite, CURDATE(), :status, :idCreateur, '', :taux_rentabilite, :temps_retour_brut)";
     $stmt = getConnexion()->prepare($sql);
     $stmt->execute([
         'titre' => $data['titre'],
@@ -53,6 +53,8 @@ function createProject(array $data): int
         'date_limite' => $data['date_limite'],
         'status' => $data['status'],
         'idCreateur' => $data['id_createur'],
+        'taux_rentabilite' => $data['taux_rentabilite'] ?? 0,
+        'temps_retour_brut' => $data['temps_retour_brut'] ?? 0,
     ]);
     $projectId = (int)getConnexion()->lastInsertId();
     $requestCode = sprintf('REQ-%s-%03d', date('Ymd'), $projectId);
@@ -63,18 +65,27 @@ function createProject(array $data): int
 
 function getProjectRequestsByUser(int $userId): array
 {
-    $sql = "SELECT id_projet, request_code, titre, description, montant_objectif, secteur, date_limite, date_creation, status
+    $sql = "SELECT id_projet, request_code, titre, description, montant_objectif, secteur, date_limite, date_creation, status, taux_rentabilite, temps_retour_brut
             FROM projet
             WHERE id_createur = :userId
             ORDER BY date_creation DESC";
     $stmt = getConnexion()->prepare($sql);
     $stmt->execute(['userId' => $userId]);
-    return $stmt->fetchAll();
+    $projects = $stmt->fetchAll();
+    
+    foreach ($projects as &$project) {
+        $totalInvested = Investissement::getTotalInvestedForProject($project['id_projet']);
+        $project['total_investi'] = $totalInvested;
+        $project['montant_restant'] = max(0, $project['montant_objectif'] - $totalInvested);
+        $project['progression'] = $project['montant_objectif'] > 0 ? round(($totalInvested / $project['montant_objectif']) * 100, 1) : 0;
+    }
+    
+    return $projects;
 }
 
 function getAvailableProjects(): array
 {
-    $sql = "SELECT p.id_projet, p.request_code, p.titre, p.description, p.montant_objectif, p.secteur, p.date_limite, p.date_creation, p.status, u.nom AS createur_nom
+    $sql = "SELECT p.id_projet, p.request_code, p.titre, p.description, p.montant_objectif, p.secteur, p.date_limite, p.date_creation, p.status, p.taux_rentabilite, p.temps_retour_brut, u.nom AS createur_nom
             FROM projet p
             LEFT JOIN utilisateur u ON p.id_createur = u.id
             WHERE p.status = 'VALIDE'
@@ -96,7 +107,7 @@ function getAvailableProjects(): array
 
 function getProjectById(int $projectId): ?array
 {
-    $sql = "SELECT p.id_projet, p.request_code, p.titre, p.description, p.montant_objectif, p.secteur, p.date_limite, p.date_creation, p.status, u.nom AS createur_nom
+    $sql = "SELECT p.id_projet, p.request_code, p.titre, p.description, p.montant_objectif, p.secteur, p.date_limite, p.date_creation, p.status, p.taux_rentabilite, p.temps_retour_brut, u.nom AS createur_nom
             FROM projet p
             LEFT JOIN utilisateur u ON p.id_createur = u.id
             WHERE p.id_projet = :projectId";
@@ -114,7 +125,9 @@ function updateProject(int $projectId, int $userId, array $data): bool
                 montant_objectif = :montant,
                 secteur = :secteur,
                 date_limite = :date_limite,
-                status = :status
+                status = :status,
+                taux_rentabilite = :taux_rentabilite,
+                temps_retour_brut = :temps_retour_brut
             WHERE id_projet = :projectId
               AND id_createur = :userId";
     $stmt = getConnexion()->prepare($sql);
@@ -125,9 +138,44 @@ function updateProject(int $projectId, int $userId, array $data): bool
         'secteur' => $data['secteur'],
         'date_limite' => $data['date_limite'],
         'status' => $data['status'],
+        'taux_rentabilite' => $data['taux_rentabilite'] ?? 0,
+        'temps_retour_brut' => $data['temps_retour_brut'] ?? 0,
         'projectId' => $projectId,
         'userId' => $userId,
     ]);
+}
+
+function adminUpdateProject(int $projectId, array $data): bool
+{
+    $sql = "UPDATE projet
+            SET titre = :titre,
+                description = :description,
+                montant_objectif = :montant,
+                secteur = :secteur,
+                date_limite = :date_limite,
+                status = :status,
+                taux_rentabilite = :taux_rentabilite,
+                temps_retour_brut = :temps_retour_brut
+            WHERE id_projet = :projectId";
+    $stmt = getConnexion()->prepare($sql);
+    return $stmt->execute([
+        'titre' => $data['titre'],
+        'description' => $data['description'],
+        'montant' => $data['montant'],
+        'secteur' => $data['secteur'],
+        'date_limite' => $data['date_limite'],
+        'status' => $data['status'],
+        'taux_rentabilite' => $data['taux_rentabilite'] ?? 0,
+        'temps_retour_brut' => $data['temps_retour_brut'] ?? 0,
+        'projectId' => $projectId,
+    ]);
+}
+
+function adminDeleteProject(int $projectId): bool
+{
+    $sql = "DELETE FROM projet WHERE id_projet = :projectId";
+    $stmt = getConnexion()->prepare($sql);
+    return $stmt->execute(['projectId' => $projectId]);
 }
 
 function changeProjectStatus(int $projectId, string $status): bool
@@ -182,6 +230,8 @@ if ($method === 'POST') {
         $montant = $_POST['montant'] ?? '';
         $date_limite = $_POST['date_limite'] ?? '';
         $status = $_POST['status'] ?? 'EN_ATTENTE';
+        $taux_rentabilite = $_POST['taux_rentabilite'] ?? 0;
+        $temps_retour_brut = $_POST['temps_retour_brut'] ?? 0;
 
         if ($titre === '' || $secteur === '' || $description === '' || $montant === '' || $date_limite === '') {
             echo json_encode(['success' => false, 'message' => 'Tous les champs obligatoires doivent être remplis.']);
@@ -207,6 +257,8 @@ if ($method === 'POST') {
                 'date_limite' => $date_limite,
                 'status' => $status,
                 'id_createur' => $userId,
+                'taux_rentabilite' => $taux_rentabilite,
+                'temps_retour_brut' => $temps_retour_brut,
             ]);
 
             $project = getProjectById($projectId);
@@ -227,6 +279,8 @@ if ($method === 'POST') {
                     'secteur' => $secteur,
                     'date_limite' => $date_limite,
                     'status' => $status,
+                    'taux_rentabilite' => $taux_rentabilite,
+                    'temps_retour_brut' => $temps_retour_brut,
                 ])) {
                     echo json_encode(['success' => true, 'message' => 'Demande mise à jour.']);
                     exit;
@@ -258,6 +312,100 @@ if ($method === 'POST') {
             exit;
         }
         echo json_encode(['success' => false, 'message' => 'Impossible de supprimer la demande.']);
+        exit;
+    }
+
+    // ── Admin CRUD actions (no id_createur restriction) ──────────────────────
+    if ($action === 'admin_create_project') {
+        $titre       = trim($_POST['titre'] ?? '');
+        $secteur     = trim($_POST['secteur'] ?? '');
+        $description = trim($_POST['description'] ?? '');
+        $montant     = $_POST['montant'] ?? '';
+        $date_limite = $_POST['date_limite'] ?? '';
+        $status      = $_POST['status'] ?? 'VALIDE';
+        $taux_rentabilite = $_POST['taux_rentabilite'] ?? 0;
+        $temps_retour_brut = $_POST['temps_retour_brut'] ?? 0;
+
+        if ($titre === '' || $secteur === '' || $description === '' || $montant === '' || $date_limite === '') {
+            echo json_encode(['success' => false, 'message' => 'Tous les champs obligatoires doivent être remplis.']);
+            exit;
+        }
+        if (!is_numeric($montant) || (float)$montant < 1) {
+            echo json_encode(['success' => false, 'message' => 'Le montant doit être une valeur numérique positive.']);
+            exit;
+        }
+        try {
+            $projectId = createProject([
+                'titre'       => $titre,
+                'description' => $description,
+                'montant'     => $montant,
+                'secteur'     => $secteur,
+                'date_limite' => $date_limite,
+                'status'      => $status,
+                'id_createur' => $userId,
+                'taux_rentabilite' => $taux_rentabilite,
+                'temps_retour_brut' => $temps_retour_brut,
+            ]);
+            $project = getProjectById($projectId);
+            echo json_encode(['success' => true, 'message' => 'Projet créé avec succès.', 'data' => $project]);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur de base de données: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($action === 'admin_update_project' && !empty($_POST['project_id'])) {
+        $projectId   = (int)$_POST['project_id'];
+        $titre       = trim($_POST['titre'] ?? '');
+        $secteur     = trim($_POST['secteur'] ?? '');
+        $description = trim($_POST['description'] ?? '');
+        $montant     = $_POST['montant'] ?? '';
+        $date_limite = $_POST['date_limite'] ?? '';
+        $status      = $_POST['status'] ?? 'EN_ATTENTE';
+        $taux_rentabilite = $_POST['taux_rentabilite'] ?? 0;
+        $temps_retour_brut = $_POST['temps_retour_brut'] ?? 0;
+
+        if ($titre === '' || $secteur === '' || $description === '' || $montant === '' || $date_limite === '') {
+            echo json_encode(['success' => false, 'message' => 'Tous les champs obligatoires doivent être remplis.']);
+            exit;
+        }
+        if (!is_numeric($montant) || (float)$montant < 1) {
+            echo json_encode(['success' => false, 'message' => 'Le montant doit être une valeur numérique positive.']);
+            exit;
+        }
+        try {
+            if (adminUpdateProject($projectId, [
+                'titre'       => $titre,
+                'description' => $description,
+                'montant'     => $montant,
+                'secteur'     => $secteur,
+                'date_limite' => $date_limite,
+                'status'      => $status,
+                'taux_rentabilite' => $taux_rentabilite,
+                'temps_retour_brut' => $temps_retour_brut,
+            ])) {
+                $project = getProjectById($projectId);
+                echo json_encode(['success' => true, 'message' => 'Projet mis à jour.', 'data' => $project]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Impossible de mettre à jour le projet.']);
+            }
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur de base de données: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($action === 'admin_delete_project' && !empty($_POST['project_id'])) {
+        $projectId = (int)$_POST['project_id'];
+        try {
+            if (adminDeleteProject($projectId)) {
+                echo json_encode(['success' => true, 'message' => 'Projet supprimé avec succès.']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Impossible de supprimer le projet.']);
+            }
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur de base de données: ' . $e->getMessage()]);
+        }
         exit;
     }
 }

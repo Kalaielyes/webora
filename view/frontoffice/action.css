@@ -14,6 +14,43 @@
   --accent: #3b82f6;
   --radius: 12px;
 }
+
+[data-theme='light'] {
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface2: #F1F5F9;
+  --border: #CBD5E1;
+  --text: #000000;
+  --muted: #475569;
+  --blue: #2563EB;
+}
+
+[data-theme='light'] .sidebar { background: #FFFFFF; border-right-color: #E2E8F0; }
+[data-theme='light'] .sb-logo-name { color: #000000; }
+[data-theme='light'] .sb-uname { color: #000000; }
+[data-theme='light'] .sb-uemail { color: #64748B; }
+[data-theme='light'] .nav-item { color: #64748B; }
+[data-theme='light'] .nav-item:hover { background: #F1F5F9; color: #000000; }
+[data-theme='light'] .nav-item.active { background: rgba(37, 99, 235, 0.08); color: #2563EB; }
+[data-theme='light'] .nav-section { color: #94A3B8; }
+[data-theme='light'] .topbar { background: #FFFFFF; border-bottom-color: #E2E8F0; color: #000000; }
+[data-theme='light'] .topbar-title { color: #000000; }
+[data-theme='light'] .project-card { background: #FFFFFF; border-color: #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+[data-theme='light'] .project-card:hover { background: #F8FAFC; border-color: #2563EB; }
+[data-theme='light'] .tab-row { background: #F1F5F9; border-color: #E2E8F0; }
+[data-theme='light'] .tab-pill { color: #64748B; }
+[data-theme='light'] .tab-pill:hover:not(.active) { background: #E2E8F0; color: #000000; }
+[data-theme='light'] .pc-title { color: #000000; }
+[data-theme='light'] .pc-deadline { color: #64748B; }
+[data-theme='light'] .invest-item { background: #FFFFFF; border-color: #E2E8F0; color: #000000; }
+[data-theme='light'] .invest-title { color: #000000; }
+[data-theme='light'] .invest-item:hover { border-color: #2563EB; }
+[data-theme='light'] .form-input { background: #FFFFFF; border-color: #CBD5E1; color: #000000; }
+[data-theme='light'] .form-label { color: #64748B; }
+[data-theme='light'] .amount-chip { background: #F1F5F9; border-color: #E2E8F0; color: #475569; }
+[data-theme='light'] .amount-chip:hover, [data-theme='light'] .amount-chip.selected { background: #2563EB; border-color: #2563EB; color: #FFFFFF; }
+[data-theme='light'] .section-title { color: #000000; }
+[data-theme='light'] .sb-user { background: #F1F5F9; border-color: #E2E8F0; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 14px; }
 
@@ -64,10 +101,11 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .btn-invest:hover { background: #2563eb; }
 
 /* PROJECTS GRID */
-.projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 1rem; margin-bottom: 2rem; }
-.project-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; position: relative; transition: border-color .2s; }
-.project-card:hover { border-color: rgba(59,130,246,.3); }
-.project-card.featured { border-color: rgba(59,130,246,.25); background: linear-gradient(135deg,rgba(59,130,246,.04),var(--surface)); }
+/* PROJECTS LIST (RECTANGULAR) */
+.projects-grid { display: flex !important; flex-direction: column !important; gap: 0.75rem; margin-bottom: 2rem; width: 100%; }
+.project-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1.2rem; position: relative; transition: all .2s ease; display: flex; align-items: center; gap: 1.5rem; width: 100%; }
+.project-card:hover { border-color: rgba(59,130,246,.4); background: var(--surface2); transform: translateX(4px); }
+.project-card.featured { border-color: rgba(59,130,246,.25); background: linear-gradient(90deg,rgba(59,130,246,.04),var(--surface)); }
 .pc-badge-featured { position: absolute; top: -1px; right: 12px; background: var(--blue); color: #fff; font-size: .6rem; font-weight: 600; padding: .2rem .6rem; border-radius: 0 0 6px 6px; letter-spacing: .05em; }
 .pc-sector { display: inline-flex; align-items: center; gap: .3rem; font-size: .65rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: .2rem .55rem; border-radius: 20px; margin-bottom: .6rem; }
 .pc-s-energie { background: rgba(245,158,11,.12); color: var(--amber); }

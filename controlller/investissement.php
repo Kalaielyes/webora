@@ -92,8 +92,8 @@ if ($method === 'POST') {
             exit;
         }
 
-        if (!is_numeric($projectId) || !is_numeric($amount) || $amount <= 0) {
-            echo json_encode(['success' => false, 'message' => 'Les valeurs de projet et de montant doivent être valides.']);
+        if (!is_numeric($projectId) || !is_numeric($amount) || $amount < 500 || $amount > 100000) {
+            echo json_encode(['success' => false, 'message' => 'Les valeurs de projet et de montant doivent être valides (min: 500, max: 100 000).']);
             exit;
         }
 
