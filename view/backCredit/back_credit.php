@@ -368,7 +368,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
               <table class="tbl-crud">
                 <thead>
                   <tr>
-                    <th>ID</th>
+                    <th>Demande n°</th>
                     <th>Montant</th>
                     <th>Durée</th>
                     <th>Taux</th>
@@ -379,7 +379,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                 <tbody>
                   <?php foreach ($demandes as $d): ?>
                     <tr>
-                      <td><strong>#<?= (int) $d['id'] ?></strong></td>
+                      <td><strong>Demande n°<?= (int) $d['id'] ?></strong></td>
                       <td><strong><?= number_format($d['montant'], 0, ',', ' ') ?> TND</strong></td>
                       <td><?= (int) $d['duree_mois'] ?> m</td>
                       <td><?= $d['taux_interet'] ?>%</td>
@@ -421,8 +421,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
               <table class="tbl-crud">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Demande</th>
+                    <th>Demande n°</th>
                     <th>Type</th>
                     <th>Document</th>
                     <th>Valeur</th>
@@ -432,8 +431,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                 <tbody>
                   <?php foreach ($garanties as $g): ?>
                     <tr>
-                      <td><strong>#<?= (int) $g['id'] ?></strong></td>
-                      <td><span class="claim-st cs-open">#<?= (int) $g['demande_credit_id'] ?> <?= $g['dc_montant'] ? ' — ' . number_format($g['dc_montant'], 0, ',', ' ') . ' TND' : '' ?></span></td>
+                      <td><span class="claim-st cs-open">Demande n°<?= (int) $g['demande_credit_id'] ?> <?= $g['dc_montant'] ? ' — ' . number_format($g['dc_montant'], 0, ',', ' ') . ' TND' : '' ?></span></td>
                       <td><?= $tgL[$g['type']] ?? htmlspecialchars($g['type']) ?></td>
                       <td>
                         <?php if (str_starts_with($g['document'], 'uploads/')): ?>

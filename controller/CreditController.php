@@ -26,6 +26,8 @@ class CreditController
             'create_demande' => $this->createDemande(),
             'update_demande' => $this->updateDemande(),
             'delete_demande' => $this->deleteDemande(),
+            'approve_demande' => $this->approveDemande(),
+            'refuse_demande' => $this->refuseDemande(),
             'create_garantie' => $this->createGarantie(),
             'update_garantie' => $this->updateGarantie(),
             'delete_garantie' => $this->deleteGarantie(),
@@ -82,6 +84,70 @@ class CreditController
             $this->demandeModel->delete($id);
         }
         $this->renderView(success: "Demande #$id et ses garanties supprimées.");
+    }
+
+    private function approveDemande(): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        
+        if ($id <= 0) {
+            $this->renderView(errors: ['ID demande invalide.']);
+            return;
+        }
+
+        $demande = $this->demandeModel->getById($id);
+        if (!$demande) {
+            $this->renderView(errors: ["Demande #$id introuvable."]);
+            return;
+        }
+
+        $data = [
+            'montant' => $demande['montant'],
+            'duree_mois' => $demande['duree_mois'],
+            'taux_interet' => $demande['taux_interet'],
+            'statut' => $demande['statut'],
+            'resultat' => 'approuvee',
+            'motif_resultat' => $demande['motif_resultat'] ?? '',
+            'date_traitement' => date('Y-m-d'),
+        ];
+
+        if ($this->demandeModel->update($id, $data)) {
+            $this->renderView(success: "Demande #$id approuvée.");
+        } else {
+            $this->renderView(errors: ['Erreur lors de la mise à jour.']);
+        }
+    }
+
+    private function refuseDemande(): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        
+        if ($id <= 0) {
+            $this->renderView(errors: ['ID demande invalide.']);
+            return;
+        }
+
+        $demande = $this->demandeModel->getById($id);
+        if (!$demande) {
+            $this->renderView(errors: ["Demande #$id introuvable."]);
+            return;
+        }
+
+        $data = [
+            'montant' => $demande['montant'],
+            'duree_mois' => $demande['duree_mois'],
+            'taux_interet' => $demande['taux_interet'],
+            'statut' => $demande['statut'],
+            'resultat' => 'refusee',
+            'motif_resultat' => $demande['motif_resultat'] ?? '',
+            'date_traitement' => date('Y-m-d'),
+        ];
+
+        if ($this->demandeModel->update($id, $data)) {
+            $this->renderView(success: "Demande #$id refusée.");
+        } else {
+            $this->renderView(errors: ['Erreur lors de la mise à jour.']);
+        }
     }
 
     // ── Garantie

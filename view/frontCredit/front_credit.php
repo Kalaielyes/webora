@@ -257,6 +257,18 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                           <div class="td-acts">
                             <a href="<?= $self ?>?edit_d=<?= $d['id'] ?>" class="btn-edt">✏️ Modifier</a>
                             <form method="POST" action="<?= $self ?>" style="display:inline"
+                              onsubmit="return confirm('Approuver la demande #<?= $d['id'] ?> ?')">
+                              <input type="hidden" name="action" value="approve_demande" />
+                              <input type="hidden" name="id" value="<?= $d['id'] ?>" />
+                              <button type="submit" class="btn-quick-approve">✅ Approuver</button>
+                            </form>
+                            <form method="POST" action="<?= $self ?>" style="display:inline"
+                              onsubmit="return confirm('Refuser la demande #<?= $d['id'] ?> ?')">
+                              <input type="hidden" name="action" value="refuse_demande" />
+                              <input type="hidden" name="id" value="<?= $d['id'] ?>" />
+                              <button type="submit" class="btn-quick-refuse">❌ Refuser</button>
+                            </form>
+                            <form method="POST" action="<?= $self ?>" style="display:inline"
                               onsubmit="return confirm('Supprimer la demande #<?= $d['id'] ?> ?')">
                               <input type="hidden" name="action" value="delete_demande" />
                               <input type="hidden" name="id" value="<?= $d['id'] ?>" />

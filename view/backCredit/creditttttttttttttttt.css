@@ -128,6 +128,8 @@ tbody tr:last-child td{border-bottom:none;}
 .fi-crud,.fs-crud,.fta-crud{width:100%;background:#0F172A;border:1px solid rgba(148,163,184,.2);border-radius:8px;padding:.52rem .8rem;font-size:.8rem;color:#E2E8F0;outline:none;font-family:var(--fb);transition:all .18s;}
 .fi-crud::placeholder,.fs-crud::placeholder,.fta-crud::placeholder{color:#475569;}
 .fi-crud:focus,.fs-crud:focus,.fta-crud:focus{border-color:#60A5FA;background:rgba(96,165,250,.05);box-shadow:0 0 0 3px rgba(96,165,250,.1);}
+.fs-crud option{color:#0F172A;background:#fff;}
+.fs-crud option:checked{color:#fff;background:#2563EB;}
 .fta-crud{resize:vertical;min-height:70px;}
 .field-hint{font-size:.63rem;color:#64748B;margin-top:2px;}
 .err-msg{color:#FCA5A5;font-size:.65rem;margin-top:2px;}
