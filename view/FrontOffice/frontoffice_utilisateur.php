@@ -33,8 +33,10 @@ function oldProfil(string $key, array $old, array $user): string {
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Mon Profil - LegalFin</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="Utilisateur.css">
-<style>
+  <link rel="stylesheet" href="Utilisateur.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <style>
 .flash{border-radius:10px;padding:.65rem 1rem;font-size:.78rem;display:flex;align-items:flex-start;gap:.6rem;line-height:1.6;}
 .flash svg{width:14px;height:14px;flex-shrink:0;margin-top:2px;}
 .flash-error{background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);color:var(--rose);}
@@ -117,7 +119,7 @@ function oldProfil(string $key, array $old, array $user): string {
           <span class="pbadge pbadge-kyc"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> KYC <?= $user['status_kyc'] ?></span>
           <span class="pbadge pbadge-aml"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> AML <?= $user['status_aml'] ?></span>
           <span class="pbadge pbadge-actif"><span class="dot-pulse" style="background:var(--teal)"></span> <?= $user['status'] ?></span>
-          <?php if(!empty($user['file_path'])): ?>
+          <?php if(!empty($user['id_file_path'])): ?>
           <span class="pbadge pbadge-file"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg> ID déposé</span>
           <?php endif; ?>
           <?php if(!empty($user['association'])): ?>
@@ -135,13 +137,13 @@ function oldProfil(string $key, array $old, array $user): string {
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
           Mot de passe
         </button>
-        <?php if(empty($user['file_path'])): ?>
+        <?php if(empty($user['id_file_path'])): ?>
         <button class="btn-ghost" onclick="document.getElementById('m-upload').classList.add('open')">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
           Déposer votre ID
         </button>
         <?php else: ?>
-        <a class="btn-ghost" href="../../<?= htmlspecialchars($user['file_path']) ?>" target="_blank">
+        <a class="btn-ghost" href="../../<?= htmlspecialchars($user['id_file_path']) ?>" target="_blank">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
           Voir mon ID
         </a>
@@ -194,7 +196,24 @@ function oldProfil(string $key, array $old, array $user): string {
         <div class="security-card">
           <div class="sec-item"><div class="sec-left"><div class="sec-icon" style="background:rgba(79,142,247,.1)"><svg width="16" height="16" fill="none" stroke="var(--blue)" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div><div><div class="sec-title">Mot de passe</div><div class="sec-desc">Cliquez pour modifier</div></div></div><button class="btn-ghost" style="font-size:.7rem;padding:.22rem .6rem" onclick="document.getElementById('m-pwd').classList.add('open')">Changer</button></div>
           <div class="sec-item"><div class="sec-left"><div class="sec-icon" style="background:rgba(34,197,94,.1)"><svg width="16" height="16" fill="none" stroke="var(--green)" stroke-width="1.8" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div><div><div class="sec-title">2FA SMS</div><div class="sec-desc">Authentification active</div></div></div><div class="toggle on"><div class="toggle-knob"></div></div></div>
-          <div class="sec-item"><div class="sec-left"><div class="sec-icon" style="background:rgba(244,63,94,.1)"><svg width="16" height="16" fill="none" stroke="var(--rose)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 8v4M12 16h.01"/></svg></div><div><div class="sec-title">Niveau de risque</div><div class="sec-desc">Aucune activité suspecte</div></div></div><span style="font-size:.7rem;font-weight:600;color:var(--green)">FAIBLE</span></div>
+          
+          <!-- 🌍 CARTE DE SÉCURITÉ CLIENT -->
+          <div class="sec-item" style="flex-direction:column;align-items:stretch;gap:.8rem;border-bottom:none">
+            <div class="sec-left">
+              <div class="sec-icon" style="background:rgba(13,148,136,.1)"><svg width="16" height="16" fill="none" stroke="var(--teal)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+              <div><div class="sec-title">Dernière localisation</div><div class="sec-desc"><?= htmlspecialchars($user['last_city'] ?? 'Inconnue') ?> (IP: <?= htmlspecialchars($user['last_ip'] ?? '—') ?>)</div></div>
+            </div>
+            <?php if(!empty($user['last_lat'])): ?>
+            <div id="user-map" style="height:120px;border-radius:10px;border:1px solid var(--border);z-index:1"></div>
+            <script>
+              (function(){
+                var map = L.map('user-map', {zoomControl: false}).setView([<?= $user['last_lat'] ?>, <?= $user['last_long'] ?>], 11);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                L.marker([<?= $user['last_lat'] ?>, <?= $user['last_long'] ?>]).addTo(map);
+              })();
+            </script>
+            <?php endif; ?>
+          </div>
         </div>
       </div>
     </div>

@@ -2,30 +2,23 @@
 require_once __DIR__ . '/../../model/Session.php';
 require_once __DIR__ . '/../../model/Utilisateur.php';
 Session::requireAdmin('../FrontOffice/login.php');
-
 $m      = new Utilisateur();
 $filtre = $_GET['filtre'] ?? 'tous';
-$page   = $_GET['page'] ?? 'utilisateurs'; // dashboard | utilisateurs | profil | permissions
+$page   = $_GET['page'] ?? 'utilisateurs'; 
 $users  = $m->findAll($filtre);
 $periode= $_GET['periode'] ?? 'tout';
 $stats  = $m->getStats($periode);
 $flash  = Session::getFlash();
-
 $currentUserId   = (int) Session::get('user_id');
 $currentUserRole = Session::get('role');
 $currentUser     = $m->findById($currentUserId);
-
 $detailId = (int)($_GET['detail'] ?? ($users[0]['id'] ?? 0));
 $detail   = $detailId ? $m->findById($detailId) : ($users[0] ?? null);
-// Security: never show SUPER_ADMIN in the detail panel
 if ($detail && ($detail['role'] ?? '') === 'SUPER_ADMIN') {
     $detail = $users[0] ?? null;
     $detailId = $detail['id'] ?? 0;
 }
-
 $adminInitials = strtoupper(mb_substr(Session::get('user_nom'),0,1).mb_substr(Session::get('user_prenom'),0,1));
-
-// ── Module definitions ──────────────────────────────────────────────────────
 $ALL_MODULES = [
     'comptes'          => ['label'=>'Comptes',           'icon'=>'<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',                                              'color'=>'var(--blue)'],
     'actions'          => ['label'=>'Actions',           'icon'=>'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',                                                                                                'color'=>'var(--teal)'],
@@ -35,11 +28,8 @@ $ALL_MODULES = [
     'utilisateurs'     => ['label'=>'Utilisateurs',     'icon'=>'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','color'=>'var(--purple)'],
     'statistiques'     => ['label'=>'Statistiques',     'icon'=>'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',                               'color'=>'#F59E0B'],
 ];
-
-// ── Notifications ───────────────────────────────────────────────────────────
 $notifications = [];
 $pdo = \config::getConnexion();
-// 1. Nouveaux comptes d'aujourd'hui
 $stmtInscrits = $pdo->query("SELECT id, nom, prenom, date_inscription FROM utilisateur WHERE DATE(date_inscription) = CURDATE() ORDER BY date_inscription DESC LIMIT 5");
 foreach($stmtInscrits->fetchAll() as $row) {
     $notifications[] = [
@@ -49,7 +39,6 @@ foreach($stmtInscrits->fetchAll() as $row) {
         'link' => "?page=utilisateurs&filtre=tous&detail={$row['id']}"
     ];
 }
-// 2. ID déposé (KYC en attente)
 $stmtKyc = $pdo->query("SELECT id, nom, prenom, date_inscription FROM utilisateur WHERE status_kyc = 'EN_ATTENTE' AND id_file_path IS NOT NULL AND id_file_path != '' ORDER BY date_inscription DESC LIMIT 5");
 foreach($stmtKyc->fetchAll() as $row) {
     $notifications[] = [
@@ -59,34 +48,25 @@ foreach($stmtKyc->fetchAll() as $row) {
         'link' => "?page=utilisateurs&filtre=kyc_attente&detail={$row['id']}"
     ];
 }
-// Sort by time descending
 usort($notifications, function($a, $b) {
     return strtotime($b['time']) - strtotime($a['time']);
 });
-$notifications = array_slice($notifications, 0, 5); // Keep top 5
+$notifications = array_slice($notifications, 0, 5); 
 $unreadCount = count($notifications);
-
-// ── Per-admin permission store (JSON file, simple approach) ──────────────────
 $permFile = __DIR__ . '/../../model/admin_permissions.json';
 $perms = [];
 if (file_exists($permFile)) {
     $perms = json_decode(file_get_contents($permFile), true) ?? [];
 }
-
-// Helper: get modules an admin can access
 function getAdminModules(array $perms, int $uid, string $role, array $ALL_MODULES): array {
     if ($role === 'SUPER_ADMIN') return array_keys($ALL_MODULES);
     return $perms[$uid] ?? [];
 }
-
 $myModules = getAdminModules($perms, $currentUserId, $currentUserRole, $ALL_MODULES);
-
-// ── Handle permission save (SUPER_ADMIN only, AJAX-style POST) ───────────────
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['action']) && $_POST['action']==='save_permissions') {
     if ($currentUserRole === 'SUPER_ADMIN') {
         $targetId  = (int)($_POST['target_id'] ?? 0);
         $granted   = $_POST['modules'] ?? [];
-        // Only valid module keys
         $granted   = array_intersect($granted, array_keys($ALL_MODULES));
         $perms[$targetId] = array_values($granted);
         file_put_contents($permFile, json_encode($perms, JSON_PRETTY_PRINT));
@@ -95,7 +75,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['action']) && $_POST['ac
     header('Location: ?page=permissions');
     exit;
 }
-
 function badge_kyc(string $v): string {
     return match($v) {'VERIFIE'=>'kyc-ok','EN_ATTENTE'=>'kyc-wait',default=>'kyc-ko'};
 }
@@ -109,6 +88,7 @@ function initials(string $n, string $p): string {
     return strtoupper(mb_substr($n,0,1).mb_substr($p,0,1));
 }
 ?>
+<?php if (!isset($_GET['ajax'])): ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -117,13 +97,10 @@ function initials(string $n, string $p): string {
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="Utilisateur.css">
 <style>
-/* ── LAYOUT ──────────────────────────────────────────────────────────────── */
 body{display:flex;overflow:hidden;height:100vh;}
 .sidebar{width:230px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;height:100vh;}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 .content{padding:1.4rem 1.8rem;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:1.2rem;}
-
-/* ── SIDEBAR ──────────────────────────────────────────────────────────────── */
 .sb-logo{padding:1.2rem 1.2rem .9rem;border-bottom:1px solid rgba(255,255,255,.08);}
 .sb-logo-name{font-family:var(--fh);font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-.01em;}
 .sb-logo-name span{color:#60A5FA;}
@@ -143,8 +120,6 @@ body{display:flex;overflow:hidden;height:100vh;}
 .sb-footer{padding:.8rem 1.2rem;border-top:1px solid rgba(255,255,255,.08);}
 .sb-status{display:flex;align-items:center;gap:5px;font-size:.7rem;color:#64748B;}
 .status-dot{width:6px;height:6px;border-radius:50%;background:#22C55E;}
-
-/* ── TOPBAR ───────────────────────────────────────────────────────────────── */
 .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.8rem;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .tb-left{display:flex;align-items:center;gap:.8rem;}
 .page-title{font-family:var(--fh);font-size:.92rem;font-weight:700;}
@@ -156,8 +131,6 @@ body{display:flex;overflow:hidden;height:100vh;}
 .btn-ghost:hover{border-color:var(--blue);color:var(--blue);}
 .search-bar{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:0 .8rem;height:34px;display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--muted);width:220px;}
 .search-bar input{background:transparent;border:none;outline:none;font-size:.8rem;color:var(--text);width:100%;font-family:var(--fb);}
-
-/* ── NOTIFICATIONS ────────────────────────────────────────────────────────── */
 .notif-wrapper{position:relative;}
 .notif-btn{position:relative;background:transparent;border:1px solid var(--border);border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:all .15s;}
 .notif-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-light);}
@@ -174,22 +147,16 @@ body{display:flex;overflow:hidden;height:100vh;}
 .notif-icon.id_deposited{background:var(--green-light);color:var(--green);}
 .notif-msg{font-size:.72rem;color:var(--text);font-weight:500;line-height:1.3;}
 .notif-time{font-size:.65rem;color:var(--muted);margin-top:.3rem;font-family:var(--fm);}
-
-/* ── FLASH ────────────────────────────────────────────────────────────────── */
 .flash{border-radius:10px;padding:.7rem 1rem;font-size:.78rem;display:flex;align-items:center;gap:.6rem;}
 .flash svg{width:14px;height:14px;flex-shrink:0;}
 .flash-error{background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);color:var(--rose);}
 .flash-success{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);color:var(--green);}
-
-/* ── KPI ──────────────────────────────────────────────────────────────────── */
 .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;display:flex;align-items:flex-start;gap:.8rem;}
 .kpi-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .kpi-data .kpi-val{font-family:var(--fh);font-size:1.5rem;font-weight:700;line-height:1;}
 .kpi-data .kpi-label{font-size:.7rem;color:var(--muted);margin-top:.2rem;}
 .kpi-data .kpi-sub{font-size:.68rem;margin-top:.25rem;}
-
-/* ── MODULE GRID ──────────────────────────────────────────────────────────── */
 .module-section{margin-top:.5rem;}
 .module-section-title{font-family:var(--fh);font-size:.82rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.8rem;}
 .module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1rem;}
@@ -201,8 +168,6 @@ body{display:flex;overflow:hidden;height:100vh;}
 .module-label{font-size:.8rem;font-weight:600;}
 .module-sub{font-size:.68rem;color:var(--muted);}
 .lock-badge{font-size:.6rem;background:var(--rose-light);color:var(--rose);border-radius:99px;padding:2px 8px;font-weight:600;}
-
-/* ── TABLE ────────────────────────────────────────────────────────────────── */
 .two-col-layout{display:grid;grid-template-columns:1fr 320px;gap:1.2rem;}
 .table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
 .table-toolbar{padding:.75rem 1.1rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
@@ -218,8 +183,6 @@ tr:last-child td{border-bottom:none;}
 tr:hover td{background:var(--bg3);}
 .td-mono{font-family:var(--fm);font-size:.72rem;color:var(--muted);}
 .td-name{font-weight:500;}
-
-/* ── BADGES ───────────────────────────────────────────────────────────────── */
 .badge{display:inline-flex;align-items:center;gap:4px;border-radius:99px;padding:2px 9px;font-size:.67rem;font-weight:600;white-space:nowrap;}
 .badge-dot{width:5px;height:5px;border-radius:50%;}
 .b-actif{background:var(--green-light);color:var(--green);}
@@ -231,15 +194,11 @@ tr:hover td{background:var(--bg3);}
 .kyc-ok{background:var(--green-light);color:var(--green);border-radius:5px;padding:2px 7px;font-size:.65rem;font-weight:600;}
 .kyc-wait{background:var(--amber-light);color:var(--amber);border-radius:5px;padding:2px 7px;font-size:.65rem;font-weight:600;}
 .kyc-ko{background:var(--rose-light);color:var(--rose);border-radius:5px;padding:2px 7px;font-size:.65rem;font-weight:600;}
-
-/* ── ACTION BUTTONS ───────────────────────────────────────────────────────── */
 .action-group{display:flex;gap:.35rem;}
 .act-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:all .15s;}
 .act-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-light);}
 .act-btn.danger:hover{border-color:var(--rose);color:var(--rose);background:var(--rose-light);}
 .act-btn.warn:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-light);}
-
-/* ── DETAIL PANEL ─────────────────────────────────────────────────────────── */
 .detail-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.2rem;display:flex;flex-direction:column;gap:1rem;align-self:start;max-height:calc(100vh - 160px);overflow-y:auto;}
 .dp-header{display:flex;align-items:center;gap:.8rem;padding-bottom:.8rem;border-bottom:1px solid var(--border);}
 .dp-av{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#2563EB,#0D9488);display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-size:.8rem;font-weight:700;color:#fff;flex-shrink:0;}
@@ -262,8 +221,6 @@ tr:hover td{background:var(--bg3);}
 .da-warning:hover{background:var(--amber);color:#fff;}
 .da-danger{background:var(--rose-light);color:var(--rose);}
 .da-danger:hover{background:var(--rose);color:#fff;}
-
-/* ── MODAL ────────────────────────────────────────────────────────────────── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:1000;}
 .modal-overlay.open{display:flex;}
 .modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.5rem;width:100%;max-width:520px;position:relative;max-height:90vh;overflow-y:auto;animation:modalIn .2s ease both;}
@@ -287,8 +244,6 @@ tr:hover td{background:var(--bg3);}
 .mbtn-danger{background:var(--rose);color:#fff;border:none;border-radius:7px;padding:.4rem 1.2rem;font-size:.78rem;font-weight:600;cursor:pointer;font-family:var(--fb);}
 .confirm-icon{width:48px;height:48px;border-radius:50%;background:var(--rose-light);display:flex;align-items:center;justify-content:center;margin:0 auto .8rem;}
 .confirm-text{font-size:.8rem;color:var(--muted);margin-bottom:.9rem;}
-
-/* ── PROFILE PAGE ─────────────────────────────────────────────────────────── */
 .profile-grid{display:grid;grid-template-columns:280px 1fr;gap:1.4rem;align-items:start;}
 .profile-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1rem;}
 .profile-avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#2563EB,#7C3AED);display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-size:1.5rem;font-weight:700;color:#fff;}
@@ -317,8 +272,6 @@ tr:hover td{background:var(--bg3);}
 .form-foot{display:flex;justify-content:flex-end;margin-top:1rem;}
 .btn-save{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:.5rem 1.3rem;font-size:.82rem;font-weight:600;cursor:pointer;font-family:var(--fb);transition:background .15s;}
 .btn-save:hover{background:#1D4ED8;}
-
-/* ── PERMISSIONS PAGE ─────────────────────────────────────────────────────── */
 .perm-admin-list{display:flex;flex-direction:column;gap:1rem;}
 .perm-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.2rem 1.5rem;}
 .perm-card-header{display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;padding-bottom:.8rem;border-bottom:1px solid var(--border);}
@@ -337,8 +290,6 @@ tr:hover td{background:var(--bg3);}
 .perm-footer{margin-top:1rem;display:flex;justify-content:flex-end;}
 .btn-perm-save{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:.45rem 1.2rem;font-size:.78rem;font-weight:600;cursor:pointer;font-family:var(--fb);}
 .btn-perm-save:hover{background:#1D4ED8;}
-
-/* ── STATISTICS ───────────────────────────────────────────────────────────── */
 .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.3rem;}
 .stat-card-title{font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.8rem;}
@@ -353,8 +304,6 @@ tr:hover td{background:var(--bg3);}
 .big-number-sub{font-size:.75rem;color:var(--muted);margin-top:.3rem;}
 .trend-up{color:var(--green);font-size:.72rem;font-weight:600;}
 .trend-pill{display:inline-flex;align-items:center;gap:.3rem;background:var(--green-light);color:var(--green);border-radius:99px;padding:2px 10px;font-size:.68rem;font-weight:600;}
-
-/* ── USER ROW ─────────────────────────────────────────────────────────────── */
 .user-row.detail-active td{background:var(--blue-light);}
 .perm-toggle-v2{transition:all .15s; cursor:pointer;}
 .perm-toggle-v2:hover{border-color:var(--blue) !important; background:var(--bg3) !important;}
@@ -364,10 +313,10 @@ tr:hover td{background:var(--bg3);}
 .perm-toggle-v2.active .switch{background-color:var(--blue);}
 .perm-toggle-v2.active .switch:before{transform:translateX(16px);}
 </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body>
-
-<!-- ═══════════════════════════════ SIDEBAR ══════════════════════════════════ -->
 <div class="sidebar">
   <div class="sb-logo">
     <div class="sb-logo-name">Legal<span>Fin</span></div>
@@ -397,7 +346,6 @@ tr:hover td{background:var(--bg3);}
       <?= $ALL_MODULES[$mk]['label'] ?>
     </a>
     <?php endforeach; ?>
-
     <div class="nav-section">Compte</div>
     <a href="?page=profil" class="nav-item <?= $page==='profil'?'active':'' ?>">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -418,10 +366,8 @@ tr:hover td{background:var(--bg3);}
     </a>
   </div>
 </div>
-
-<!-- ═══════════════════════════════ MAIN ═════════════════════════════════════ -->
-<div class="main">
-  <!-- TOPBAR -->
+<?php endif; ?>
+<div class="main" id="main-content">
   <div class="topbar">
     <div class="tb-left">
       <?php
@@ -431,18 +377,6 @@ tr:hover td{background:var(--bg3);}
       <div class="breadcrumb">LegalFin / <?= $titles[$page] ?? '' ?></div>
     </div>
     <div class="tb-right">
-      <?php if($page==='utilisateurs'): ?>
-      <div class="search-bar">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="search-input" placeholder="Rechercher..." oninput="filterTable()">
-      </div>
-      <button class="btn-primary" onclick="document.getElementById('m-add').classList.add('open')">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Ajouter
-      </button>
-      <?php endif; ?>
-      
-      <!-- Notifications -->
       <div class="notif-wrapper" id="notif-wrapper">
         <button class="notif-btn" id="notif-btn" onclick="document.getElementById('notif-dropdown').classList.toggle('show')">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 01-3.46 0"></path></svg>
@@ -475,25 +409,19 @@ tr:hover td{background:var(--bg3);}
           </div>
         </div>
       </div>
-
       <div style="font-size:.72rem;color:var(--muted);"><?= date('d/m/Y H:i') ?></div>
     </div>
   </div>
-
   <div class="content">
     <?php if($flash): ?>
     <div class="flash flash-<?= $flash['type'] ?>">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="14" height="14">
         <?= $flash['type']==='success' ? '<polyline points="20 6 9 17 4 12"/>' : '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' ?>
       </svg>
-      <?= htmlspecialchars($flash['message']) ?>
+      <?= $flash['message'] ?>
     </div>
     <?php endif; ?>
-
-    <!-- ══════════════════════ PAGE: DASHBOARD ══════════════════════════════ -->
     <?php if($page==='dashboard'): ?>
-
-    <!-- KPI Row -->
     <div class="kpi-row">
       <div class="kpi">
         <div class="kpi-icon" style="background:var(--blue-light)"><svg width="18" height="18" fill="none" stroke="var(--blue)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
@@ -516,8 +444,6 @@ tr:hover td{background:var(--bg3);}
         <div class="kpi-data"><div class="kpi-val"><?= $stats['admins'] ?></div><div class="kpi-label">Administrateurs</div><div class="kpi-sub" style="color:var(--muted)">Multi-niveaux</div></div>
       </div>
     </div>
-
-    <!-- Module Grid -->
     <div class="module-section">
       <div class="module-section-title">Modules disponibles</div>
       <div class="module-grid">
@@ -543,13 +469,21 @@ tr:hover td{background:var(--bg3);}
         <?php endforeach; ?>
       </div>
     </div>
-
-    <!-- ══════════════════════ PAGE: UTILISATEURS ═══════════════════════════ -->
     <?php elseif($page==='utilisateurs' && in_array('utilisateurs',$myModules)): ?>
     <div class="two-col-layout">
       <div class="table-card">
-        <div class="table-toolbar">
+        <div class="table-toolbar" style="flex-wrap: wrap; gap: 1rem;">
           <div class="table-toolbar-title">Liste des utilisateurs (<?= count($users) ?>)</div>
+          <div style="display:flex; gap: 0.8rem; align-items: center; margin-left: auto;">
+            <div class="search-bar">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="search-input" placeholder="Rechercher..." oninput="filterTable()">
+            </div>
+            <button class="btn-primary" onclick="document.getElementById('m-add').classList.add('open')">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Ajouter
+            </button>
+          </div>
           <div class="filters">
             <?php foreach(['tous'=>'Tous','clients'=>'Clients','admins'=>'Admins','association'=>'Association','bloques'=>'Bloqués','kyc_attente'=>'KYC attente'] as $k=>$l): ?>
             <a href="?page=utilisateurs&filtre=<?= $k ?>" class="filter-btn <?= $filtre===$k?'active':'' ?>"><?= $l ?></a>
@@ -591,7 +525,6 @@ tr:hover td{background:var(--bg3);}
         </table>
         </div>
       </div>
-
       <?php if($detail): $ini=initials($detail['nom'],$detail['prenom']); ?>
       <div class="detail-panel" id="detail-panel">
         <div class="dp-header">
@@ -632,8 +565,6 @@ tr:hover td{background:var(--bg3);}
             <?php endif; ?>
           </div>
         </div>
-
-        <!-- AML SCAN SECTION -->
         <div style="background:var(--bg2);padding:1rem;border-radius:12px;border:1px solid var(--border)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
             <div class="dp-section" style="margin:0">Score Anti-Fraude (AML)</div>
@@ -672,8 +603,6 @@ tr:hover td{background:var(--bg3);}
           </div>
           <?php endif; ?>
         </div>
-
-        <!-- OCR SCAN SECTION -->
         <div style="background:var(--bg2);padding:1rem;border-radius:12px;border:1px solid var(--border);margin-top:1rem">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
             <div class="dp-section" style="margin:0">Analyse OCR (Document)</div>
@@ -711,6 +640,29 @@ tr:hover td{background:var(--bg3);}
             <div style="font-size:.75rem;color:var(--muted);text-align:center;padding:.5rem">Aucune analyse OCR effectuée.</div>
           <?php endif; ?>
         </div>
+        <div style="background:var(--bg2);padding:1rem;border-radius:12px;border:1px solid var(--border);margin-top:1rem">
+          <div class="dp-section" style="margin:0 0 .8rem 0">Dernière Localisation</div>
+          <?php if(!empty($detail['last_lat']) && !empty($detail['last_long'])): ?>
+            <div id="map-detail" style="height:150px;border-radius:8px;border:1px solid var(--border);z-index:1"></div>
+            <div style="font-size:.65rem;color:var(--muted);margin-top:.4rem;display:flex;justify-content:space-between">
+              <span>📍 <?= htmlspecialchars($detail['last_city'] ?? 'Ville inconnue') ?></span>
+              <span>🌐 IP: <?= htmlspecialchars($detail['last_ip'] ?? '—') ?></span>
+            </div>
+            <script>
+              (function(){
+                setTimeout(function(){
+                  var mCont = document.getElementById('map-detail');
+                  if(!mCont) return;
+                  var map = L.map('map-detail').setView([<?= $detail['last_lat'] ?>, <?= $detail['last_long'] ?>], 10);
+                  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                  L.marker([<?= $detail['last_lat'] ?>, <?= $detail['last_long'] ?>]).addTo(map);
+                }, 400);
+              })();
+            </script>
+          <?php else: ?>
+            <div style="font-size:.75rem;color:var(--muted);text-align:center;padding:.5rem">Aucune donnée de localisation.</div>
+          <?php endif; ?>
+        </div>
         <div class="dp-actions">
           <button class="dp-action-btn da-primary" onclick='openEdit(<?= htmlspecialchars(json_encode($detail)) ?>)'><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Modifier</button>
           <button class="dp-action-btn da-green" onclick="openKyc(<?= $detail['id'] ?>,'<?= $detail['role'] ?>')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Valider KYC</button>
@@ -725,11 +677,8 @@ tr:hover td{background:var(--bg3);}
       <div class="detail-panel"><p style="color:var(--muted);font-size:.8rem;text-align:center;padding:2rem">Aucun utilisateur sélectionné.</p></div>
       <?php endif; ?>
     </div>
-
-    <!-- ══════════════════════ PAGE: PROFIL ════════════════════════════════ -->
     <?php elseif($page==='profil'): ?>
     <div class="profile-grid">
-      <!-- Left card -->
       <div>
         <div class="profile-card">
           <div class="profile-avatar"><?= $adminInitials ?></div>
@@ -743,9 +692,7 @@ tr:hover td{background:var(--bg3);}
               </div>
             </div>
           </div>
-
         </div>
-
         <div class="info-card" style="margin-top:1rem;">
           <div class="info-card-title">Informations du compte</div>
           <div class="info-row">
@@ -770,8 +717,6 @@ tr:hover td{background:var(--bg3);}
           </div>
         </div>
       </div>
-
-      <!-- Right: edit forms -->
       <div>
         <div class="form-section">
           <div class="form-section-title">Modifier mes informations</div>
@@ -779,25 +724,24 @@ tr:hover td{background:var(--bg3);}
             <input type="hidden" name="action" value="admin_edit">
             <input type="hidden" name="id" value="<?= $currentUserId ?>">
             <div class="form-grid">
-              <div class="form-field"><label class="form-label">Nom</label><input class="form-input" type="text" name="nom" value="<?= htmlspecialchars($currentUser['nom']??'') ?>" required></div>
-              <div class="form-field"><label class="form-label">Prénom</label><input class="form-input" type="text" name="prenom" value="<?= htmlspecialchars($currentUser['prenom']??'') ?>" required></div>
-              <div class="form-field"><label class="form-label">Téléphone</label><input class="form-input" type="tel" name="numTel" value="<?= htmlspecialchars($currentUser['numTel']??'') ?>" required></div>
+              <div class="form-field"><label class="form-label">Nom</label><input class="form-input" type="text" name="nom" value="<?= htmlspecialchars($currentUser['nom']??'') ?>"></div>
+              <div class="form-field"><label class="form-label">Prénom</label><input class="form-input" type="text" name="prenom" value="<?= htmlspecialchars($currentUser['prenom']??'') ?>"></div>
+              <div class="form-field"><label class="form-label">Téléphone</label><input class="form-input" type="text" name="numTel" value="<?= htmlspecialchars($currentUser['numTel']??'') ?>"></div>
               <div class="form-field"><label class="form-label">Rôle</label><input class="form-input" type="text" value="<?= $currentUserRole ?>" disabled style="opacity:.5"></div>
-              <div class="form-field full"><label class="form-label">Adresse</label><textarea class="form-input" name="adresse" rows="2" style="resize:none" required><?= htmlspecialchars($currentUser['adresse']??'') ?></textarea></div>
+              <div class="form-field full"><label class="form-label">Adresse</label><textarea class="form-input" name="adresse" rows="2" style="resize:none"><?= htmlspecialchars($currentUser['adresse']??'') ?></textarea></div>
             </div>
             <div class="form-foot">
               <button type="submit" class="btn-save">Enregistrer les modifications</button>
             </div>
           </form>
         </div>
-
         <div class="form-section">
           <div class="form-section-title">Changer mon mot de passe</div>
           <form method="POST" action="../../controller/UtilisateurController.php">
             <input type="hidden" name="action" value="admin_reset_pwd">
             <input type="hidden" name="id" value="<?= $currentUserId ?>">
             <div class="form-grid">
-              <div class="form-field full"><label class="form-label">Nouveau mot de passe</label><input class="form-input" type="password" name="new_mdp" minlength="8" required placeholder="Min. 8 caractères, 1 majuscule, 1 chiffre"></div>
+              <div class="form-field full"><label class="form-label">Nouveau mot de passe</label><input class="form-input" type="password" name="new_mdp" placeholder="Min. 8 caractères, 1 majuscule, 1 chiffre"></div>
             </div>
             <div class="form-foot">
               <button type="submit" class="btn-save" style="background:var(--purple)">Changer le mot de passe</button>
@@ -806,8 +750,6 @@ tr:hover td{background:var(--bg3);}
         </div>
       </div>
     </div>
-
-    <!-- ══════════════════════ PAGE: PERMISSIONS ═══════════════════════════ -->
     <?php elseif($page==='permissions' && $currentUserRole==='SUPER_ADMIN'): ?>
     <?php
       $admins = array_filter($m->findAll('admins'), fn($a) => $a['role'] !== 'SUPER_ADMIN');
@@ -844,13 +786,11 @@ tr:hover td{background:var(--bg3);}
           </table>
         </div>
       </div>
-
       <div class="detail-panel" id="perm-detail-panel">
         <div id="perm-empty-msg" style="text-align:center;padding:4rem 1rem;color:var(--muted);">
           <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24" style="margin-bottom:1rem;opacity:.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="12" r="3"/></svg>
           <p style="font-size:.82rem">Sélectionnez un administrateur pour gérer ses accès.</p>
         </div>
-
         <?php foreach($admins as $adm): $adm_perms = $perms[$adm['id']] ?? []; ?>
         <div class="perm-form-container" id="perm-form-<?= $adm['id'] ?>" style="display:none">
           <div class="dp-header" style="margin-bottom:1.5rem">
@@ -860,7 +800,6 @@ tr:hover td{background:var(--bg3);}
               <div class="dp-cin" style="color:var(--blue);font-weight:600">ADMINISTRATEUR</div>
             </div>
           </div>
-          
           <form method="POST" action="?page=permissions">
             <input type="hidden" name="action" value="save_permissions">
             <input type="hidden" name="target_id" value="<?= $adm['id'] ?>">
@@ -889,8 +828,6 @@ tr:hover td{background:var(--bg3);}
         <?php endforeach; ?>
       </div>
     </div>
-
-    <!-- ══════════════════════ PAGE: STATISTIQUES ══════════════════════════ -->
     <?php elseif($page==='statistiques' && in_array('statistiques',$myModules)): ?>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
       <h2 style="font-family:var(--fh);font-size:1.1rem;margin:0;">Tableau de bord dynamique</h2>
@@ -904,8 +841,6 @@ tr:hover td{background:var(--bg3);}
         </select>
       </form>
     </div>
-
-    <!-- Top KPIs -->
     <div class="kpi-row" style="grid-template-columns:repeat(4,1fr)">
       <div class="kpi">
         <div class="kpi-icon" style="background:var(--blue-light)"><svg width="18" height="18" fill="none" stroke="var(--blue)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
@@ -924,17 +859,13 @@ tr:hover td{background:var(--bg3);}
         <div class="kpi-data"><div class="kpi-val"><?= $stats['association'] ?></div><div class="kpi-label">Associations</div></div>
       </div>
     </div>
-
     <div class="stats-grid" style="margin-top:1.5rem">
-      <!-- Répartition par rôle (Chart) -->
       <div class="stat-card">
         <div class="stat-card-title">Répartition par rôle</div>
         <div style="position:relative;height:240px;width:100%">
             <canvas id="roleChart"></canvas>
         </div>
       </div>
-
-      <!-- Statut KYC (Chart) -->
       <div class="stat-card">
         <div class="stat-card-title">Statut KYC</div>
         <?php
@@ -952,8 +883,6 @@ tr:hover td{background:var(--bg3);}
             <canvas id="kycChart"></canvas>
         </div>
       </div>
-
-      <!-- Statut des comptes (Chart) -->
       <div class="stat-card">
         <div class="stat-card-title">Statut des comptes</div>
         <?php
@@ -969,10 +898,9 @@ tr:hover td{background:var(--bg3);}
         </div>
       </div>
     </div>
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-      document.addEventListener("DOMContentLoaded", function() {
+      (function() {
         const roleCtx = document.getElementById('roleChart');
         if(roleCtx) {
           new Chart(roleCtx, {
@@ -988,7 +916,6 @@ tr:hover td{background:var(--bg3);}
               options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } }
           });
         }
-        
         const kycCtx = document.getElementById('kycChart');
         if(kycCtx) {
           new Chart(kycCtx, {
@@ -1005,7 +932,6 @@ tr:hover td{background:var(--bg3);}
               options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
           });
         }
-        
         const statusCtx = document.getElementById('statusChart');
         if(statusCtx) {
           new Chart(statusCtx, {
@@ -1021,10 +947,8 @@ tr:hover td{background:var(--bg3);}
               options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } }
           });
         }
-      });
+      })();
     </script>
-
-    <!-- Recent activity table -->
     <div class="table-card">
       <div class="table-toolbar">
         <div class="table-toolbar-title">Inscriptions récentes (10 derniers)</div>
@@ -1048,9 +972,7 @@ tr:hover td{background:var(--bg3);}
         </tbody>
       </table>
     </div>
-
     <?php else: ?>
-    <!-- Access denied fallback -->
     <div style="text-align:center;padding:4rem;color:var(--muted)">
       <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 1rem;display:block;opacity:.4"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       <div style="font-family:var(--fh);font-size:1.1rem;font-weight:700;margin-bottom:.5rem">Accès refusé</div>
@@ -1058,12 +980,64 @@ tr:hover td{background:var(--bg3);}
       <a href="?page=utilisateurs" style="display:inline-block;margin-top:1rem;color:var(--blue);font-size:.82rem;">← Retour aux utilisateurs</a>
     </div>
     <?php endif; ?>
-
-  </div><!-- /content -->
-</div><!-- /main -->
-
-<!-- ═════════════════════════════ MODALS ═════════════════════════════════════ -->
-<!-- Add User -->
+  </div>
+</div>
+<?php if (isset($_GET['ajax'])) exit; ?>
+<script>
+function loadPage(url, pushState = true) {
+    const main = document.getElementById('main-content');
+    if (!main) return;
+    // Feedback visuel
+    main.style.transition = 'opacity 0.2s';
+    main.style.opacity = '0.4';
+    const ajaxUrl = url.includes('?') ? url + '&ajax=1' : url + '?ajax=1';
+    fetch(ajaxUrl)
+        .then(response => response.text())
+        .then(html => {
+            main.innerHTML = html;
+            main.style.opacity = '1';
+            // Ré-exécution des scripts (Chart.js, Leaflet)
+            const scripts = main.querySelectorAll('script');
+            scripts.forEach(s => {
+                const newScript = document.createElement('script');
+                if (s.src) {
+                    newScript.src = s.src;
+                } else {
+                    newScript.textContent = s.textContent;
+                }
+                document.body.appendChild(newScript);
+                if (!s.src) newScript.remove();
+            });
+            // Mise à jour menu actif
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                const href = item.getAttribute('href');
+                if (href && url.includes(href)) item.classList.add('active');
+            });
+            if (pushState) window.history.pushState({url: url}, '', url);
+            // Scroll top
+            const content = main.querySelector('.content');
+            if (content) content.scrollTop = 0;
+        })
+        .catch(err => {
+            console.error('Erreur AJAX:', err);
+            window.location.href = url;
+        });
+}
+document.addEventListener('click', function(e) {
+    const link = e.target.closest('a');
+    if (!link) return;
+    const href = link.getAttribute('href');
+    if (href && href.startsWith('?page=')) {
+        e.preventDefault();
+        loadPage(href);
+    }
+});
+window.onpopstate = function(e) {
+    if (e.state && e.state.url) loadPage(e.state.url, false);
+};
+</script>
+<?php if (!isset($_GET['ajax'])): ?>
 <div class="modal-overlay" id="m-add" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
     <button class="modal-close" onclick="document.getElementById('m-add').classList.remove('open')">✕</button>
@@ -1071,24 +1045,22 @@ tr:hover td{background:var(--bg3);}
     <form method="POST" action="../../controller/UtilisateurController.php">
       <input type="hidden" name="action" value="admin_add">
       <div class="mg2">
-        <div class="mfield"><label class="mlabel">Nom *</label><input class="minput" type="text" name="nom" required></div>
-        <div class="mfield"><label class="mlabel">Prénom *</label><input class="minput" type="text" name="prenom" required></div>
-        <div class="mfield mfull"><label class="mlabel">Email *</label><input class="minput" type="email" name="email" required></div>
-        <div class="mfield"><label class="mlabel">Mot de passe *</label><input class="minput" type="password" name="mdp" required minlength="8"></div>
-        <div class="mfield"><label class="mlabel">Téléphone *</label><input class="minput" type="tel" name="numTel" required></div>
-        <div class="mfield"><label class="mlabel">Date de naissance *</label><input class="minput" type="date" name="date_naissance" max="2006-12-31" required></div>
-        <div class="mfield"><label class="mlabel">CIN *</label><input class="minput" type="text" name="cin" maxlength="8" pattern="\d{8}" required placeholder="8 chiffres"></div>
+        <div class="mfield"><label class="mlabel">Nom *</label><input class="minput" type="text" name="nom"></div>
+        <div class="mfield"><label class="mlabel">Prénom *</label><input class="minput" type="text" name="prenom"></div>
+        <div class="mfield mfull"><label class="mlabel">Email *</label><input class="minput" type="text" name="email"></div>
+        <div class="mfield"><label class="mlabel">Mot de passe *</label><input class="minput" type="password" name="mdp"></div>
+        <div class="mfield"><label class="mlabel">Téléphone *</label><input class="minput" type="text" name="numTel"></div>
+        <div class="mfield"><label class="mlabel">Date de naissance *</label><input class="minput" type="text" name="date_naissance" placeholder="YYYY-MM-DD"></div>
+        <div class="mfield"><label class="mlabel">CIN *</label><input class="minput" type="text" name="cin" placeholder="8 chiffres"></div>
         <div class="mfield"><label class="mlabel">Rôle</label>
           <select class="mselect" name="role"><option value="CLIENT">CLIENT</option><option value="ADMIN">ADMIN</option></select>
         </div>
-        <div class="mfield mfull"><label class="mlabel">Adresse *</label><textarea class="minput" name="adresse" rows="2" style="resize:none" required></textarea></div>
+        <div class="mfield mfull"><label class="mlabel">Adresse *</label><textarea class="minput" name="adresse" rows="2" style="resize:none"></textarea></div>
       </div>
       <div class="mfoot"><button type="button" class="mbtn-cancel" onclick="document.getElementById('m-add').classList.remove('open')">Annuler</button><button type="submit" class="mbtn-save">Ajouter</button></div>
     </form>
   </div>
 </div>
-
-<!-- Edit User -->
 <div class="modal-overlay" id="m-edit" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
     <button class="modal-close" onclick="document.getElementById('m-edit').classList.remove('open')">✕</button>
@@ -1097,10 +1069,9 @@ tr:hover td{background:var(--bg3);}
       <input type="hidden" name="action" value="admin_edit">
       <input type="hidden" name="id" id="edit-id">
       <div class="mg2">
-        <div class="mfield"><label class="mlabel">Nom *</label><input class="minput" type="text" name="nom" id="edit-nom" required></div>
-        <div class="mfield"><label class="mlabel">Prénom *</label><input class="minput" type="text" name="prenom" id="edit-prenom" required></div>
-        <div class="mfield"><label class="mlabel">Téléphone *</label><input class="minput" type="tel" name="numTel" id="edit-numTel" required></div>
-        <!-- Role is locked: passed as hidden field, not changeable -->
+        <div class="mfield"><label class="mlabel">Nom *</label><input class="minput" type="text" name="nom" id="edit-nom"></div>
+        <div class="mfield"><label class="mlabel">Prénom *</label><input class="minput" type="text" name="prenom" id="edit-prenom"></div>
+        <div class="mfield"><label class="mlabel">Téléphone *</label><input class="minput" type="text" name="numTel" id="edit-numTel"></div>
         <input type="hidden" name="role" id="edit-role">
         <div class="mfield"><label class="mlabel">Statut</label>
           <select class="mselect" name="status" id="edit-status"><option value="ACTIF">ACTIF</option><option value="INACTIF">INACTIF</option><option value="SUSPENDU">SUSPENDU</option></select>
@@ -1111,14 +1082,12 @@ tr:hover td{background:var(--bg3);}
         <div class="mfield"><label class="mlabel">AML</label>
           <select class="mselect" name="status_aml" id="edit-aml"><option value="EN_ATTENTE">EN_ATTENTE</option><option value="CONFORME">CONFORME</option><option value="ALERTE">ALERTE</option></select>
         </div>
-        <div class="mfield mfull"><label class="mlabel">Adresse *</label><textarea class="minput" name="adresse" id="edit-adresse" rows="2" style="resize:none" required></textarea></div>
+        <div class="mfield mfull"><label class="mlabel">Adresse *</label><textarea class="minput" name="adresse" id="edit-adresse" rows="2" style="resize:none"></textarea></div>
       </div>
       <div class="mfoot"><button type="button" class="mbtn-cancel" onclick="document.getElementById('m-edit').classList.remove('open')">Annuler</button><button type="submit" class="mbtn-save">Sauvegarder</button></div>
     </form>
   </div>
 </div>
-
-<!-- Reset Password -->
 <div class="modal-overlay" id="m-resetpwd" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:380px">
     <button class="modal-close" onclick="document.getElementById('m-resetpwd').classList.remove('open')">✕</button>
@@ -1127,13 +1096,11 @@ tr:hover td{background:var(--bg3);}
     <form method="POST" action="../../controller/UtilisateurController.php">
       <input type="hidden" name="action" value="admin_reset_pwd">
       <input type="hidden" name="id" id="reset-id">
-      <div class="mfield" style="margin-bottom:.8rem"><label class="mlabel">Nouveau mot de passe</label><input class="minput" type="text" name="new_mdp" value="Nexa@2025" required minlength="8"></div>
+      <div class="mfield" style="margin-bottom:.8rem"><label class="mlabel">Nouveau mot de passe</label><input class="minput" type="text" name="new_mdp" value="Nexa@2025"></div>
       <div class="mfoot"><button type="button" class="mbtn-cancel" onclick="document.getElementById('m-resetpwd').classList.remove('open')">Annuler</button><button type="submit" class="mbtn-save">Réinitialiser</button></div>
     </form>
   </div>
 </div>
-
-<!-- KYC Validate -->
 <div class="modal-overlay" id="m-kyc" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:360px;text-align:center">
     <button class="modal-close" onclick="document.getElementById('m-kyc').classList.remove('open')">✕</button>
@@ -1148,8 +1115,6 @@ tr:hover td{background:var(--bg3);}
     </form>
   </div>
 </div>
-
-<!-- Block -->
 <div class="modal-overlay" id="m-bloquer" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:360px;text-align:center">
     <button class="modal-close" onclick="document.getElementById('m-bloquer').classList.remove('open')">✕</button>
@@ -1166,8 +1131,6 @@ tr:hover td{background:var(--bg3);}
     </form>
   </div>
 </div>
-
-<!-- Delete -->
 <div class="modal-overlay" id="m-del" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:360px;text-align:center">
     <button class="modal-close" onclick="document.getElementById('m-del').classList.remove('open')">✕</button>
@@ -1181,8 +1144,6 @@ tr:hover td{background:var(--bg3);}
     </form>
   </div>
 </div>
-
-<!-- Manage Permissions -->
 <div class="modal-overlay" id="m-perm" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:500px;">
     <button class="modal-close" onclick="document.getElementById('m-perm').classList.remove('open')">✕</button>
@@ -1213,7 +1174,6 @@ tr:hover td{background:var(--bg3);}
     </form>
   </div>
 </div>
-
 <script>
 function openEdit(u) {
   document.getElementById('edit-id').value      = u.id;
@@ -1268,22 +1228,16 @@ function showPermPanel(id) {
   document.getElementById('perm-empty-msg').style.display = 'none';
   document.querySelectorAll('.perm-form-container').forEach(c => c.style.display = 'none');
   document.querySelectorAll('#perm-table tr').forEach(r => r.classList.remove('detail-active'));
-  
   document.getElementById('perm-form-' + id).style.display = 'block';
   document.querySelector('#perm-table tr[data-id="'+id+'"]').classList.add('detail-active');
 }
-// Permission helpers
 function openPermModal(id, perms, name) {
   document.getElementById('perm-target-id').value = id;
   document.getElementById('perm-admin-name').textContent = name;
-  
-  // Uncheck all
   document.querySelectorAll('#form-perm .perm-toggle').forEach(function(lbl) {
     lbl.classList.remove('active');
     lbl.querySelector('input[type=checkbox]').checked = false;
   });
-  
-  // Check the ones in perms
   perms.forEach(function(mk) {
     let chk = document.getElementById('chk-perm-' + mk);
     if(chk) {
@@ -1291,10 +1245,8 @@ function openPermModal(id, perms, name) {
       chk.parentElement.classList.add('active');
     }
   });
-  
   document.getElementById('m-perm').classList.add('open');
 }
-
 function selectAll(form) {
   form.querySelectorAll('.perm-toggle').forEach(function(lbl) {
     lbl.classList.add('active');
@@ -1307,8 +1259,6 @@ function clearAll(form) {
     lbl.querySelector('input[type=checkbox]').checked = false;
   });
 }
-
-// Close notification dropdown when clicking outside
 document.addEventListener('click', function(e) {
   var wrapper = document.getElementById('notif-wrapper');
   var dropdown = document.getElementById('notif-dropdown');
@@ -1321,3 +1271,4 @@ document.addEventListener('click', function(e) {
 </script>
 </body>
 </html>
+<?php endif; ?>

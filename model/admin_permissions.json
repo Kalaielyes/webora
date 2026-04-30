@@ -1,21 +1,12 @@
 {
     "13": [
         "comptes",
-        "credit",
-        "utilisateurs",
-        "statistiques"
-    ],
-    "4": [
-        "comptes",
         "actions",
         "credit",
-        "demande_chequier",
-        "dons_collectes",
-        "utilisateurs",
-        "statistiques"
+        "utilisateurs"
     ],
+    "4": [],
     "15": [
-        "comptes",
         "dons_collectes",
         "utilisateurs",
         "statistiques"

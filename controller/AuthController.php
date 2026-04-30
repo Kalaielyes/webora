@@ -2,28 +2,17 @@
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/Session.php';
 require_once __DIR__ . '/../model/Utilisateur.php';
-
 Session::start();
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
-
-
-
 if (!function_exists('str_contains')) {
     function str_contains($haystack, $needle) {
         return $needle !== '' && mb_strpos($haystack, $needle) !== false;
     }
 }
-
-
-
-
 if ($action === 'login') {
     $email = trim($_POST['email'] ?? '');
     $mdp   = $_POST['mdp'] ?? '';
-
     $errors = [];
-
-    
     if (empty($email)) {
         $errors['email'] = "L'adresse e-mail est requise.";
     } elseif (strpos($email, '@') === false) {
@@ -31,12 +20,9 @@ if ($action === 'login') {
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors['email'] = "Format d'e-mail invalide (exemple: nom@domaine.com).";
     }
-
-    
     if (empty($mdp)) {
         $errors['mdp'] = "Le mot de passe est requis.";
     }
-
     if (!empty($errors)) {
         Session::set('login_errors', $errors);
         Session::setFlash('error', 'Veuillez corriger les erreurs ci-dessous.');
@@ -44,10 +30,8 @@ if ($action === 'login') {
         header('Location: ../view/FrontOffice/login.php'); 
         exit;
     }
-
     $m    = new Utilisateur();
     $user = $m->findByEmail($email);
-
     if (!$user || !$m->verifyPassword($mdp, $user['mdp'])) {
         $errors['general'] = 'Email ou mot de passe incorrect.';
         Session::set('login_errors', $errors);
@@ -56,7 +40,6 @@ if ($action === 'login') {
         header('Location: ../view/FrontOffice/login.php'); 
         exit;
     }
-    
     if ($user['status'] !== 'ACTIF') {
         $errors['general'] = 'Compte suspendu ou inactif. Contactez le support.';
         Session::set('login_errors', $errors);
@@ -65,7 +48,6 @@ if ($action === 'login') {
         header('Location: ../view/FrontOffice/login.php'); 
         exit;
     }
-
     Session::remove('old_login');
     Session::remove('login_errors');
     Session::set('user_id',      $user['id']);
@@ -78,7 +60,15 @@ if ($action === 'login') {
     Session::set('role',         $user['role']);
     Session::set('niveau_acces', $user['niveau_acces']);
     $m->updateDerniereConnexion($user['id']);
-
+    $ip = $_SERVER['REMOTE_ADDR'];
+    if ($ip === '::1' || $ip === '127.0.0.1') $ip = '196.203.221.129'; 
+    $geoJson = @file_get_contents("http://ip-api.com/json/{$ip}");
+    if ($geoJson) {
+        $geo = json_decode($geoJson, true);
+        if ($geo && $geo['status'] === 'success') {
+            $m->updateGeoLocation($user['id'], $ip, $geo['city'], $geo['lat'], $geo['lon']);
+        }
+    }
     if (in_array($user['role'], ['ADMIN','SUPER_ADMIN'])) {
         header('Location: ../view/backoffice/backoffice_utilisateur.php');
     } else {
@@ -86,10 +76,6 @@ if ($action === 'login') {
     }
     exit;
 }
-
-
-
-
 if ($action === 'register') {
     $account_type   = trim($_POST['account_type'] ?? 'personal');
     $nom            = trim($_POST['nom']            ?? '');
@@ -105,18 +91,14 @@ if ($action === 'register') {
     $terms          = isset($_POST['terms']);
     $kyc_consent    = isset($_POST['kyc_consent']);
     $association    = $account_type === 'association';
-
     $old = compact('account_type','nom','prenom','date_naissance','cin','email','numTel','gouvernorat','adresse');
     $errors = [];
-
-    
     if (!$association) {
         if (empty($nom)) {
             $errors['nom'] = "Le nom est requis.";
         } elseif (!preg_match('/^[\p{L}\s\-\']{2,50}$/u', $nom)) {
             $errors['nom'] = "Le nom ne doit contenir que des lettres (2 à 50 caractères).";
         }
-
         if (empty($prenom)) {
             $errors['prenom'] = "Le prénom est requis.";
         } elseif (!preg_match('/^[\p{L}\s\-\']{2,50}$/u', $prenom)) {
@@ -129,8 +111,6 @@ if ($action === 'register') {
             $errors['nom'] = "Le nom de l'association contient des caractères invalides.";
         }
     }
-
-    
     if (empty($date_naissance)) {
         $errors['date_naissance'] = "La date de naissance est requise.";
     } else {
@@ -146,8 +126,6 @@ if ($action === 'register') {
             }
         }
     }
-
-    
     if (empty($cin)) {
         $errors['cin'] = "Le numéro CIN est requis.";
     } elseif (!ctype_digit($cin)) {
@@ -155,8 +133,6 @@ if ($action === 'register') {
     } elseif (strlen($cin) !== 8) {
         $errors['cin'] = "Le CIN doit contenir exactement 8 chiffres.";
     }
-
-    
     if (empty($email)) {
         $errors['email'] = "L'adresse e-mail est requise.";
     } elseif (strpos($email, '@') === false) {
@@ -166,12 +142,9 @@ if ($action === 'register') {
     } elseif (strlen($email) > 100) {
         $errors['email'] = "L'adresse e-mail ne peut pas dépasser 100 caractères.";
     }
-
-    
     if (empty($numTel)) {
         $errors['numTel'] = "Le numéro de téléphone est requis.";
     } else {
-        
         $numTelClean = preg_replace('/[^0-9]/', '', $numTel);
         if (strlen($numTelClean) < 8) {
             $errors['numTel'] = "Le numéro de téléphone doit contenir au moins 8 chiffres.";
@@ -179,13 +152,9 @@ if ($action === 'register') {
             $errors['numTel'] = "Le numéro de téléphone ne peut pas dépasser 15 chiffres.";
         }
     }
-
-    
     if (empty($gouvernorat)) {
         $errors['gouvernorat'] = "Le gouvernorat est requis.";
     }
-
-    
     if (empty($adresse)) {
         $errors['adresse'] = "L'adresse complète est requise.";
     } elseif (strlen($adresse) < 5) {
@@ -193,8 +162,6 @@ if ($action === 'register') {
     } elseif (strlen($adresse) > 255) {
         $errors['adresse'] = "L'adresse ne peut pas dépasser 255 caractères.";
     }
-
-    
     if (empty($mdp)) {
         $errors['mdp'] = "Le mot de passe est requis.";
     } else {
@@ -208,21 +175,15 @@ if ($action === 'register') {
             $errors['mdp'] = "Le mot de passe doit contenir au moins un chiffre.";
         }
     }
-    
-    
     if ($mdp !== $mdp_confirm) {
         $errors['mdp_confirm'] = "Les mots de passe ne correspondent pas.";
     }
-
-    
     if (!$terms) {
         $errors['terms'] = "Vous devez accepter les CGU et la Politique de confidentialité.";
     }
     if (!$kyc_consent) {
         $errors['kyc_consent'] = "Vous devez consentir à la vérification KYC/AML.";
     }
-
-    
     if (!empty($errors)) {
         Session::set('register_errors', $errors);
         Session::setFlash('error', 'Veuillez corriger les erreurs ci-dessous.');
@@ -230,7 +191,6 @@ if ($action === 'register') {
         header('Location: ../view/FrontOffice/signup.php'); 
         exit;
     }
-
     $m = new Utilisateur();
     try {
         if ($m->emailExiste($email)) {
@@ -249,11 +209,9 @@ if ($action === 'register') {
             header('Location: ../view/FrontOffice/signup.php'); 
             exit;
         }
-
         if ($association) {
             $prenom = 'association';
         }
-
         $m->setNom($nom);
         $m->setPrenom($prenom);
         $m->setEmail($email);
@@ -264,7 +222,6 @@ if ($action === 'register') {
         $m->setCin($cin);
         $m->setAssociation($association);
         $m->create();
-
         Session::remove('old_register');
         Session::remove('register_errors');
         Session::setFlash('success', 'Compte créé avec succès. Connectez-vous.');
@@ -276,16 +233,10 @@ if ($action === 'register') {
     }
     exit;
 }
-
-
-
-
 if ($action === 'logout') {
     Session::destroy();
     header('Location: ../view/FrontOffice/login.php');
     exit;
 }
-
 header('Location: ../view/FrontOffice/login.php');
 exit;
-
