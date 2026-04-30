@@ -8,6 +8,7 @@ require_once __DIR__ . '/../models/config.php';
 require_once __DIR__ . '/../models/CompteBancaire.php';
 require_once __DIR__ . '/../models/CarteBancaire.php'; 
 require_once __DIR__ . '/../models/mailer.php';
+require_once __DIR__ . '/ObjectifController.php';
 
 class CompteController
 {
@@ -133,7 +134,7 @@ class CompteController
     public static function totalSolde(): float
     {
         $db = Config::getConnexion();
-        return (float)$db->query("SELECT COALESCE(SUM(solde), 0) FROM comptebancaire")->fetchColumn();
+        return (float)$db->query("SELECT COALESCE(SUM(solde), 0) FROM comptebancaire WHERE statut != 'cloture'")->fetchColumn();
     }
 
     // ── Business Actions ──────────────────────────────────────
@@ -201,6 +202,25 @@ class CompteController
         if ($compte) { $compte->setStatut('actif'); self::update($compte); }
     }
 
+    public static function demanderConversionCourant(int $id): void
+    {
+        $compte = self::findById($id);
+        if ($compte && $compte->getTypeCompte() === 'epargne') {
+            $compte->setStatut('demande_activation_courant');
+            self::update($compte);
+        }
+    }
+
+    public static function activerConversionCourant(int $id): void
+    {
+        $compte = self::findById($id);
+        if ($compte && $compte->getStatut() === 'demande_activation_courant') {
+            $compte->setTypeCompte('courant');
+            $compte->setStatut('actif');
+            self::update($compte);
+        }
+    }
+
     public static function delete(int $id): void
     {
         $db = Config::getConnexion();
@@ -212,10 +232,14 @@ class CompteController
     public static function handleRequest(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
-        
-        // Only run config session startup if accessed as entry point
-        // Using config::autoLogin as it starts session if not started
         Config::autoLogin();
+
+        // ── CSRF CHECK ───────────────────────────────────────
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Security::verifyCsrfToken($token)) {
+            error_log("[Security] CSRF Violation attempted.");
+            die('Access denied: Invalid CSRF token.');
+        }
 
         $action   = trim($_POST['action']   ?? '');
         $idCompte = (int)($_POST['id_compte'] ?? 0);
@@ -248,6 +272,80 @@ class CompteController
 
                 self::demanderCompte($idUser, $type, $devise, $plafond, false);
                 header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?ok=compte_demande');
+                exit;
+            }
+
+            case 'virement': {
+                $idUser     = (int)($_SESSION['user']['id'] ?? 0);
+                $idSource   = (int)($_POST['id_compte_source'] ?? 0);
+                $destType   = trim($_POST['dest_type'] ?? 'interne');
+                $montant    = (float)($_POST['montant'] ?? 0);
+                $deviseInput= trim($_POST['montant_devise'] ?? 'TND');
+                
+                $source = self::findById($idSource);
+                if (!$source || $source->getIdUtilisateur() !== $idUser || $source->getStatut() !== 'actif' || $source->getTypeCompte() === 'epargne') {
+                    header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?form=virement&error=invalid_source');
+                    exit;
+                }
+
+                $rates = [
+                    'TND' => ['EUR' => 0.33, 'USD' => 0.32, 'TND' => 1],
+                    'EUR' => ['TND' => 3.00, 'USD' => 1.08, 'EUR' => 1],
+                    'USD' => ['TND' => 3.12, 'EUR' => 0.92, 'USD' => 1],
+                ];
+
+                // Convert input amount to Source Currency to check balance
+                $rateToSource = $rates[$deviseInput][$source->getDevise()] ?? 1.0;
+                $montantDeduction = $montant * $rateToSource;
+
+                if ($montant <= 0 || $source->getSolde() < $montantDeduction) {
+                    $_SESSION['form_errors'] = ['montant' => "Solde insuffisant."];
+                    header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?form=virement');
+                    exit;
+                }
+                
+                if ($destType === 'interne') {
+                    $idDest = (int)($_POST['id_compte_dest'] ?? 0);
+                    if ($idSource === $idDest) {
+                        header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?form=virement&error=same_account');
+                        exit;
+                    }
+
+                    $dest = self::findById($idDest);
+                    if ($dest && $dest->getStatut() === 'actif' && $dest->getIdUtilisateur() === $idUser) {
+                        // Convert input amount to Destination Currency
+                        $rateToDest = $rates[$deviseInput][$dest->getDevise()] ?? 1.0;
+                        $montantCredit = $montant * $rateToDest;
+
+                        $source->setSolde($source->getSolde() - $montantDeduction);
+                        $dest->setSolde($dest->getSolde() + $montantCredit);
+                        
+                        self::update($source);
+                        self::update($dest);
+                    }
+                } elseif ($destType === 'objectif') {
+                    $idObj = (int)($_POST['id_objectif_dest'] ?? 0);
+                    $obj = ObjectifController::findById($idObj);
+                    
+                    if ($obj && $obj->getIdUtilisateur() === $idUser) {
+                        if ($source->getTypeCompte() === 'epargne') {
+                            header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?form=virement&error=savings_forbidden');
+                            exit;
+                        }
+
+                        // Use the shared alimenter logic to handle conversion and validation
+                        $res = ObjectifController::alimenter($idUser, $idObj, $idSource, $montant); 
+                        if (!$res['success']) {
+                            header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?form=virement&error=' . urlencode($res['message']));
+                            exit;
+                        }
+                    }
+                } else {
+                    $source->setSolde($source->getSolde() - $montantDeduction);
+                    self::update($source);
+                }
+                
+                header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?form=virement&ok=1');
                 exit;
             }
 
@@ -303,6 +401,17 @@ class CompteController
                 if ($compte) {
                     $u = self::getUser($compte->getIdUtilisateur());
                     sendCompteNotification($u, $compte, "Votre demande de suppression a été refusée", "#ea580c", "Actif");
+                }
+                break;
+            case 'demande_activation_courant':
+                self::demanderConversionCourant($idCompte);
+                break;
+            case 'activer_conversion_courant':
+                self::activerConversionCourant($idCompte);
+                $compte = self::findById($idCompte);
+                if ($compte) {
+                    $u = self::getUser($compte->getIdUtilisateur());
+                    sendCompteNotification($u, $compte, "Votre compte a été activé en tant que compte courant", "#16a34a", "Actif");
                 }
                 break;
             case 'delete':

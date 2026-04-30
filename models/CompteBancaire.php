@@ -19,7 +19,7 @@ class CompteBancaire {
     private $solde;
     private $devise;
     private $plafond_virement;
-    private $statut;             // en_attente | actif | bloque | cloture | demande_cloture
+    private $statut;             // en_attente | actif | bloque | cloture | demande_cloture | demande_activation_courant
     private $date_ouverture;
     private $date_fermeture;
 

@@ -24,7 +24,81 @@
   --fh: 'Syne', sans-serif;
   --fb: 'DM Sans', sans-serif;
   --fm: 'DM Mono', monospace;
+  --bg2-rgb: 19, 21, 30;
+  --bg3-rgb: 26, 29, 43;
   --r: 14px;
+  --privacy-blur: 8px;
+}
+
+/* ── PRIVACY MODE (INCOGNITO) ────────────────────────── */
+.sensitive-data {
+  transition: filter 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+.privacy-mode .sensitive-data {
+  filter: blur(var(--privacy-blur));
+  opacity: 0.5;
+  user-select: none;
+  pointer-events: none;
+}
+.privacy-mode .bc-amount,
+.privacy-mode .rcf-number,
+.privacy-mode .rcb-cvv {
+  filter: blur(12px); /* Higher blur for critical data */
+}
+
+:root {
+  --glass: rgba(19, 21, 30, 0.9);
+}
+html[data-theme="light"] svg rect[fill="#13151E"] {
+  fill: var(--bg) !important;
+}
+
+[data-theme="light"] svg path[fill="#fff"],
+[data-theme="light"] svg rect[fill="#fff"] {
+  fill: var(--text) !important;
+}
+[data-theme="light"] svg path[stroke="#13151E"] {
+  stroke: var(--bg2) !important;
+}
+[data-theme="light"] svg path[stroke="#fff"] {
+  stroke: var(--text) !important;
+}
+
+/* Chatbot Buttons Light Mode Override */
+[data-theme="light"] #cb-lang-select {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+[data-theme="light"] #cb-lang-select option {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+[data-theme="light"] #cb-voice-cycle,
+[data-theme="light"] #cb-voice-toggle {
+  color: var(--muted) !important;
+}
+
+html[data-theme="light"] {
+  --bg: #F8FAFC;
+  --bg2: #FFFFFF;
+  --bg3: #F1F5F9;
+  --surface: #FFFFFF;
+  --surface2: #F1F5F9;
+  --blue-glow: rgba(79, 142, 247, .08);
+  --blue-light: rgba(79, 142, 247, .08);
+  --blue-border: rgba(79, 142, 247, .25);
+  --amber-light: rgba(245, 158, 11, .08);
+  --rose-light: rgba(244, 63, 94, .08);
+  --green-light: rgba(34, 197, 94, .08);
+  --text: #0F172A;
+  --muted: #64748B;
+  --muted2: #94A3B8;
+  --border: rgba(0, 0, 0, 0.08);
+  --border2: rgba(79, 142, 247, 0.15);
+  --bg2-rgb: 255, 255, 255;
+  --bg3-rgb: 241, 245, 249;
+  --glass: rgba(255, 255, 255, 0.85);
 }
 
 * {
@@ -39,6 +113,17 @@ body {
   font-family: var(--fb);
   min-height: 100vh;
   display: flex;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* Global transitions for theme switching */
+*, *::before, *::after {
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* Exclude animations and specific elements from global transitions to prevent jitter */
+.loader-spinner, .dot-pulse, .cb-bot-watermark *, .cb-robot-eyes-grp, .cb-msg span {
+  transition: none !important;
 }
 
 /* ── SIDEBAR ─────────────────────────────────────────── */
@@ -136,7 +221,7 @@ body {
 
 .nav-item:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, .04);
+  background: var(--bg3);
 }
 
 .nav-item.active {
@@ -149,6 +234,126 @@ body {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+/* ── NAV DROPDOWN ───────────────────────────────────── */
+.nav-dropdown {
+  margin: .15rem 0;
+}
+
+.nav-dropdown-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: .6rem 1.4rem;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  font-family: var(--fb);
+  font-size: .83rem;
+  color: var(--muted2);
+  transition: all .2s ease;
+}
+
+.nav-dropdown-toggle:hover {
+  color: var(--text);
+  background: var(--bg3);
+}
+
+.nav-dropdown.open > .nav-dropdown-toggle {
+  color: var(--blue);
+  background: var(--blue-glow);
+  border-left-color: var(--blue);
+}
+
+.nav-dropdown-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+}
+
+.nav-dropdown-toggle-left svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.nav-dropdown-toggle-left span {
+  font-weight: 500;
+}
+
+.nav-chevron {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition: transform .3s cubic-bezier(.4,0,.2,1);
+  opacity: .5;
+}
+
+.nav-dropdown.open > .nav-dropdown-toggle .nav-chevron {
+  transform: rotate(180deg);
+  opacity: 1;
+  color: var(--blue);
+}
+
+.nav-dropdown-menu {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .35s cubic-bezier(.4,0,.2,1), opacity .25s ease;
+  opacity: 0;
+  background: rgba(var(--bg3-rgb), .4);
+}
+
+.nav-dropdown.open > .nav-dropdown-menu {
+  max-height: 200px;
+  opacity: 1;
+}
+
+.nav-sub-item {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .42rem 1.4rem .42rem 2.6rem;
+  font-size: .78rem;
+  color: var(--muted2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all .18s ease;
+  position: relative;
+  border-left: 2px solid transparent;
+}
+
+.nav-sub-item:hover {
+  color: var(--text);
+  background: var(--bg3);
+}
+
+.nav-sub-item.active {
+  color: var(--blue);
+  background: var(--blue-glow);
+  border-left-color: var(--blue);
+}
+
+.nav-sub-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  transition: all .2s ease;
+}
+
+.nav-sub-item:hover .nav-sub-dot {
+  background: var(--text);
+  transform: scale(1.3);
+}
+
+.nav-sub-item.active .nav-sub-dot {
+  background: var(--blue);
+  box-shadow: 0 0 6px rgba(79, 142, 247, .5);
+  transform: scale(1.3);
 }
 
 .sb-footer {
@@ -1261,12 +1466,12 @@ body {
 .notif-panel {
   position: fixed;
   width: 310px;
-  background: rgba(19, 21, 30, 0.95);
-  backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  border: 1px solid rgba(79, 142, 247, .2);
+  background: var(--glass);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border: 1px solid var(--border2);
   border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255,255,255,.04);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .3), 0 0 0 1px var(--border);
   z-index: 9999;
   /* hidden by default */
   opacity: 0;
@@ -1346,14 +1551,14 @@ body {
   gap: .65rem;
   padding: .6rem .65rem;
   border-radius: 9px;
-  background: rgba(255,255,255,.03);
+  background: var(--surface);
   border: 1px solid var(--border);
   transition: background .15s;
 }
 
 .np-item:hover {
-  background: rgba(255,255,255,.06);
-  border-color: rgba(79, 142, 247, .2);
+  background: var(--surface2);
+  border-color: var(--blue-border);
 }
 
 .np-item-icon {
@@ -1491,14 +1696,14 @@ body {
 .cb-panel {
   width: 390px;
   height: 600px;
-  background: rgba(15, 17, 25, 0.75);
+  background: var(--glass);
   backdrop-filter: blur(32px) saturate(1.8);
   -webkit-backdrop-filter: blur(32px) saturate(1.8);
-  border: 1px solid rgba(79, 142, 247, 0.25);
+  border: 1px solid var(--border2);
   border-radius: 24px;
   box-shadow: 
-    0 30px 90px rgba(0,0,0,0.8), 
-    0 0 0 1px rgba(255,255,255,0.06),
+    0 30px 90px rgba(0,0,0,0.4), 
+    0 0 0 1px var(--border),
     inset 0 0 20px rgba(79, 142, 247, 0.05);
   display: flex;
   flex-direction: column;
@@ -1603,7 +1808,7 @@ body {
   display: flex;
   align-items: center;
 }
-.cb-hclose:hover { color: var(--text); background: rgba(255,255,255,.07); }
+.cb-hclose:hover { color: var(--text); background: var(--border); }
 
 /* ── Messages area ─────────────────────────── */
 .cb-messages {
@@ -1639,7 +1844,7 @@ body {
   word-break: break-word;
 }
 .cb-msg code {
-  background: rgba(255,255,255,.08);
+  background: var(--surface2);
   padding: 1px 5px;
   border-radius: 4px;
   font-family: var(--fm);
@@ -1651,8 +1856,8 @@ body {
   align-self: flex-start;
 }
 .cb-bot span {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface2);
+  border: 1px solid var(--border);
   backdrop-filter: blur(8px);
   color: var(--text);
   box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -1787,8 +1992,8 @@ body {
 }
 .cb-input {
   flex: 1;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg3);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: .65rem 1rem;
   font-size: .82rem;
@@ -1820,3 +2025,131 @@ body {
 }
 .cb-send:hover  { background: var(--blue); }
 .cb-send:active { transform: scale(.92); }
+
+/* ── LOADING OVERLAY ─────────────────────────────────── */
+#loader-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 9999;
+  display: none; /* Hidden by default, shown by JS if slow */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  opacity: 0;
+  transition: opacity 0.4s ease-out;
+}
+
+.loader-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loader-text {
+  font-family: var(--fh);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--muted2);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── DYNAMIC GREETING ────────────────────────────────── */
+.greeting-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.greeting-text {
+  font-family: var(--fh);
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.greeting-text span {
+  color: var(--blue);
+}
+
+.greeting-time {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--fm);
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: var(--bg3);
+  padding: 0.4rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+/* ── COPY BUTTON ─────────────────────────────────────── */
+.copy-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  position: relative;
+}
+
+.copy-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted2);
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover {
+  background: var(--blue-light);
+  color: var(--blue);
+  border-color: var(--blue);
+  transform: translateY(-1px);
+}
+
+.copy-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.copy-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  border: 1px solid var(--border);
+  z-index: 10;
+}
+
+.copy-tooltip.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-12px);
+}

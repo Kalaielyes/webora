@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../models/config.php';
 require_once __DIR__ . '/../models/CarteBancaire.php';
 require_once __DIR__ . '/../models/mailer.php';
+require_once __DIR__ . '/CompteController.php';
 
 class CarteController
 {
@@ -290,8 +291,14 @@ class CarteController
     public static function handleRequest(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
-        
         Config::autoLogin();
+
+        // ── CSRF CHECK ───────────────────────────────────────
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Security::verifyCsrfToken($token)) {
+            error_log("[Security] CSRF Violation attempted (Carte).");
+            die('Access denied: Invalid CSRF token.');
+        }
 
         $action        = trim($_POST['action']             ?? '');
         $idCarte       = (int)($_POST['id_carte']          ?? 0);
@@ -302,6 +309,7 @@ class CarteController
             case 'add': {
                 $kyc        = trim($_SESSION['user']['status_kyc'] ?? '');
                 $idCompte   = (int)($_POST['id_compte']               ?? 0);
+                $compte     = CompteController::findById($idCompte);
 
                 if ($kyc !== 'VERIFIE') {
                     header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php' . ($idCompte ? '?id_compte='.$idCompte.'&error=kyc_required' : '?error=kyc_required'));
@@ -317,8 +325,10 @@ class CarteController
                 $plafondRet = (float)($_POST['plafond_retrait_jour']  ?? 500);
 
                 $errors = [];
-                if ($idCompte <= 0) {
+                if ($idCompte <= 0 || !$compte) {
                     $errors['id_compte'] = "Veuillez sélectionner un compte valide.";
+                } elseif ($compte->getTypeCompte() === 'epargne') {
+                    $errors['id_compte'] = "Les comptes épargne ne sont pas éligibles aux cartes bancaires.";
                 }
                 if (!preg_match('/^[\p{L}\s]+$/u', $titulaire)) {
                     $errors['titulaire_nom'] = "Le nom ne doit contenir que des lettres et des espaces.";

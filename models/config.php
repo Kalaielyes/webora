@@ -4,6 +4,8 @@
  * No login page: the single DB user is loaded automatically into $_SESSION.
  */
 
+require_once __DIR__ . '/Security.php';
+
 // ── APP_URL — auto-detected, no trailing slash ────────────────────────────────
 if (!defined('APP_URL')) {
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -15,7 +17,7 @@ if (!defined('APP_URL')) {
 
 // ── GEMINI API KEY ───────────────────────────────────────────────────────────
 if (!defined('GEMINI_API_KEY')) {
-    define('GEMINI_API_KEY', 'AIzaSyB0YlH91gEh797m-Nzgh5G29PzuXbFcBxY');
+   // define('GEMINI_API_KEY', 'AIzaSyBrvyR0h0TklV6d14bBIL_ovlaVaMQcBYY');
 }
 
 class Config
@@ -44,12 +46,6 @@ class Config
 
             try {
                 self::$pdo = new PDO($dsn, $user, $pass, $options);
-                // Auto-migrate: add cvv_display column if not exists
-                try {
-                    self::$pdo->exec("ALTER TABLE cartebancaire ADD COLUMN cvv_display VARCHAR(4) NOT NULL DEFAULT ''");
-                } catch (PDOException $me) {
-                    // Column already exists — ignore duplicate column error
-                }
             } catch (PDOException $e) {
                 error_log('[NexaBank] DB Connection failed: ' . $e->getMessage());
                 die(json_encode(['error' => 'Database unavailable. Please try later.']));
@@ -65,9 +61,12 @@ class Config
      */
     public static function autoLogin(): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        Security::startSession();
+        
+        // Security Headers
+        header("X-Frame-Options: DENY");
+        header("X-Content-Type-Options: nosniff");
+        header("Referrer-Policy: strict-origin-when-cross-origin");
 
         $pdo  = self::getConnexion();
         $stmt = $pdo->query("SELECT * FROM utilisateur LIMIT 1");

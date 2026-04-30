@@ -9,7 +9,7 @@
 //  YOUR GMAIL CREDENTIALS - EDIT THESE
 // =============================================
 define('GMAIL_USER', 'gympro984@gmail.com');
-define('GMAIL_PASS', 'merfwzblorbevoyt');
+define('GMAIL_PASS', 'merfwzblorbevoyt-');
 define('MAIL_FROM_NAME', 'Webora Service Client');
 // =============================================
 
