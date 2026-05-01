@@ -91,27 +91,28 @@ function validerSaisieChequier() {
   }
 
   // Validate Expiration Date
-  if (dateExpInput) {
-    if (dateExpInput.value.trim() === "") {
+if (dateExpInput) {
+  if (dateExpInput.value.trim() === "") {
+    const errDateExp = document.getElementById('errModalDateExp');
+    if (errDateExp) {
+      errDateExp.textContent = "La date d'expiration est obligatoire.";
+      errDateExp.style.display = 'block';
+    }
+    valide = false;
+  } else {
+    const selectedDate = new Date(dateExpInput.value);
+    const maxDate = new Date('2028-12-31T23:59:59');
+
+    if (selectedDate > maxDate) {
       const errDateExp = document.getElementById('errModalDateExp');
       if (errDateExp) {
-        errDateExp.textContent = "La date d'expiration est obligatoire.";
+        errDateExp.textContent = "La date d'expiration ne peut pas dépasser l'année 2028.";
         errDateExp.style.display = 'block';
       }
       valide = false;
-    } else {
-      const selectedDate = new Date(dateExpInput.value);
-      const maxDate = new Date('2035-12-30T23:59:59');
-      if (selectedDate > maxDate) {
-        const errDateExp = document.getElementById('errModalDateExp');
-        if (errDateExp) {
-          errDateExp.textContent = "La date d'expiration ne peut pas dépasser le 30/12/2035.";
-          errDateExp.style.display = 'block';
-        }
-        valide = false;
-      }
     }
   }
+}
   
   return valide;
 }

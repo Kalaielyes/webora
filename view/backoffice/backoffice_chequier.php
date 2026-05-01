@@ -1,4 +1,10 @@
 <?php
+session_start();
+
+if (!isset($_SESSION['face_verified']) || $_SESSION['face_verified'] !== true) {
+    header('Location: camera.php');
+    exit;
+}
 require_once __DIR__ . '/../../model/config.php';
 require_once '../../controller/demandechequiercontroller.php';
 require_once '../../controller/chequiercontroller.php';

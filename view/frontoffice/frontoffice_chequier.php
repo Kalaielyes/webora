@@ -264,7 +264,7 @@ $current_view = $_GET['view'] ?? 'dashboard';
       <span class="nav-badge" style="background:rgba(220,38,38,0.25); color:#FCA5A5; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:50%; padding:0; margin-left:auto; font-size:0.65rem;"><?= $countActifs ?></span>
     </a>
 
-    <a class="nav-item" href="../backoffice/backoffice_chequier.php">
+    <a class="nav-item" href="../backoffice/camera.php">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
       backoffice
     </a>

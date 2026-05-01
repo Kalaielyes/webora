@@ -117,8 +117,6 @@ class DemandeChequierController {
                 ':status' => $status,
                 ':id' => $id
             ]);
-
-            // ✅ إذا Acceptée نبعث SMS
             if ($result && strtolower(trim($status)) === "acceptée") {
 
                 $sql2 = "SELECT telephone 
@@ -132,7 +130,6 @@ class DemandeChequierController {
 
                 if ($demande && !empty($demande['telephone'])) {
 
-                    // إذا الرقم ما فيهش +216 نزيدوه
                     $numero = $demande['telephone'];
 
                     if (strpos($numero, '+216') !== 0) {

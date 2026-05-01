@@ -7,7 +7,7 @@ use Twilio\Rest\Client;
 
 class SmsController {
 
-    public static function sendSMS($numero, $message) {
+   public static function sendSMS($numero, $message) {
 
         $sid = TWILIO_SID;
         $token = TWILIO_TOKEN;
@@ -30,6 +30,6 @@ class SmsController {
         } catch (Exception $e) {
 
             return $e->getMessage();
-        }
+       }
     }
 }

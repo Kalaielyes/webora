@@ -1,7 +1,3 @@
-/**
- * Gestion de la saisie d'un chèque individuel (Front Office)
- */
-
 let _nmrCounter = 1000;
 function openChequeModal(numChequier, titulaire, rib, idChequier) {
   _nmrCounter++;
