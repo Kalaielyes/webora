@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once __DIR__ . "/../../controller/cagnottecontroller.php";
 require_once __DIR__ . "/../../controller/doncontroller.php";
@@ -200,10 +200,6 @@ foreach ($userDons as $d) {
       Aperçu
     </a>
     <div class="nav-section">Cagnottes</div>
-    <a class="nav-item" id="nav-mes" onclick="showView('dashboard')" href="#">
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      Mes cagnottes
-    </a>
     <?php if ($currentUserIsAssociation): ?>
     <a class="nav-item" id="nav-creer" onclick="isEditMode=false;showView('creer')" href="#">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -211,13 +207,13 @@ foreach ($userDons as $d) {
     </a>
     <?php endif; ?>
     <div class="nav-section">Dons</div>
-    <a class="nav-item" href="#">
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-      Mes dons
-    </a>
-    <a class="nav-item" href="#">
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6M9 16h6M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/></svg>
+    <a class="nav-item" onclick="showView('history')" href="#">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       Historique
+    </a>
+    <a class="nav-item" href="frontoffice_achievements.php">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M8 14h8l-1 7-3-2-3 2-1-7z"/></svg>
+      My Achievements
     </a>
     <a class="nav-item" href="../backoffice/backoffice_cagnotte.php">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
@@ -241,6 +237,13 @@ foreach ($userDons as $d) {
         </button>
       </div>
       <div id="topbar-dashboard-btns" style="display:flex;align-items:center;gap:1rem;">
+        <button id="aiUrgentBtn" class="btn-ai-urgent" title="AI Urgent Campaign Analysis">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"></path>
+            <path d="M12 12v-2m0 4v2M9 11h6" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <span>AI</span>
+        </button>
         <div class="notif">
           <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
           <div class="notif-dot"></div>
@@ -303,7 +306,16 @@ foreach ($userDons as $d) {
         </div>
       </div>
       <div>
-        <div class="section-head" style="margin-bottom:.9rem"><div class="section-title">Cagnottes en cours</div></div>
+        <div class="section-head" style="margin-bottom:.9rem;display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;">
+          <div class="section-title">Cagnottes en cours</div>
+          <button type="button" class="btn-ghost" id="btn-ai-urgent" onclick="suggestUrgentCampaign()">🤖 AI Suggest Most Urgent Campaign</button>
+        </div>
+        <div id="ai-urgent-result" style="display:none;margin-bottom:1rem;background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.35);border-radius:12px;padding:.85rem 1rem;">
+          <div style="font-weight:700;color:#99f6e4;margin-bottom:.25rem;">AI Recommendation</div>
+          <div id="ai-urgent-title" style="font-weight:600;color:#f8fafc;"></div>
+          <div id="ai-urgent-score" style="color:#7dd3fc;font-size:.9rem;margin-top:.2rem;"></div>
+          <div id="ai-urgent-explanation" style="color:#cbd5e1;font-size:.86rem;margin-top:.45rem;"></div>
+        </div>
         <div class="cagnottes-grid">
         <?php if (empty($activeCagnottes)): ?>
           <div class="empty">Aucune cagnotte active pour le moment.</div>
@@ -563,6 +575,16 @@ foreach ($userDons as $d) {
     <button onclick="closeDon()" style="position:absolute;top:1rem;right:1rem;background:#1F2232;border:1px solid rgba(255,255,255,.07);border-radius:8px;width:32px;height:32px;color:#9CA3AF;cursor:pointer;font-size:1rem;">✕</button>
     <input type="hidden" id="inp-cag-id" value="" />
 
+    <?php if ($currentUserIsAssociation): ?>
+      <!-- Association Warning -->
+      <div style="background: rgba(244,63,94,.12); border: 1px solid rgba(244,63,94,.35); border-radius: 10px; padding: 1.2rem; text-align: center;">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚠️</div>
+        <div style="font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; color: #F43F5E; margin-bottom: 0.5rem;">Donations non autorisées</div>
+        <div style="font-size: 0.9rem; color: #F0F2FF; margin-bottom: 1rem;">Seuls les donateurs peuvent faire des dons. Les associations peuvent créer des cagnottes.</div>
+        <button onclick="closeDon()" style="background: #F43F5E; color: white; border: none; border-radius: 8px; padding: 0.7rem 1.5rem; font-weight: 600; cursor: pointer;">Fermer</button>
+      </div>
+    <?php else: ?>
+
     <!-- STEP 1 -->
     <div id="don-step1">
       <div class="don-steps-bar"><div class="don-step-dot active"></div><div class="don-step-dot"></div><div class="don-step-dot"></div></div>
@@ -644,6 +666,150 @@ foreach ($userDons as $d) {
   </div>
 </div>
 
+    <?php endif; ?>
+
+  <!-- HISTORY VIEW -->
+  <div class="view" id="view-history">
+    <div class="content">
+      <?php
+        $userRole = $_SESSION['role'] ?? 'donor';
+        $isAssoc = ($userRole === 'association' || $currentUserIsAssociation);
+        $histCagnottes = $cagCtrl->getUserCagnottes($selectedUserId);
+        $histDons = $donCtrl->getDonsByDonateur($selectedUserId);
+
+        // Summary KPIs
+        if ($isAssoc) {
+          $histTotal = 0; foreach ($histCagnottes as $hc) $histTotal += floatval($hc['montant_collecte'] ?? 0);
+          $histCount = count($histCagnottes);
+          $histActive = count(array_filter($histCagnottes, fn($c) => ($c['statut'] ?? '') === 'acceptee'));
+        } else {
+          $histTotal = 0; foreach ($histDons as $hd) $histTotal += floatval($hd['montant'] ?? 0);
+          $histCount = count($histDons);
+          $histActive = count(array_filter($histDons, fn($d) => ($d['statut'] ?? '') === 'confirme'));
+        }
+      ?>
+
+      <!-- KPI Row -->
+      <div class="hero-row" style="margin-bottom:1.5rem;">
+        <div class="hero-card">
+          <div class="hc-label"><?= $isAssoc ? 'Total collecté' : 'Total donné' ?></div>
+          <div class="hc-val"><?= number_format($histTotal, 2, ',', ' ') ?><span>€</span></div>
+          <div class="hc-badge"><?= $isAssoc ? '↑ Cagnottes actives' : '↑ Dons confirmés' ?></div>
+        </div>
+        <div class="stat-mini">
+          <div class="sm-label">
+            <svg width="13" height="13" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <?= $isAssoc ? 'Cagnottes' : 'Dons' ?>
+          </div>
+          <div class="sm-val" style="color:var(--blue)"><?= $histCount ?></div>
+          <div class="sm-sub">Total enregistré</div>
+        </div>
+        <div class="stat-mini">
+          <div class="sm-label">
+            <svg width="13" height="13" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            <?= $isAssoc ? 'Actives' : 'Confirmés' ?>
+          </div>
+          <div class="sm-val" style="color:var(--green)"><?= $histActive ?></div>
+          <div class="sm-sub"><?= $isAssoc ? 'En cours de collecte' : 'Paiements validés' ?></div>
+        </div>
+      </div>
+
+      <?php if ($isAssoc): ?>
+        <!-- Association : cagnottes créées -->
+        <div class="section-head" style="margin-bottom:.9rem">
+          <div class="section-title">Mes cagnottes créées</div>
+          <span style="font-size:.72rem;color:var(--muted)"><?= $histCount ?> cagnotte<?= $histCount > 1 ? 's' : '' ?></span>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Titre</th>
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Objectif</th>
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Collecté</th>
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Progression</th>
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Statut</th>
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Date début</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (empty($histCagnottes)): ?>
+                <tr><td colspan="6" style="padding:2rem;text-align:center;color:var(--muted);font-size:.85rem;">Aucune cagnotte créée pour le moment.</td></tr>
+              <?php else: foreach ($histCagnottes as $hc):
+                $hcObj = floatval($hc['objectif_montant'] ?? 0);
+                $hcColl = floatval($hc['montant_collecte'] ?? 0);
+                $hcPct = $hcObj > 0 ? min(100, round(($hcColl / $hcObj) * 100)) : 0;
+                $hcStatut = $hc['statut'] ?? 'en_attente';
+                $hcStatutClass = frontCagnotteStatusClass($hcStatut);
+                $hcStatutLabel = frontCagnotteStatusLabel($hcStatut);
+              ?>
+                <tr style="border-bottom:1px solid var(--border);transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background=''">
+                  <td style="padding:.85rem 1.2rem;">
+                    <div style="font-weight:600;font-size:.85rem;"><?= htmlspecialchars($hc['titre']) ?></div>
+                    <?php if (!empty($hc['categorie'])): ?>
+                      <div style="font-size:.68rem;color:var(--muted);margin-top:2px;"><?= htmlspecialchars(ucfirst($hc['categorie'])) ?></div>
+                    <?php endif; ?>
+                  </td>
+                  <td style="padding:.85rem 1.2rem;font-size:.82rem;color:var(--muted2);font-family:var(--fm)"><?= number_format($hcObj, 0, ',', ' ') ?> €</td>
+                  <td style="padding:.85rem 1.2rem;font-family:var(--fm);font-weight:700;color:var(--teal);"><?= number_format($hcColl, 0, ',', ' ') ?> €</td>
+                  <td style="padding:.85rem 1.2rem;min-width:100px;">
+                    <div style="height:5px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-bottom:3px;">
+                      <div style="height:100%;width:<?= $hcPct ?>%;background:linear-gradient(90deg,var(--teal),var(--blue));border-radius:99px;"></div>
+                    </div>
+                    <div style="font-size:.65rem;color:var(--muted)"><?= $hcPct ?>%</div>
+                  </td>
+                  <td style="padding:.85rem 1.2rem;"><span class="<?= htmlspecialchars($hcStatutClass) ?>"><?= htmlspecialchars($hcStatutLabel) ?></span></td>
+                  <td style="padding:.85rem 1.2rem;font-size:.78rem;color:var(--muted);"><?= htmlspecialchars(substr($hc['date_debut'] ?? '', 0, 10)) ?></td>
+                </tr>
+              <?php endforeach; endif; ?>
+            </tbody>
+          </table>
+        </div>
+
+      <?php else: ?>
+        <!-- Donateur : historique des dons -->
+        <div class="section-head" style="margin-bottom:.9rem">
+          <div class="section-title">Mes dons</div>
+          <span style="font-size:.72rem;color:var(--muted)"><?= $histCount ?> don<?= $histCount > 1 ? 's' : '' ?></span>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Cagnotte</th>
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Montant</th>
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Moyen de paiement</th>
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Statut</th>
+                <th style="padding:.7rem 1.2rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (empty($histDons)): ?>
+                <tr><td colspan="5" style="padding:2rem;text-align:center;color:var(--muted);font-size:.85rem;">Aucun don effectué pour le moment.</td></tr>
+              <?php else: foreach ($histDons as $hd):
+                $hdStatut = $hd['statut'] ?? 'en_attente';
+                $hdStatutClass = match($hdStatut) { 'confirme' => 'status-confirme', 'refuse' => 'status-refuse', default => 'status-attente' };
+                $hdStatutLabel = $donCtrl->getDonStatusLabel($hdStatut);
+                $hdMoyen = match($hd['moyen_paiement'] ?? '') { 'carte' => '💳 Carte', 'virement' => '🏦 Virement', default => ucfirst($hd['moyen_paiement'] ?? '') };
+              ?>
+                <tr style="border-bottom:1px solid var(--border);transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background=''">
+                  <td style="padding:.85rem 1.2rem;">
+                    <div style="font-weight:600;font-size:.85rem;"><?= htmlspecialchars($hd['cagnotte_titre'] ?? '—') ?></div>
+                  </td>
+                  <td style="padding:.85rem 1.2rem;font-family:var(--fm);font-weight:700;color:var(--teal);">+ <?= number_format(floatval($hd['montant']), 2, ',', ' ') ?> €</td>
+                  <td style="padding:.85rem 1.2rem;font-size:.82rem;color:var(--muted2);"><?= $hdMoyen ?></td>
+                  <td style="padding:.85rem 1.2rem;"><span class="don-status <?= htmlspecialchars($hdStatutClass) ?>"><?= htmlspecialchars($hdStatutLabel) ?></span></td>
+                  <td style="padding:.85rem 1.2rem;font-size:.78rem;color:var(--muted);"><?= htmlspecialchars(substr($hd['date_don'] ?? '', 0, 10)) ?></td>
+                </tr>
+              <?php endforeach; endif; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php endif; ?>
+
+    </div>
+  </div>
+
 <!-- SUCCESS CAGNOTTE -->
 <div class="success-overlay" id="success-overlay">
   <div class="success-box">
@@ -657,6 +823,360 @@ foreach ($userDons as $d) {
     <button class="btn-success" onclick="document.getElementById('success-overlay').style.display='none'; showView('dashboard')">Retour au tableau de bord</button>
   </div>
 </div>
+
+<!-- AI MODAL -->
+<div id="aiModalOverlay" class="ai-modal-overlay hidden">
+    <div class="ai-modal-content">
+        <div class="ai-modal-header">
+            <h2>🤖 Urgent Campaign AI Analysis</h2>
+            <button class="ai-modal-close" id="aiModalClose">&times;</button>
+        </div>
+        
+        <div class="ai-modal-body">
+            <div id="aiLoadingSpinner" class="ai-spinner">
+                <div class="ai-spinner-dot"></div>
+                <div class="ai-spinner-dot"></div>
+                <div class="ai-spinner-dot"></div>
+            </div>
+            
+            <div id="aiContent" class="ai-content hidden">
+                <div class="ai-campaign-card">
+                    <h3 id="aiCampaignTitle">Campaign Title</h3>
+                    <div class="ai-urgency-badge" id="aiUrgencyBadge">
+                        <span class="ai-urgency-score" id="aiUrgencyScore">85%</span>
+                        <span class="ai-urgency-label">Urgency</span>
+                    </div>
+                </div>
+                
+                <div class="ai-progress-section">
+                    <label>Funding Progress</label>
+                    <div class="ai-progress-bar">
+                        <div class="ai-progress-fill" id="aiProgressFill" style="width: 0%"></div>
+                    </div>
+                    <p id="aiProgressText">0% funded</p>
+                </div>
+                
+                <div class="ai-explanation-section">
+                    <h4>Analysis</h4>
+                    <p id="aiExplanation">Loading analysis...</p>
+                </div>
+            </div>
+            
+            <div id="aiError" class="ai-error-message hidden">
+                <p>Failed to load campaign analysis. Please try again.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.btn-ai-urgent {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-ai-urgent:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+}
+
+.ai-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: opacity 0.3s ease;
+}
+
+.ai-modal-overlay.hidden {
+    display: none;
+    opacity: 0;
+}
+
+.ai-modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    animation: ai-slideIn 0.3s ease;
+}
+
+@keyframes ai-slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.ai-modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ai-modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.ai-modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.ai-modal-close:hover {
+    transform: rotate(90deg);
+}
+
+.ai-modal-body {
+    padding: 24px;
+}
+
+.ai-spinner {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 30px 0;
+}
+
+.ai-spinner-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #667eea;
+    animation: ai-bounce 1.4s infinite;
+}
+
+.ai-spinner-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.ai-spinner-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes ai-bounce {
+    0%, 80%, 100% { opacity: 0.5; transform: scale(1); }
+    40% { opacity: 1; transform: scale(1.2); }
+}
+
+.ai-content.hidden {
+    display: none;
+}
+
+.ai-campaign-card {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #667eea;
+}
+
+.ai-campaign-card h3 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.ai-urgency-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fee;
+    color: #c33;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ai-urgency-score {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.ai-progress-section {
+    margin-bottom: 20px;
+}
+
+.ai-progress-section label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.ai-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.ai-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    transition: width 0.5s ease;
+}
+
+.ai-progress-section p {
+    margin: 8px 0 0 0;
+    font-size: 12px;
+    color: #999;
+}
+
+.ai-explanation-section {
+    background: #f0f2f5;
+    padding: 16px;
+    border-radius: 8px;
+}
+
+.ai-explanation-section h4 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    color: #333;
+    font-weight: 600;
+}
+
+.ai-explanation-section p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #555;
+}
+
+.ai-error-message {
+    background: #fee;
+    color: #c33;
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.ai-error-message.hidden {
+    display: none;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const aiBtn = document.getElementById('aiUrgentBtn');
+    const modalOverlay = document.getElementById('aiModalOverlay');
+    const modalClose = document.getElementById('aiModalClose');
+    const loadingSpinner = document.getElementById('aiLoadingSpinner');
+    const aiContent = document.getElementById('aiContent');
+    const aiError = document.getElementById('aiError');
+
+    if (aiBtn) {
+        aiBtn.addEventListener('click', function() {
+            modalOverlay.classList.remove('hidden');
+            loadingSpinner.style.display = 'flex';
+            aiContent.classList.add('hidden');
+            aiError.classList.add('hidden');
+            
+            fetchAIAnalysis();
+        });
+    }
+
+    if (modalClose) {
+        modalClose.addEventListener('click', function() {
+            modalOverlay.classList.add('hidden');
+        });
+    }
+
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', function(e) {
+            if (e.target === modalOverlay) {
+                modalOverlay.classList.add('hidden');
+            }
+        });
+    }
+
+    function fetchAIAnalysis() {
+        fetch('../../controller/urgent_campaign_ai.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'action=suggest_urgent'
+        })
+        .then(function(response) {
+            if (!response.ok) { throw new Error('HTTP ' + response.status); }
+            return response.json();
+        })
+        .then(function(data) {
+            loadingSpinner.style.display = 'none';
+            if (data.ok && data.data) {
+                displayAIContent(data.data);
+            } else {
+                showError(data.error || '');
+            }
+        })
+        .catch(function(error) {
+            console.error('AI fetch error:', error);
+            loadingSpinner.style.display = 'none';
+            showError(error.message || '');
+        });
+    }
+
+    function displayAIContent(d) {
+        document.getElementById('aiCampaignTitle').textContent = d.title || 'Campaign';
+        document.getElementById('aiUrgencyScore').textContent = d.urgency_score + '%';
+        var pct = d.metrics ? (d.metrics.percentage_funded || 0) : 0;
+        document.getElementById('aiProgressFill').style.width = pct + '%';
+        var raised = d.metrics ? d.metrics.raised_amount : 0;
+        var goal = d.metrics ? d.metrics.goal_amount : 0;
+        var daysLeft = d.metrics ? d.metrics.days_left : '?';
+        document.getElementById('aiProgressText').textContent = Math.round(pct) + '% financé — ' + raised + ' / ' + goal + ' € · ' + daysLeft + ' j restants';
+        document.getElementById('aiExplanation').textContent = d.explanation || '';
+        aiContent.classList.remove('hidden');
+    }
+
+    function showError(msg) {
+        aiError.classList.remove('hidden');
+        if (msg) {
+            var p = aiError.querySelector('p');
+            if (p) p.textContent = msg;
+        }
+    }
+});
+</script>
 
 <script>
   
@@ -682,6 +1202,11 @@ function showView(v) {
       document.getElementById('form-is-edit').value = '0';
     }
     checkStepper();
+  } else if (v === 'history') {
+    document.querySelector('a[onclick="showView(\'history\')"]')?.classList.add('active');
+    document.getElementById('topbar-title').textContent = 'Historique';
+    document.getElementById('topbar-back').style.display = 'block';
+    document.getElementById('topbar-dashboard-btns').style.display = 'none';
   }
 }
 
@@ -1038,6 +1563,51 @@ function donStep1() {
   ['don-step1','don-step2','don-step3'].forEach(s => document.getElementById(s).style.display = s === 'don-step1' ? 'block' : 'none');
   if (stripeCardElement) { try { stripeCardElement.unmount(); } catch(e) {} stripeCardElement.destroy(); stripeCardElement = null; }
 }
+
+function suggestUrgentCampaign() {
+  var btn = document.getElementById('btn-ai-urgent');
+  var panel = document.getElementById('ai-urgent-result');
+  var title = document.getElementById('ai-urgent-title');
+  var score = document.getElementById('ai-urgent-score');
+  var explanation = document.getElementById('ai-urgent-explanation');
+
+  if (!btn || !panel || !title || !score || !explanation) {
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '🤖 AI is analyzing...';
+  panel.style.display = 'block';
+  title.textContent = 'Processing campaigns...';
+  score.textContent = '';
+  explanation.textContent = '';
+
+  fetch('../../controller/urgent_campaign_ai.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ action: 'suggest_urgent' })
+  })
+  .then(function(response) { return response.json(); })
+  .then(function(data) {
+    if (!data.ok || !data.data) {
+      throw new Error(data.error || 'AI request failed');
+    }
+
+    title.textContent = data.data.title + ' (ID #' + data.data.campaign_id + ')';
+    score.textContent = 'Urgency score: ' + data.data.urgency_score + '/100';
+    explanation.textContent = data.data.explanation;
+  })
+  .catch(function(error) {
+    title.textContent = 'Unable to get recommendation';
+    score.textContent = '';
+    explanation.textContent = error.message || 'Please retry in a moment.';
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.textContent = '🤖 AI Suggest Most Urgent Campaign';
+  });
+}
+
 function confirmerDon() {
   var montant    = parseFloat(document.getElementById('inp-mt').value) || 0;
   var idCagnotte = document.getElementById('inp-cag-id').value || '';

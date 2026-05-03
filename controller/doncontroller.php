@@ -2,6 +2,7 @@
 require_once __DIR__ . "/../model/don.php";
 require_once __DIR__ . "/../model/config.php";
 require_once __DIR__ . "/cagnottecontroller.php";
+require_once __DIR__ . "/../services/AchievementService.php";
 
 class doncontroller {
 
@@ -157,6 +158,14 @@ class doncontroller {
             'message' => $message,
             'moyen_paiement' => $moyen_paiement
         ]);
+
+        // Auto-check hook on donation creation (currently a no-op by business rule).
+        try {
+            $achievementService = new AchievementService();
+            $achievementService->runPostDonationCreated($id_donateur);
+        } catch (Throwable $e) {
+            // Keep donation flow resilient even if achievement checks fail.
+        }
         
         return true;
     }
@@ -315,6 +324,13 @@ class doncontroller {
             $stmt2->execute(['montant' => $don['montant'], 'id_cagnotte' => $don['id_cagnotte']]);
 
             $pdo->commit();
+
+            try {
+                $achievementService = new AchievementService();
+                $achievementService->runPostDonationConfirmed((int)$id);
+            } catch (Throwable $e) {
+                // Keep confirmation successful even if achievement processing fails.
+            }
             return true;
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();

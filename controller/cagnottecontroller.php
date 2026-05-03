@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . "/../model/cagnotte.php";
 require_once __DIR__ . "/../model/config.php";
+require_once __DIR__ . "/../services/AchievementService.php";
 
 class cagnottecontroller {
 
@@ -185,6 +186,13 @@ class cagnottecontroller {
             'date_debut' => $validated['date_debut'],
             'date_fin' => $validated['date_fin']
         ]);
+
+        try {
+            $achievementService = new AchievementService();
+            $achievementService->runPostCampaignCreated($id_createur);
+        } catch (Throwable $e) {
+            // Never break campaign creation on side-feature failures.
+        }
         
         return true;
     }
@@ -343,9 +351,28 @@ class cagnottecontroller {
         if (!in_array($newStatus, self::ALLOWED_STATUSES, true)) return false;
         
         $pdo = Config::getConnexion();
+        
+        // Get campaign creator before updating status
+        $stmt = $pdo->prepare("SELECT id_createur FROM cagnotte WHERE id_cagnotte = :id");
+        $stmt->execute(['id' => $id]);
+        $campaign = $stmt->fetch();
+        
         $sql = "UPDATE cagnotte SET statut = :statut WHERE id_cagnotte = :id";
         $stmt = $pdo->prepare($sql);
-        return $stmt->execute(['statut' => $newStatus, 'id' => $id]);
+        $result = $stmt->execute(['statut' => $newStatus, 'id' => $id]);
+        
+        // Trigger achievement check if campaign is marked as funded
+        if ($result && $newStatus === 'financee' && $campaign) {
+            try {
+                require_once __DIR__ . '/../services/AchievementService.php';
+                $achievementService = new AchievementService();
+                $achievementService->checkCampaignFundedAchievements((int)$id, (int)$campaign['id_createur']);
+            } catch (Throwable $e) {
+                // Keep status update successful even if achievement processing fails
+            }
+        }
+        
+        return $result;
     }
 
     public function updateStatusUser($id, $newStatus, $userId) {
