@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . "/../model/cagnotte.php";
 require_once __DIR__ . "/../model/config.php";
-require_once __DIR__ . "/../services/AchievementService.php";
+require_once __DIR__ . "/AchievementService.php";
 
 class cagnottecontroller {
 
@@ -364,7 +364,7 @@ class cagnottecontroller {
         // Trigger achievement check if campaign is marked as funded
         if ($result && $newStatus === 'financee' && $campaign) {
             try {
-                require_once __DIR__ . '/../services/AchievementService.php';
+                require_once __DIR__ . '/AchievementService.php';
                 $achievementService = new AchievementService();
                 $achievementService->checkCampaignFundedAchievements((int)$id, (int)$campaign['id_createur']);
             } catch (Throwable $e) {

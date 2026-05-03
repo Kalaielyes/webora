@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../model/AchievementModel.php';
-require_once __DIR__ . '/../services/AchievementService.php';
+require_once __DIR__ . '/AchievementService.php';
 require_once __DIR__ . '/../model/config.php';
 
 class achievementcontroller
@@ -99,6 +99,11 @@ function achievementRequireCsrf(): bool
 
 function achievementIsAuthorizedAdmin(): bool
 {
+    // Allow if the request came from a backoffice page that set the flag
+    if (!empty($_SESSION['is_backoffice_admin'])) {
+        return true;
+    }
+
     if (!isset($_SESSION['frontoffice_user_id']) || !is_numeric($_SESSION['frontoffice_user_id'])) {
         return false;
     }

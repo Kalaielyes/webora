@@ -11,6 +11,9 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrfToken = $_SESSION['csrf_token'];
 
+// Mark session as backoffice admin so the achievement AJAX endpoint allows writes
+$_SESSION['is_backoffice_admin'] = true;
+
 $ctrl = new AchievementAdminController();
 $rows = $ctrl->listAll();
 

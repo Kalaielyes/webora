@@ -306,7 +306,7 @@ $categoryOptions = [
                       <button class="act-btn warn" title="Refuser">✖</button>
                     </form>
                   <?php endif; ?>
-                  <button class="act-btn" type="button" title="Modifier" onclick="event.stopPropagation();adminOpenEdit(<?= (int)$c['id_cagnotte'] ?>, <?= json_encode($c['titre'] ?? '') ?>, <?= json_encode($c['description'] ?? '') ?>, <?= json_encode($c['categorie'] ?? '') ?>, <?= json_encode(substr((string)($c['date_debut'] ?? ''), 0, 10)) ?>, <?= (float)($c['objectif_montant'] ?? 0) ?>, <?= json_encode(substr((string)($c['date_fin'] ?? ''), 0, 10)) ?>)">✎</button>
+                  <button class="act-btn" type="button" title="Modifier" onclick="event.stopPropagation();adminOpenEdit(<?= (int)$c['id_cagnotte'] ?>, <?= htmlspecialchars(json_encode($c['titre'] ?? ''), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($c['description'] ?? ''), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($c['categorie'] ?? ''), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode(substr((string)($c['date_debut'] ?? ''), 0, 10)), ENT_QUOTES) ?>, <?= (float)($c['objectif_montant'] ?? 0) ?>, <?= htmlspecialchars(json_encode(substr((string)($c['date_fin'] ?? ''), 0, 10)), ENT_QUOTES) ?>)">✎</button>
                   <form method="post" class="inline-form" onsubmit="return confirm('Supprimer cette cagnotte ?');">
                     <input type="hidden" name="action" value="delete" />
                     <input type="hidden" name="id" value="<?= (int)$c['id_cagnotte'] ?>" />
@@ -385,7 +385,7 @@ $categoryOptions = [
             <input type="hidden" name="new_status" value="acceptee" />
             <button class="dp-action-btn da-primary" type="submit">Valider</button>
           </form>
-          <button class="dp-action-btn da-neutral" id="detail-edit-btn" type="button" onclick="adminOpenEdit(<?= (int)$selectedId ?>, <?= json_encode($selectedTitre) ?>, <?= json_encode($selectedDescription) ?>, <?= json_encode($selectedCategorie) ?>, <?= json_encode($selectedDateDebut) ?>, <?= (float)$selectedObjectif ?>, <?= json_encode($selectedDateFin) ?>)">Modifier</button>
+          <button class="dp-action-btn da-neutral" id="detail-edit-btn" type="button" onclick="adminOpenEdit(<?= (int)$selectedId ?>, <?= htmlspecialchars(json_encode($selectedTitre), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($selectedDescription), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($selectedCategorie), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($selectedDateDebut), ENT_QUOTES) ?>, <?= (float)$selectedObjectif ?>, <?= htmlspecialchars(json_encode($selectedDateFin), ENT_QUOTES) ?>)">Modifier</button>
           <form method="post" class="inline-form" id="detail-form-suspend">
             <input type="hidden" name="action" value="set_status" />
             <input type="hidden" name="id" id="detail-id-suspend" value="<?= (int)$selectedId ?>" />
@@ -473,14 +473,12 @@ function validateAdminEditForm() {
   var today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  if (titre.length < 10) return 'Le titre doit contenir au moins 10 caractères.';
-  if (description.length < 30) return 'La description doit contenir au moins 30 caractères.';
+  if (titre.length < 3) return 'Le titre est trop court.';
   if (!categorie) return 'Veuillez sélectionner une catégorie.';
-  if (isNaN(objectif) || objectif < 100) return 'L\'objectif minimum est 100.';
+  if (isNaN(objectif) || objectif < 1) return 'L\'objectif doit être supérieur à 0.';
   if (!dateDebut) return 'La date de début est obligatoire.';
   if (!dateFin) return 'La date de fin est obligatoire.';
-  if (new Date(dateDebut) < today) return 'La date de début ne peut pas être antérieure à aujourd\'hui.';
-  if (new Date(dateFin) < new Date(dateDebut)) return 'La date de fin doit être supérieure ou égale à la date de début.';
+  if (dateFin && dateDebut && new Date(dateFin) < new Date(dateDebut)) return 'La date de fin doit être postérieure à la date de début.';
   return '';
 }
 
