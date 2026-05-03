@@ -6,8 +6,8 @@
 // =============================================
 //  YOUR TWILIO CREDENTIALS - EDIT THESE
 // =============================================
-if (!defined('TWILIO_SID')) define('TWILIO_SID', 'AC8b04fe5f6081091e9ce15d7fa69c6c81');
-if (!defined('TWILIO_TOKEN')) define('TWILIO_TOKEN', '1ffa699023875762d1d589a7d6890c36');
+//if (!defined('TWILIO_SID')) define('TWILIO_SID', 'AC8b04fe5f6081091e9ce15d7fa69c6c81');
+//if (!defined('TWILIO_TOKEN')) define('TWILIO_TOKEN', '1ffa699023875762d1d589a7d6890c36');
 if (!defined('TWILIO_WHATSAPP_FROM')) define('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'); // Sandbox number
 // =============================================
 
