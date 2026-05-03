@@ -1,6 +1,6 @@
 <?php
 /**
- * NexaBank — Database Configuration + Auto-login
+ * Legafin — Database Configuration + Auto-login
  * No login page: the single DB user is loaded automatically into $_SESSION.
  */
 
@@ -17,7 +17,7 @@ if (!defined('APP_URL')) {
 
 // ── GEMINI API KEY ───────────────────────────────────────────────────────────
 if (!defined('GEMINI_API_KEY')) {
-   // define('GEMINI_API_KEY', 'AIzaSyBrvyR0h0TklV6d14bBIL_ovlaVaMQcBYY');
+    //define('GEMINI_API_KEY', 'AIzaSyAY_Ali_J-Wrlxu1voyK93kcutbG1K-WWo');
 }
 
 class Config
@@ -47,7 +47,7 @@ class Config
             try {
                 self::$pdo = new PDO($dsn, $user, $pass, $options);
             } catch (PDOException $e) {
-                error_log('[NexaBank] DB Connection failed: ' . $e->getMessage());
+                error_log('[Legafin] DB Connection failed: ' . $e->getMessage());
                 die(json_encode(['error' => 'Database unavailable. Please try later.']));
             }
         }
@@ -81,9 +81,10 @@ class Config
             'id'         => $row['id'],
             'nom'        => $row['nom']        ?? '',
             'prenom'     => $row['prenom']     ?? '',
-            'email'      => $row['email']      ?? '',
-            'role'       => 'ADMIN',
-            'status_kyc' => $row['status_kyc'] ?? '',
+            'email'          => $row['email']          ?? '',
+            'role'           => 'ADMIN',
+            'status_kyc'     => $row['status_kyc']     ?? '',
+            'face_descriptor' => $row['face_descriptor'] ?? null,
         ];
     }
 }

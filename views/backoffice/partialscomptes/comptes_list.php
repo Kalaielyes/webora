@@ -187,7 +187,115 @@
         <?php endif; ?>
         </tbody>
       </table>
+
+      <!-- PAGINATION -->
+      <div id="pagination-controls" style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-top:1px solid var(--border); background:var(--surface); border-radius:0 0 12px 12px;">
+        <div id="pagination-info" style="font-size:0.75rem; color:var(--muted);"></div>
+        <div id="pagination-btns" style="display:flex; gap:6px;"></div>
+      </div>
     </div>
+
+    <script>
+    (function() {
+      var PER_PAGE = 10;
+      var currentPage = 1;
+      var activeFilter = 'tous';
+
+      function getRows() {
+        var tbody = document.querySelector('#comptes-table tbody');
+        if (!tbody) return [];
+        return Array.from(tbody.querySelectorAll('tr[data-statut]'));
+      }
+
+      function getVisibleRows() {
+        return getRows().filter(function(r) {
+          if (activeFilter === 'tous') return true;
+          return (r.dataset.statut || '') === activeFilter;
+        });
+      }
+
+      function renderPage(page) {
+        currentPage = page;
+        var all = getRows();
+        var visible = getVisibleRows();
+        var total = visible.length;
+        var totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        var start = (currentPage - 1) * PER_PAGE;
+        var end   = start + PER_PAGE;
+
+        // Hide all, show visible range
+        all.forEach(function(r) { r.style.display = 'none'; });
+        visible.forEach(function(r, i) {
+          r.style.display = (i >= start && i < end) ? '' : 'none';
+        });
+
+        // Info text
+        var info = document.getElementById('pagination-info');
+        if (info) {
+          var from = total === 0 ? 0 : start + 1;
+          var to   = Math.min(end, total);
+          info.textContent = from + '–' + to + ' sur ' + total + ' compte' + (total > 1 ? 's' : '');
+        }
+
+        // Buttons
+        var container = document.getElementById('pagination-btns');
+        if (!container) return;
+        container.innerHTML = '';
+
+        var btnStyle = 'display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;font-size:0.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text);transition:all 0.15s;';
+        var activeBtnStyle = 'display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;font-size:0.75rem;font-weight:700;cursor:pointer;border:none;background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,0.3);';
+
+        // Prev
+        var prev = document.createElement('button');
+        prev.style.cssText = btnStyle;
+        prev.innerHTML = '‹';
+        prev.disabled = currentPage === 1;
+        prev.style.opacity = currentPage === 1 ? '0.4' : '1';
+        prev.onclick = function() { renderPage(currentPage - 1); };
+        container.appendChild(prev);
+
+        // Page numbers
+        var halfWin = 2;
+        var pageStart = Math.max(1, currentPage - halfWin);
+        var pageEnd   = Math.min(totalPages, pageStart + 4);
+        pageStart = Math.max(1, pageEnd - 4);
+
+        for (var p = pageStart; p <= pageEnd; p++) {
+          (function(pg) {
+            var btn = document.createElement('button');
+            btn.style.cssText = pg === currentPage ? activeBtnStyle : btnStyle;
+            btn.textContent = pg;
+            btn.onclick = function() { renderPage(pg); };
+            container.appendChild(btn);
+          })(p);
+        }
+
+        // Next
+        var next = document.createElement('button');
+        next.style.cssText = btnStyle;
+        next.innerHTML = '›';
+        next.disabled = currentPage === totalPages;
+        next.style.opacity = currentPage === totalPages ? '0.4' : '1';
+        next.onclick = function() { renderPage(currentPage + 1); };
+        container.appendChild(next);
+      }
+
+      // Override setFilter to reset page
+      var _origSetFilter = window.setFilter;
+      window.setFilter = function(val, btn) {
+        activeFilter = val;
+        currentPage = 1;
+        if (_origSetFilter) _origSetFilter(val, btn);
+        renderPage(1);
+      };
+
+      // Initial render
+      window.addEventListener('load', function() { renderPage(1); });
+      renderPage(1);
+    })();
+    </script>
 
     <!-- DETAIL PANEL -->
     <div class="detail-panel">
@@ -267,6 +375,23 @@
           <label>Date de fermeture</label>
           <input type="text" name="date_fermeture" value="<?= htmlspecialchars($formData['date_fermeture'] ?? $selected->getDateFermeture() ?? '') ?>" placeholder="YYYY-MM-DD">
         </div>
+        <?php if ($selected->getTypeCompte() === 'epargne'): ?>
+        <div class="form-field" style="background:rgba(37,99,235,0.06); border:1px solid rgba(37,99,235,0.2); border-radius:10px; padding:1rem;">
+          <label style="color:#2563eb; display:flex; align-items:center; gap:6px;">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            Taux d'intérêt annuel (%)
+          </label>
+          <div style="position:relative; margin-top:.4rem;">
+            <input type="number" name="taux_interet" step="0.01" min="0" max="30"
+              value="<?= htmlspecialchars($formData['taux_interet'] ?? $selected->getTauxInteret()) ?>"
+              style="padding-right:2.5rem; font-weight:700; font-size:1rem;">
+            <span style="position:absolute; right:.75rem; top:50%; transform:translateY(-50%); font-size:.7rem; color:var(--muted); font-weight:700;">%</span>
+          </div>
+          <div style="font-size:.68rem; color:var(--muted); margin-top:.35rem;">
+            Dernier versement d'intérêts : <strong><?= $selected->getDerniereInteret() ?? 'Jamais (1ère année)' ?></strong>
+          </div>
+        </div>
+        <?php endif; ?>
         <div class="form-actions-row">
           <a href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=comptes&id_compte=<?= $selected->getIdCompte() ?>" class="btn-cancel">Annuler</a>
           <button type="submit" class="btn-save">Enregistrer</button>
@@ -287,6 +412,16 @@
       <div class="dp-row"><span class="dp-key">Ouverture</span><span class="dp-val"><?= htmlspecialchars($selected->getDateOuverture()) ?></span></div>
       <?php if ($selected->getDateFermeture()): ?>
       <div class="dp-row"><span class="dp-key">Fermeture</span><span class="dp-val"><?= htmlspecialchars($selected->getDateFermeture()) ?></span></div>
+      <?php endif; ?>
+      <?php if ($selected->getTypeCompte() === 'epargne'): ?>
+      <div class="dp-row" style="background:rgba(37,99,235,0.06); border-radius:8px; padding:.5rem .75rem; margin-top:.3rem;">
+        <span class="dp-key" style="color:#2563eb;">Taux d'intérêt</span>
+        <span class="dp-val" style="font-weight:800; color:#2563eb;"><?= $selected->getTauxInteret() ?>%</span>
+      </div>
+      <div class="dp-row">
+        <span class="dp-key">Dernier intérêt</span>
+        <span class="dp-val"><?= $selected->getDerniereInteret() ?? '<em style="color:var(--muted)">Pas encore appliqué</em>' ?></span>
+      </div>
       <?php endif; ?>
     </div>
 

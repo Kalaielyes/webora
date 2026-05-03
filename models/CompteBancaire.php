@@ -22,6 +22,8 @@ class CompteBancaire {
     private $statut;             // en_attente | actif | bloque | cloture | demande_cloture | demande_activation_courant
     private $date_ouverture;
     private $date_fermeture;
+    private $derniere_interet;
+    private $taux_interet;
 
     // ── Constructor ───────────────────────────────────────────────────────────
     public function __construct(
@@ -34,7 +36,9 @@ class CompteBancaire {
         $plafond_virement = 5000.000,
         $statut           = 'en_attente',
         $date_ouverture   = null,
-        $date_fermeture   = null
+        $date_fermeture   = null,
+        $derniere_interet = null,
+        $taux_interet     = 7.50
     ) {
         $this->id_compte        = $id_compte;
         $this->id_utilisateur   = $id_utilisateur;
@@ -46,6 +50,8 @@ class CompteBancaire {
         $this->statut           = $statut;
         $this->date_ouverture   = $date_ouverture ?? date('Y-m-d');
         $this->date_fermeture   = $date_fermeture;
+        $this->derniere_interet = $derniere_interet;
+        $this->taux_interet     = (float)($taux_interet ?? 7.50);
     }
 
     // ── Getters ───────────────────────────────────────────────────────────────
@@ -59,6 +65,8 @@ class CompteBancaire {
     public function getStatut()          { return $this->statut; }
     public function getDateOuverture()   { return $this->date_ouverture; }
     public function getDateFermeture()   { return $this->date_fermeture; }
+    public function getDerniereInteret() { return $this->derniere_interet; }
+    public function getTauxInteret()     { return $this->taux_interet; }
 
     // ── Setters ───────────────────────────────────────────────────────────────
     public function setIdCompte($v)         { $this->id_compte = $v; }
@@ -71,5 +79,7 @@ class CompteBancaire {
     public function setStatut($v)           { $this->statut = $v; }
     public function setDateOuverture($v)    { $this->date_ouverture = $v; }
     public function setDateFermeture($v)    { $this->date_fermeture = $v; }
+    public function setDerniereInteret($v)  { $this->derniere_interet = $v; }
+    public function setTauxInteret($v)      { $this->taux_interet = (float)$v; }
 }
 ?>

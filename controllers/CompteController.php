@@ -38,7 +38,9 @@ class CompteController
             (float)$row['plafond_virement'],
             $row['statut'],
             $row['date_ouverture'] ?? null,
-            $row['date_fermeture'] ?? null
+            $row['date_fermeture'] ?? null,
+            $row['derniere_interet'] ?? null,
+            (float)($row['taux_interet'] ?? 7.50)
         );
         return $compte;
     }
@@ -73,12 +75,14 @@ class CompteController
         $db = Config::getConnexion();
         $stmt = $db->prepare("
             UPDATE comptebancaire SET
-                type_compte      = :type_compte,
-                solde            = :solde,
-                devise           = :devise,
-                plafond_virement = :plafond_virement,
-                statut           = :statut,
-                date_fermeture   = :date_fermeture
+                type_compte       = :type_compte,
+                solde             = :solde,
+                devise            = :devise,
+                plafond_virement  = :plafond_virement,
+                statut            = :statut,
+                date_fermeture    = :date_fermeture,
+                derniere_interet  = :derniere_interet,
+                taux_interet      = :taux_interet
             WHERE id_compte = :id_compte
         ");
         $stmt->execute([
@@ -88,6 +92,8 @@ class CompteController
             'plafond_virement' => $compte->getPlafondVirement(),
             'statut'           => $compte->getStatut(),
             'date_fermeture'   => $compte->getDateFermeture(),
+            'derniere_interet' => $compte->getDerniereInteret(),
+            'taux_interet'     => $compte->getTauxInteret(),
             'id_compte'        => $compte->getIdCompte(),
         ]);
     }
@@ -98,7 +104,51 @@ class CompteController
         $db = Config::getConnexion();
         $stmt = $db->prepare("SELECT * FROM comptebancaire WHERE id_utilisateur = ? ORDER BY id_compte DESC");
         $stmt->execute([$idUser]);
-        return array_map([self::class, 'fromRow'], $stmt->fetchAll());
+        $comptes = array_map([self::class, 'fromRow'], $stmt->fetchAll());
+        // Auto-apply annual interest for savings accounts
+        self::applyAnnualInterest($comptes, $idUser);
+        return $comptes;
+    }
+
+    // ── Annual Interest Auto-Application ─────────────────────
+    public static function applyAnnualInterest(array &$comptes, int $idUser): void
+    {
+        $today = new DateTime();
+        foreach ($comptes as $compte) {
+            // Only active savings accounts
+            if ($compte->getTypeCompte() !== 'epargne' || $compte->getStatut() !== 'actif') continue;
+            if ($compte->getSolde() <= 0) continue;
+
+            // Determine reference date: last interest applied, or opening date
+            $refDateStr = $compte->getDerniereInteret() ?? $compte->getDateOuverture();
+            if (!$refDateStr) continue;
+
+            $refDate  = new DateTime($refDateStr);
+            $diffDays = (int)$refDate->diff($today)->days;
+
+            // Apply if 365+ days have passed since last application
+            if ($diffDays < 365) continue;
+
+            $taux     = $compte->getTauxInteret() / 100;
+            $interet  = round($compte->getSolde() * $taux, 3);
+
+            // Update balance and mark date
+            $compte->setSolde($compte->getSolde() + $interet);
+            $compte->setDerniereInteret(date('Y-m-d'));
+            self::update($compte);
+
+            // Log to SheetDB
+            self::logToSheetDB([
+                'id_utilisateur' => $idUser,
+                'date'           => date('Y-m-d H:i:s'),
+                'montant'        => $interet,
+                'devise'         => $compte->getDevise(),
+                'type'           => 'interet',
+                'libelle'        => 'Intérêts annuels (' . $compte->getTauxInteret() . '%) — Compte Épargne',
+                'source'         => 'LEGALFIN_BANK',
+                'destination'    => $compte->getIban(),
+            ]);
+        }
     }
 
     public static function findById(int $id): ?CompteBancaire
@@ -224,8 +274,46 @@ class CompteController
     public static function delete(int $id): void
     {
         $db = Config::getConnexion();
+
+        // Fetch IBAN before deleting so we can purge SheetDB history
+        $stmt = $db->prepare("SELECT iban FROM comptebancaire WHERE id_compte = ?");
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        $iban = $row['iban'] ?? null;
+
+        // Delete cards first
         $db->prepare("DELETE FROM cartebancaire WHERE id_compte = ?")->execute([$id]);
+        // Delete account
         $db->prepare("DELETE FROM comptebancaire WHERE id_compte = ?")->execute([$id]);
+
+        // Purge SheetDB transaction history for this IBAN
+        if ($iban) {
+            $base = 'https://sheetdb.io/api/v1/2eyctn6m5yzmz';
+            foreach (['source', 'destination'] as $col) {
+                $ch = curl_init($base . '/' . $col . '/' . urlencode($iban));
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+                curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+                curl_exec($ch);
+                curl_close($ch);
+            }
+        }
+    }
+
+    // ── SheetDB: Logging ──────────────────────────────────────
+    public static function logToSheetDB(array $data): void
+    {
+        $apiUrl = "https://sheetdb.io/api/v1/2eyctn6m5yzmz";
+        $payload = json_encode(['data' => [$data]]);
+        
+        $ch = curl_init($apiUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_exec($ch);
+        curl_close($ch);
     }
 
     // ── Request Handler ───────────────────────────────────────
@@ -294,7 +382,6 @@ class CompteController
                     'USD' => ['TND' => 3.12, 'EUR' => 0.92, 'USD' => 1],
                 ];
 
-                // Convert input amount to Source Currency to check balance
                 $rateToSource = $rates[$deviseInput][$source->getDevise()] ?? 1.0;
                 $montantDeduction = $montant * $rateToSource;
 
@@ -304,6 +391,17 @@ class CompteController
                     exit;
                 }
                 
+                $logData = [
+                    'id_utilisateur' => $idUser,
+                    'date'           => date('Y-m-d H:i:s'),
+                    'montant'        => $montant,
+                    'devise'         => $deviseInput,
+                    'type'           => $destType,
+                    'libelle'        => "Virement " . $destType,
+                    'source'         => $source->getIban(),
+                    'destination'    => ""
+                ];
+
                 if ($destType === 'interne') {
                     $idDest = (int)($_POST['id_compte_dest'] ?? 0);
                     if ($idSource === $idDest) {
@@ -313,36 +411,33 @@ class CompteController
 
                     $dest = self::findById($idDest);
                     if ($dest && $dest->getStatut() === 'actif' && $dest->getIdUtilisateur() === $idUser) {
-                        // Convert input amount to Destination Currency
                         $rateToDest = $rates[$deviseInput][$dest->getDevise()] ?? 1.0;
                         $montantCredit = $montant * $rateToDest;
-
                         $source->setSolde($source->getSolde() - $montantDeduction);
                         $dest->setSolde($dest->getSolde() + $montantCredit);
-                        
                         self::update($source);
                         self::update($dest);
+                        $logData['destination'] = $dest->getIban();
+                        self::logToSheetDB($logData);
                     }
                 } elseif ($destType === 'objectif') {
                     $idObj = (int)($_POST['id_objectif_dest'] ?? 0);
                     $obj = ObjectifController::findById($idObj);
-                    
                     if ($obj && $obj->getIdUtilisateur() === $idUser) {
-                        if ($source->getTypeCompte() === 'epargne') {
-                            header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?form=virement&error=savings_forbidden');
-                            exit;
-                        }
-
-                        // Use the shared alimenter logic to handle conversion and validation
                         $res = ObjectifController::alimenter($idUser, $idObj, $idSource, $montant); 
                         if (!$res['success']) {
                             header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?form=virement&error=' . urlencode($res['message']));
                             exit;
                         }
+                        $logData['destination'] = "OBJECTIF: " . $obj->getTitre();
+                        self::logToSheetDB($logData);
                     }
                 } else {
+                    $ibanExt = trim($_POST['iban_dest'] ?? 'EXTERNE');
                     $source->setSolde($source->getSolde() - $montantDeduction);
                     self::update($source);
+                    $logData['destination'] = $ibanExt;
+                    self::logToSheetDB($logData);
                 }
                 
                 header('Location: ' . APP_URL . '/views/frontoffice/frontoffice_compte.php?form=virement&ok=1');
@@ -447,6 +542,7 @@ class CompteController
                     if (isset($_POST['plafond_virement'])) $compte->setPlafondVirement((float)$_POST['plafond_virement']);
                     if (isset($_POST['statut']))           $compte->setStatut(trim($_POST['statut']));
                     if (!empty($_POST['date_fermeture']))  $compte->setDateFermeture($_POST['date_fermeture']);
+                    if (isset($_POST['taux_interet']))     $compte->setTauxInteret((float)$_POST['taux_interet']);
                     self::update($compte);
                     
                     $u = self::getUser($compte->getIdUtilisateur());
@@ -456,7 +552,6 @@ class CompteController
             }
         }
 
-        // Redirect: back to referer, or to backoffice by default
         $back = !empty($_SERVER['HTTP_REFERER'])
             ? $_SERVER['HTTP_REFERER']
             : APP_URL . '/views/backoffice/backoffice_compte.php';
@@ -465,7 +560,6 @@ class CompteController
     }
 }
 
-// Invoke the handler only when this file is the entry point (not when included)
 if (basename($_SERVER["SCRIPT_FILENAME"]) === basename(__FILE__)) {
     CompteController::handleRequest();
 }

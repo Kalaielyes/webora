@@ -91,6 +91,12 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="<?= APP_URL ?>/views/frontoffice/compte.css">
 <link rel="stylesheet" href="<?= APP_URL ?>/views/backoffice/compte.css">
+<script>
+  (function() {
+    var t = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 </head>
 <body>
 
@@ -100,61 +106,77 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
     <div class="sb-logo-name">Legal<span>Fin</span></div>
     <div class="sb-logo-env">BACK OFFICE</div>
   </div>
-  <div class="sb-right">
-    <div class="sb-status"><span class="status-dot"></span>Opérationnel</div>
-    <div class="sb-separator"></div>
-    <div class="sb-admin">
-      <div>
-        <div class="sb-aname"><?= $adminNom ?></div>
-        <div class="sb-arole">Agent bancaire</div>
-      </div>
-      <div class="sb-av"><?= $adminInitials ?></div>
+  <div class="sb-user">
+    <div class="sb-av"><?= $adminInitials ?></div>
+    <div>
+      <div class="sb-uname"><?= $adminNom ?></div>
+      <div class="sb-uemail">Agent bancaire</div>
     </div>
   </div>
+  <div class="sb-status" style="margin: 0 1.4rem 1rem; padding: 4px 10px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 99px; display: inline-flex; align-items: center; gap: 6px; font-size: 0.65rem; color: #22C55E;">
+    <span class="status-dot" style="width: 6px; height: 6px; background: #22C55E; border-radius: 50%; display: inline-block;"></span>
+    Opérationnel
+  </div>
+  <?php
+    $isCompteSection = in_array($tab, ['comptes', 'attente', 'stats']);
+  ?>
   <nav class="sb-nav">
-    <a class="nav-item <?= $tab==='comptes'?'active':'' ?>" href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=comptes">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
-      Comptes & Cartes
-    </a>
-    <a class="nav-item <?= $tab==='attente'?'active':'' ?>" href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=attente">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
-      En attente
-      <?php if ($pendingTotal>0): ?>
-      <span class="nav-badge"><?= $pendingTotal ?></span>
-      <?php endif; ?>
-    </a>
-    <a class="nav-item <?= $tab==='stats'?'active':'' ?>" href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=stats">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-      Statistiques
-    </a>
+    <div class="nav-dropdown <?= $isCompteSection ? 'open' : '' ?>" id="dropdown-compte">
+      <button class="nav-dropdown-toggle" onclick="toggleDropdown('dropdown-compte')">
+        <div class="nav-dropdown-toggle-left">
+          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
+          <span>Comptes & Cartes</span>
+        </div>
+        <svg class="nav-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="nav-dropdown-menu">
+        <a class="nav-sub-item <?= $tab==='comptes'?'active':'' ?>" href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=comptes">
+          <span class="nav-sub-dot"></span>Liste
+        </a>
+        <a class="nav-sub-item <?= $tab==='attente'?'active':'' ?>" href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=attente">
+          <span class="nav-sub-dot"></span>En attente
+          <?php if ($pendingTotal>0): ?>
+          <span style="margin-left:auto;background:rgba(245,158,11,.2);color:var(--amber);border-radius:99px;padding:1px 7px;font-size:.62rem;font-weight:600"><?= $pendingTotal ?></span>
+          <?php endif; ?>
+        </a>
+        <a class="nav-sub-item <?= $tab==='stats'?'active':'' ?>" href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=stats">
+          <span class="nav-sub-dot"></span>Statistiques
+        </a>
+      </div>
+    </div>
     <a class="nav-item" href="../frontoffice/frontoffice_compte.php">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
       Frontoffice
     </a>
   </nav>
-  
+  <div class="sb-footer">
+    <div class="badge-kyc" style="background:rgba(79, 142, 247, .1); color:var(--blue); border-color:rgba(79, 142, 247, .25);">
+      <span class="dot-pulse" style="background:var(--blue);"></span>Session Admin
+    </div>
+  </div>
 </div>
 
 <!-- MAIN -->
 <div class="main">
   <div class="topbar">
-    <div class="tb-left">
-      <div class="page-title">
-        <?= $tab==='attente' ? 'Demandes en attente' : 'Comptes bancaires' ?>
-      </div>
-      <div class="breadcrumb">/ <?= $tab==='attente' ? 'Validation' : ('Liste' . ($selected?' / #'.$selected->getIdCompte():'')) ?></div>
+    <div class="topbar-title">
+      <?= $tab==='attente' ? 'Demandes en attente' : 'Comptes bancaires' ?>
+      <span style="font-size: 0.7rem; color: var(--muted); font-weight: 400; margin-left: 0.5rem; font-family: var(--fb);">/ <?= $tab==='attente' ? 'Validation' : ('Liste' . ($selected?' / #'.$selected->getIdCompte():'')) ?></span>
     </div>
-    <div class="tb-right">
+    <div class="topbar-right">
       <?php if ($tab==='comptes'): ?>
-      <div class="search-bar">
+      <div class="search-bar" style="margin-right: 0.5rem;">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         <input placeholder="Rechercher IBAN, nom…" id="search-input" oninput="applyFilters()"/>
       </div>
       <?php endif; ?>
+      
+      
     </div>
   </div>
 
   <div class="content">
+   
   <?php if ($tab==='stats'): ?>
   <?php include __DIR__ . '/partialscomptes/stats.php'; ?>
   <?php elseif ($tab==='attente'): ?>
@@ -241,6 +263,11 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
 </div>
 
 <script>
+/* ── Sidebar dropdown ── */
+function toggleDropdown(id) {
+    document.getElementById(id).classList.toggle('open');
+}
+
 /* ── Table filters ── */
 let currentFilter='tous';
 function setFilter(val,btn){
@@ -308,6 +335,48 @@ function openCardModal(data){
   document.getElementById('cardModal').classList.add('open');
 }
 function closeCardModal(){document.getElementById('cardModal').classList.remove('open');}
+
+/* ── Theme & Clock ── */
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+    var sun = document.getElementById('theme-icon-sun');
+    var moon = document.getElementById('theme-icon-moon');
+    if (theme === 'light') {
+        if (sun) sun.style.display = 'block';
+        if (moon) moon.style.display = 'none';
+    } else {
+        if (sun) sun.style.display = 'none';
+        if (moon) moon.style.display = 'block';
+    }
+}
+function toggleTheme() {
+    var current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+function updateClock() {
+    var now = new Date();
+    var h = String(now.getHours()).padStart(2, '0');
+    var m = String(now.getMinutes()).padStart(2, '0');
+    var s = String(now.getSeconds()).padStart(2, '0');
+    var el = document.getElementById('real-time-clock');
+    if(el) el.textContent = `${h}:${m}:${s}`;
+}
+function updateGreeting() {
+    var hour = new Date().getHours();
+    var greeting = "Bonjour";
+    if(hour >= 18) greeting = "Bonsoir";
+    else if(hour >= 12) greeting = "Bon après-midi";
+    var display = document.getElementById('greeting-display');
+    if(display) {
+        var name = display.querySelector('span').outerHTML;
+        display.innerHTML = greeting + ", " + name;
+    }
+}
+setInterval(updateClock, 1000);
+updateClock();
+updateGreeting();
+applyTheme(document.documentElement.getAttribute('data-theme') || 'dark');
 </script>
 </body>
 </html>

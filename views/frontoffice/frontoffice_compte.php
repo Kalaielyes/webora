@@ -36,6 +36,7 @@ $showCarteForm  = (!empty($_GET['form']) && $_GET['form']==='carte' && $isKycVer
 $showAttente    = (!empty($_GET['tab'])  && $_GET['tab']==='attente');
 $showVirementForm = (!empty($_GET['form']) && $_GET['form']==='virement' && $isKycVerifie);
 $showObjectifs  = (!empty($_GET['tab'])  && $_GET['tab']==='objectifs');
+$showHistorique = (!empty($_GET['tab'])  && $_GET['tab']==='historique');
 
 function cvClass(string $style, string $statut=''): string {
     if ($statut==='bloquee') return 'cv-bloque';
@@ -160,6 +161,9 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
         <a class="nav-sub-item <?= $showVirementForm?'active':'' ?>" <?= $isKycVerifie ? 'href="'.APP_URL.'/views/frontoffice/frontoffice_compte.php?form=virement"' : 'style="opacity:0.5;cursor:not-allowed;" title="Vérification KYC requise" onclick="alert(\'Votre compte doit être vérifié (KYC) pour effectuer un virement.\'); return false;"' ?>>
           <span class="nav-sub-dot"></span>Virement <?= !$isKycVerifie ? '🔒' : '' ?>
         </a>
+        <a class="nav-sub-item <?= $showHistorique?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?tab=historique">
+          <span class="nav-sub-dot"></span>Historique & Export
+        </a>
         <a class="nav-sub-item <?= $showObjectifs?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?tab=objectifs">
           <span class="nav-sub-dot"></span>Objectifs
         </a>
@@ -236,6 +240,9 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
 
   <?php elseif ($showAttente): ?>
   <?php include __DIR__ . '/partialscomptes/en_attente.php'; ?>
+
+  <?php elseif ($showHistorique): ?>
+  <?php include __DIR__ . '/partialscomptes/historique.php'; ?>
 
   <?php elseif (empty($comptes)): ?>
   <?php include __DIR__ . '/partialscomptes/no_comptes.php'; ?>
@@ -398,7 +405,7 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
           </svg>
         </div>
         <div>
-          <div class="cb-htitle">Assistant LegalFin</div>
+          <div class="cb-htitle">Elyes AI</div>
           <div class="cb-hsub"><span class="cb-online-dot"></span> En ligne</div>
         </div>
       </div>

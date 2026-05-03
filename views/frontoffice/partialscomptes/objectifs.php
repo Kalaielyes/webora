@@ -97,9 +97,15 @@ unset($_SESSION['form_error']);
                         Échéance : <?= date('d/m/y', strtotime($obj->getDateFin())) ?>
                     </div>
                     <?php if (!$isAtteint): ?>
-                        <button class="btn-ghost" style="padding: 6px 12px; font-size: 0.7rem; font-weight: 700; color: var(--blue); border-color: var(--blue-border);" onclick="openAlimentModal(<?= $obj->getIdObjectif() ?>, '<?= addslashes($obj->getTitre()) ?>', '<?= $obj->getDevise() ?>')">
+                        <?php if ($isKycVerifie): ?>
+                        <a class="btn-ghost" style="padding: 6px 12px; font-size: 0.7rem; font-weight: 700; color: var(--blue); border-color: var(--blue-border); text-decoration: none; display: inline-block;" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=virement&dest_type=objectif&id_objectif=<?= $obj->getIdObjectif() ?>">
                             VERSER
+                        </a>
+                        <?php else: ?>
+                        <button class="btn-ghost" style="opacity: 0.5; padding: 6px 12px; font-size: 0.7rem; font-weight: 700;" onclick="alert('Vérification KYC requise pour effectuer un versement.')">
+                            VERSER 🔒
                         </button>
+                        <?php endif; ?>
                     <?php else: ?>
                         <div class="attained-label">COMPLÉTÉ</div>
                     <?php endif; ?>
@@ -154,42 +160,7 @@ unset($_SESSION['form_error']);
     </div>
 </div>
 
-<!-- FUND MODAL -->
-<div id="modal-fund" class="prj-modal">
-    <div class="modal-content">
-        <h2 id="alim-title" style="font-family: var(--fh); margin-bottom: 1.5rem; display:flex; justify-content:space-between; align-items:center;">
-            Verser des fonds
-            <button onclick="document.getElementById('modal-fund').style.display='none'" style="background:none; border:none; cursor:pointer; color:var(--muted);"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
-        </h2>
-        <form action="<?= APP_URL ?>/controllers/ObjectifController.php" method="POST" class="prj-form">
-            <?php Security::csrfInput(); ?>
-            <input type="hidden" name="action" value="alimenter">
-            <input type="hidden" name="id_objectif" id="alim-id">
-            <div class="form-group">
-                <label>Compte source (Hors épargne)</label>
-                <select name="id_compte_source" class="prj-select">
-                    <?php foreach ($comptes as $c): if ($c->getStatut()==='actif' && $c->getTypeCompte() !== 'epargne'): ?>
-                        <option value="<?= $c->getIdCompte() ?>"><?= ucfirst($c->getTypeCompte()) ?> (<span class="sensitive-data"><?= number_format($c->getSolde(),2) ?></span> <?= $c->getDevise() ?>)</option>
-                    <?php endif; endforeach; ?>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Montant en <span id="alim-devise">TND</span></label>
-                <input type="number" name="montant" step="0.01" class="prj-input">
-                <p style="font-size:0.65rem; color:var(--muted); margin-top:5px;">La conversion se fait automatiquement au taux du jour.</p>
-            </div>
-            <button type="submit" class="btn-primary" style="width:100%; justify-content:center; padding:12px; margin-top:10px;">Confirmer le versement</button>
-        </form>
-    </div>
-</div>
-
 <script>
-function openAlimentModal(id, title, devise) {
-    document.getElementById('alim-id').value = id;
-    document.getElementById('alim-title').firstChild.textContent = "Alimenter : " + title;
-    document.getElementById('alim-devise').textContent = devise;
-    document.getElementById('modal-fund').style.display = 'flex';
-}
 window.onclick = function(e){ if(e.target.className==='prj-modal') e.target.style.display='none'; }
 
 // DESKTOP NOTIFICATIONS (PC)

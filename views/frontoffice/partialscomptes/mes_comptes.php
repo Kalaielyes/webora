@@ -78,8 +78,9 @@
   </div>
 
   <?php if ($selected->getTypeCompte() === 'epargne'): 
-      $interestRate = 0.0275;
-      $estInterest = $selected->getSolde() * $interestRate;
+      $interestRate = $selected->getTauxInteret() / 100;  // Use real rate from DB
+      $rateDisplay  = number_format($selected->getTauxInteret(), 2) . '% / AN';
+      $estInterest  = $selected->getSolde() * $interestRate;
       $y1 = $selected->getSolde() * pow(1 + $interestRate, 1);
       $y5 = $selected->getSolde() * pow(1 + $interestRate, 5);
       $gain5 = $y5 - $selected->getSolde();
@@ -96,7 +97,7 @@
           +<span class="sensitive-data"><?= number_format($estInterest, 2, '.', ' ') ?></span> <span style="font-size: 0.9rem; color: var(--muted2); font-weight: 500;"><?= htmlspecialchars($selected->getDevise()) ?></span>
         </div>
         <div style="margin-top: 0.8rem; display: flex; gap: 0.5rem;">
-          <span style="background: var(--green-light); color: var(--green); padding: 3px 10px; border-radius: 20px; font-size: 0.68rem; font-weight: 700;">2.75% / AN</span>
+          <span style="background: var(--green-light); color: var(--green); padding: 3px 10px; border-radius: 20px; font-size: 0.68rem; font-weight: 700;"><?= $rateDisplay ?></span>
           <span style="background: var(--blue-light); color: var(--blue); padding: 3px 10px; border-radius: 20px; font-size: 0.68rem; font-weight: 700;">+<?= number_format($gain5,0) ?> <?= $selected->getDevise() ?> / 5ans</span>
         </div>
       </div>
@@ -128,9 +129,9 @@
             data: [
               <?= $selected->getSolde() ?>,
               <?= $y1 ?>,
-              <?= $selected->getSolde() * pow(1.0275, 2) ?>,
-              <?= $selected->getSolde() * pow(1.0275, 3) ?>,
-              <?= $selected->getSolde() * pow(1.0275, 4) ?>,
+              <?= $selected->getSolde() * pow(1 + $interestRate, 2) ?>,
+              <?= $selected->getSolde() * pow(1 + $interestRate, 3) ?>,
+              <?= $selected->getSolde() * pow(1 + $interestRate, 4) ?>,
               <?= $y5 ?>
             ],
             borderColor: '#22C55E',

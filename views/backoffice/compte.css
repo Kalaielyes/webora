@@ -49,8 +49,8 @@ body {
 
 /* ── SIDEBAR (LEFT) ───────────────────────────────────── */
 .sidebar {
-  width: 180px;
-  /* FIX: was 230px */
+  width: 240px;
+  /* matches frontoffice sidebar width */
   background: var(--navy);
   display: flex;
   flex-direction: column;
@@ -62,16 +62,16 @@ body {
 }
 
 .sb-logo {
-  padding: 1rem 1rem .8rem;
+  padding: 1.4rem 1.4rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, .08);
 }
 
 .sb-logo-name {
   font-family: var(--fh);
-  font-size: .95rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: #fff;
-  letter-spacing: -.01em;
+  letter-spacing: -.02em;
 }
 
 .sb-logo-name span {
@@ -87,36 +87,36 @@ body {
   color: #FCA5A5;
   border-radius: 5px;
   padding: 1px 6px;
-  font-size: .58rem;
+  font-size: .62rem;
   font-weight: 700;
   margin-top: 4px;
 }
 
-.sb-admin {
-  padding: .75rem 1rem;
+.sb-user {
+  padding: 1rem 1.4rem;
   display: flex;
   align-items: center;
-  gap: .6rem;
+  gap: .75rem;
   border-bottom: 1px solid rgba(255, 255, 255, .08);
 }
 
 .sb-av {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   background: linear-gradient(135deg, #3B82F6, #6366F1);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--fh);
   font-weight: 700;
-  font-size: .68rem;
+  font-size: .8rem;
   color: #fff;
   flex-shrink: 0;
 }
 
-.sb-aname {
-  font-size: .72rem;
+.sb-uname {
+  font-size: .83rem;
   font-weight: 500;
   color: #F1F5F9;
   white-space: nowrap;
@@ -124,35 +124,35 @@ body {
   text-overflow: ellipsis;
 }
 
-.sb-arole {
-  font-size: .6rem;
+.sb-uemail {
+  font-size: .68rem;
   color: #64748B;
 }
 
 .sb-nav {
   flex: 1;
-  padding: .5rem 0;
+  padding: .8rem 0;
   overflow-y: auto;
 }
 
 .nav-section {
-  font-size: .55rem;
+  font-size: .6rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .12em;
   color: #475569;
-  padding: .4rem 1rem .2rem;
+  padding: .6rem 1.4rem .3rem;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: .55rem;
-  padding: .45rem 1rem;
-  font-size: .74rem;
+  gap: .7rem;
+  padding: .55rem 1.4rem;
+  font-size: .83rem;
   color: #94A3B8;
   cursor: pointer;
-  transition: all .15s;
+  transition: all .18s;
   border-left: 2px solid transparent;
   text-decoration: none;
 }
@@ -169,8 +169,8 @@ body {
 }
 
 .nav-item svg {
-  width: 13px;
-  height: 13px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 
@@ -186,7 +186,7 @@ body {
 
 /* Status at bottom of sidebar */
 .sb-right {
-  padding: .75rem 1rem;
+  padding: 1rem 1.4rem;
   border-top: 1px solid rgba(255, 255, 255, .08);
   display: flex;
   flex-direction: column;
@@ -233,7 +233,8 @@ body {
 }
 
 .sb-footer {
-  display: none;
+  padding: 1rem 1.4rem;
+  border-top: 1px solid rgba(255, 255, 255, .08);
 }
 
 /* ── MAIN LAYOUT ─────────────────────────────────────── */
@@ -250,31 +251,23 @@ body {
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
   padding: 0 1.8rem;
-  height: 52px;
+  height: 54px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
 }
 
-.tb-left {
+.topbar-title {
   display: flex;
   align-items: center;
   gap: .8rem;
-}
-
-.page-title {
   font-family: var(--fh);
   font-size: .92rem;
   font-weight: 700;
 }
 
-.breadcrumb {
-  font-size: .72rem;
-  color: var(--muted);
-}
-
-.tb-right {
+.topbar-right {
   display: flex;
   align-items: center;
   gap: .8rem;
@@ -2035,5 +2028,3 @@ tr:hover td {
   overflow-wrap: anywhere;
   white-space: normal;
 }
-
--
