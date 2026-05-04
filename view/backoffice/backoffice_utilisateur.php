@@ -1,7 +1,20 @@
 <?php
 require_once __DIR__ . '/../../model/Session.php';
 require_once __DIR__ . '/../../model/Utilisateur.php';
+require_once __DIR__ . '/../../model/AuditLog.php';
 Session::requireAdmin('../FrontOffice/login.php');
+$auditModel = new AuditLog();
+$logs = [];
+if (($_GET['page'] ?? '') === 'audit') {
+    $filters = [
+        'admin_id'  => $_GET['audit_admin'] ?? '',
+        'action'    => $_GET['audit_action'] ?? '',
+        'date_from' => $_GET['audit_from'] ?? '',
+        'date_to'   => $_GET['audit_to'] ?? '',
+    ];
+    $logs = $auditModel->getFilteredLogs($filters);
+}
+$allAdmins = \config::getConnexion()->query("SELECT id, nom, prenom FROM utilisateur WHERE role IN ('ADMIN', 'SUPER_ADMIN') ORDER BY nom ASC")->fetchAll();
 $m      = new Utilisateur();
 $filtre = $_GET['filtre'] ?? 'tous';
 $page   = $_GET['page'] ?? 'utilisateurs'; 
@@ -27,6 +40,7 @@ $ALL_MODULES = [
     'dons_collectes'   => ['label'=>'Dons Collectés',   'icon'=>'<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>','color'=>'var(--rose)'],
     'utilisateurs'     => ['label'=>'Utilisateurs',     'icon'=>'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','color'=>'var(--purple)'],
     'statistiques'     => ['label'=>'Statistiques',     'icon'=>'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',                               'color'=>'#F59E0B'],
+    'audit'            => ['label'=>'Journal d\'Audit', 'icon'=>'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>','color'=>'var(--rose)'],
 ];
 $notifications = [];
 $pdo = \config::getConnexion();
@@ -97,10 +111,12 @@ function initials(string $n, string $p): string {
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="Utilisateur.css">
 <style>
-body{display:flex;overflow:hidden;height:100vh;}
-.sidebar{width:230px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;height:100vh;}
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-.content{padding:1.4rem 1.8rem;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:1.2rem;}
+body{display:grid;grid-template-columns:230px 1fr;grid-template-rows:100vh;overflow:hidden;margin:0;}
+.sidebar{background:var(--navy);display:flex;flex-direction:column;height:100vh;overflow-y:auto;}
+.main{display:grid;grid-template-rows:52px 1fr;overflow:hidden;height:100vh;position:relative;}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.8rem;display:flex;align-items:center;justify-content:space-between;}
+.content{padding:1.4rem 1.8rem;overflow-y:auto;background:var(--bg);}
+.content > *{margin-bottom:1.2rem;}
 .sb-logo{padding:1.2rem 1.2rem .9rem;border-bottom:1px solid rgba(255,255,255,.08);}
 .sb-logo-name{font-family:var(--fh);font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-.01em;}
 .sb-logo-name span{color:#60A5FA;}
@@ -109,7 +125,7 @@ body{display:flex;overflow:hidden;height:100vh;}
 .sb-av{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#3B82F6,#6366F1);display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-weight:700;font-size:.75rem;color:#fff;flex-shrink:0;}
 .sb-aname{font-size:.8rem;font-weight:500;color:#F1F5F9;}
 .sb-arole{font-size:.65rem;color:#64748B;}
-.sb-nav{flex:1;padding:.6rem 0;overflow-y:auto;}
+.sb-nav{flex:1;padding:.6rem 0;}
 .nav-section{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#475569;padding:.5rem 1.2rem .25rem;}
 .nav-item{display:flex;align-items:center;gap:.65rem;padding:.5rem 1.2rem;font-size:.8rem;color:#94A3B8;cursor:pointer;transition:all .15s;border-left:2px solid transparent;text-decoration:none;}
 .nav-item:hover{color:#F1F5F9;background:rgba(255,255,255,.05);}
@@ -120,7 +136,6 @@ body{display:flex;overflow:hidden;height:100vh;}
 .sb-footer{padding:.8rem 1.2rem;border-top:1px solid rgba(255,255,255,.08);}
 .sb-status{display:flex;align-items:center;gap:5px;font-size:.7rem;color:#64748B;}
 .status-dot{width:6px;height:6px;border-radius:50%;background:#22C55E;}
-.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.8rem;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .tb-left{display:flex;align-items:center;gap:.8rem;}
 .page-title{font-family:var(--fh);font-size:.92rem;font-weight:700;}
 .breadcrumb{font-size:.72rem;color:var(--muted);}
@@ -169,7 +184,7 @@ body{display:flex;overflow:hidden;height:100vh;}
 .module-sub{font-size:.68rem;color:var(--muted);}
 .lock-badge{font-size:.6rem;background:var(--rose-light);color:var(--rose);border-radius:99px;padding:2px 8px;font-weight:600;}
 .two-col-layout{display:grid;grid-template-columns:1fr 320px;gap:1.2rem;}
-.table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:visible;}
 .table-toolbar{padding:.75rem 1.1rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
 .table-toolbar-title{font-size:.88rem;font-weight:500;}
 .filters{display:flex;gap:.5rem;flex-wrap:wrap;}
@@ -355,6 +370,11 @@ tr:hover td{background:var(--bg3);}
     <a href="?page=permissions" class="nav-item <?= $page==='permissions'?'active':'' ?>">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Permissions
+    <?php endif; ?>
+    <?php if(in_array('audit', $myModules)): ?>
+    <a href="?page=audit" class="nav-item <?= $page==='audit'?'active':'' ?>">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><?= $ALL_MODULES['audit']['icon'] ?></svg>
+      Journal d'Audit
     </a>
     <?php endif; ?>
   </nav>
@@ -366,12 +386,12 @@ tr:hover td{background:var(--bg3);}
     </a>
   </div>
 </div>
-<?php endif; ?>
 <div class="main" id="main-content">
+<?php endif; ?>
   <div class="topbar">
     <div class="tb-left">
       <?php
-      $titles = ['dashboard'=>'Tableau de bord','utilisateurs'=>'Gestion Utilisateurs','profil'=>'Mon Profil','permissions'=>'Gestion des Permissions','statistiques'=>'Statistiques'];
+      $titles = ['dashboard'=>'Tableau de bord','utilisateurs'=>'Gestion Utilisateurs','profil'=>'Mon Profil','permissions'=>'Gestion des Permissions','statistiques'=>'Statistiques','audit'=>'Journal d\'Audit'];
       ?>
       <div class="page-title"><?= $titles[$page] ?? 'Backoffice' ?></div>
       <div class="breadcrumb">LegalFin / <?= $titles[$page] ?? '' ?></div>
@@ -663,6 +683,32 @@ tr:hover td{background:var(--bg3);}
             <div style="font-size:.75rem;color:var(--muted);text-align:center;padding:.5rem">Aucune donnée de localisation.</div>
           <?php endif; ?>
         </div>
+        <?php if(!empty($detail['selfie_path']) || !empty($detail['face_match_score'])): ?>
+        <div style="background:var(--bg2);padding:1rem;border-radius:12px;border:1px solid var(--border);margin-top:1rem">
+          <div class="dp-section" style="margin:0 0 .8rem 0">🤳 Vérification Biométrique (Face++)</div>
+          <?php
+            $faceScore = (float)($detail['face_match_score'] ?? 0);
+            $faceColor = $faceScore >= 80 ? 'var(--green)' : ($faceScore >= 60 ? 'var(--amber)' : 'var(--rose)');
+            $faceLabel = $faceScore >= 80 ? '✅ Identité confirmée' : ($faceScore >= 60 ? '⚠️ Doute - vérifier manuellement' : '❌ Identité non confirmée');
+          ?>
+          <div style="display:flex;gap:.8rem;align-items:flex-start">
+            <?php if(!empty($detail['selfie_path'])): ?>
+            <img src="../../<?= htmlspecialchars($detail['selfie_path']) ?>" alt="Selfie"
+                 style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid <?= $faceColor ?>;flex-shrink:0">
+            <?php endif; ?>
+            <div style="flex:1">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+                <span style="font-size:.72rem;font-weight:600;color:<?= $faceColor ?>"><?= $faceLabel ?></span>
+                <span style="font-family:var(--fm);font-size:.9rem;font-weight:700;color:<?= $faceColor ?>"><?= $faceScore ?>/100</span>
+              </div>
+              <div style="width:100%;height:8px;background:var(--border);border-radius:99px;overflow:hidden">
+                <div style="height:100%;background:<?= $faceColor ?>;width:<?= $faceScore ?>%;border-radius:99px;transition:width .6s ease"></div>
+              </div>
+              <div style="font-size:.62rem;color:var(--muted);margin-top:.3rem">Seuil de validation automatique : 80/100</div>
+            </div>
+          </div>
+        </div>
+        <?php endif; ?>
         <div class="dp-actions">
           <button class="dp-action-btn da-primary" onclick='openEdit(<?= htmlspecialchars(json_encode($detail)) ?>)'><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Modifier</button>
           <button class="dp-action-btn da-green" onclick="openKyc(<?= $detail['id'] ?>,'<?= $detail['role'] ?>')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Valider KYC</button>
@@ -747,6 +793,60 @@ tr:hover td{background:var(--bg3);}
               <button type="submit" class="btn-save" style="background:var(--purple)">Changer le mot de passe</button>
             </div>
           </form>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">Sécurité - Authentification à 2 facteurs (2FA)</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <p style="font-size: .8rem; color: var(--muted); margin-bottom: 0.5rem;">
+                <?= $currentUser['two_factor_enabled'] == 1 ? 'L\'authentification à deux facteurs est <strong>activée</strong>.' : 'L\'authentification à deux facteurs est <strong>inactive</strong>.' ?>
+              </p>
+            </div>
+            <div>
+              <?php if($currentUser['two_factor_enabled'] == 1): ?>
+                <button class="btn-save" style="background:var(--rose);" onclick="document.getElementById('m-disable-2fa-admin').classList.add('open')">Désactiver</button>
+              <?php else: ?>
+                <a href="../FrontOffice/2fa_setup.php" class="btn-save" style="text-decoration:none;">Activer</a>
+              <?php endif; ?>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Sécurité - Connexion par Face ID</div>
+          <div style="display:flex; flex-direction:column; gap:1rem;">
+            <p style="font-size: .8rem; color: var(--muted);">
+              Configurez la reconnaissance faciale pour vous connecter rapidement sans mot de passe.
+            </p>
+            <?php if(!empty($currentUser['selfie_path'])): ?>
+              <div style="display:flex; align-items:center; gap:1rem; background:rgba(34,197,94,.08); padding:.8rem; border-radius:10px; border:1px solid rgba(34,197,94,.2);">
+                <div style="width:40px; height:40px; border-radius:50%; overflow:hidden; border:2px solid var(--green);">
+                  <img src="../<?= $currentUser['selfie_path'] ?>" style="width:100%; height:100%; object-fit:cover;">
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:.75rem; font-weight:700; color:var(--green);">Face ID Activé</div>
+                  <div style="font-size:.65rem; color:var(--muted);">Votre visage est enregistré comme référence.</div>
+                </div>
+                <button class="act-btn danger" title="Supprimer Face ID" onclick="if(confirm('Supprimer votre Face ID ?')) window.location.href='../../controller/UtilisateurController.php?action=delete_selfie_admin'"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+              </div>
+            <?php else: ?>
+              <div id="face-id-setup-admin">
+                <button class="btn-save" style="background:var(--blue-light); color:var(--blue); border:1px dashed var(--blue);" onclick="initAdminFaceSetup()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:.5rem"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/><circle cx="12" cy="12" r="3"/><path d="M16 16v1m-8-1v1"/></svg>
+                  Configurer mon Face ID
+                </button>
+              </div>
+              <div id="face-admin-zone" style="display:none; flex-direction:column; align-items:center; gap:.8rem;">
+                <video id="webcam-admin" autoplay playsinline style="width:100%; max-width:240px; border-radius:12px; background:#000;"></video>
+                <canvas id="canvas-admin" style="display:none;"></canvas>
+                <div id="face-admin-status" style="font-size:.7rem; color:var(--muted);">Regardez la caméra</div>
+                <div style="display:flex; gap:.4rem; width:100%;">
+                  <button type="button" class="btn-save" style="flex:1;" id="capture-admin-btn" onclick="captureAdminFace()">Capturer</button>
+                  <button type="button" class="mbtn-cancel" onclick="cancelAdminFace()">Annuler</button>
+                </div>
+              </div>
+            <?php endif; ?>
+          </div>
         </div>
       </div>
     </div>
@@ -949,28 +1049,79 @@ tr:hover td{background:var(--bg3);}
         }
       })();
     </script>
+
+    <?php elseif($page==='audit' && in_array('audit', $myModules)): ?>
     <div class="table-card">
-      <div class="table-toolbar">
-        <div class="table-toolbar-title">Inscriptions récentes (10 derniers)</div>
+      <div class="table-toolbar" style="flex-direction:column; align-items:stretch; gap:1rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="table-toolbar-title">Journal d'Audit (<?= count($logs) ?>)</div>
+            <a href="?page=audit" class="btn-ghost" style="font-size:.7rem;">Réinitialiser les filtres</a>
+        </div>
+        
+        <form method="GET" action="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:.8rem; background:var(--bg3); padding:1rem; border-radius:10px;">
+            <input type="hidden" name="page" value="audit">
+            
+            <div class="mfield">
+                <label class="mlabel" style="font-size:.6rem;">Administrateur</label>
+                <select name="audit_admin" class="mselect" style="padding:.35rem .6rem; font-size:.75rem;">
+                    <option value="">Tous les admins</option>
+                    <?php foreach($allAdmins as $adm): ?>
+                        <option value="<?= $adm['id'] ?>" <?= ($_GET['audit_admin']??'') == $adm['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($adm['nom'].' '.$adm['prenom']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <div class="mfield">
+                <label class="mlabel" style="font-size:.6rem;">Action</label>
+                <input type="text" name="audit_action" class="minput" style="padding:.35rem .6rem; font-size:.75rem;" placeholder="Ex: login, update..." value="<?= htmlspecialchars($_GET['audit_action']??'') ?>">
+            </div>
+            
+            <div class="mfield">
+                <label class="mlabel" style="font-size:.6rem;">Depuis le</label>
+                <input type="date" name="audit_from" class="minput" style="padding:.35rem .6rem; font-size:.75rem;" value="<?= htmlspecialchars($_GET['audit_from']??'') ?>">
+            </div>
+            
+            <div class="mfield">
+                <label class="mlabel" style="font-size:.6rem;">Jusqu'au</label>
+                <input type="date" name="audit_to" class="minput" style="padding:.35rem .6rem; font-size:.75rem;" value="<?= htmlspecialchars($_GET['audit_to']??'') ?>">
+            </div>
+            
+            <div style="display:flex; align-items:flex-end;">
+                <button type="submit" class="btn-primary" style="width:100%; justify-content:center; padding:.45rem;">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    Filtrer
+                </button>
+            </div>
+        </form>
       </div>
+      <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>Utilisateur</th><th>Email</th><th>Rôle</th><th>KYC</th><th>Statut</th><th>Date inscription</th></tr></thead>
+        <thead><tr><th>Date</th><th>Admin</th><th>Action</th><th>Cible</th><th>Détails</th><th>IP</th></tr></thead>
         <tbody>
-        <?php
-          $recent = \config::getConnexion()->query("SELECT * FROM utilisateur ORDER BY date_inscription DESC LIMIT 10")->fetchAll();
-          foreach($recent as $r): $ri=initials($r['nom'],$r['prenom']);
-        ?>
+        <?php foreach($logs as $l): ?>
         <tr>
-          <td><div style="display:flex;align-items:center;gap:.6rem"><div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#2563EB,#0D9488);display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;color:#fff"><?= $ri ?></div><?= htmlspecialchars($r['nom'].' '.$r['prenom']) ?></div></td>
-          <td><span class="td-mono"><?= htmlspecialchars($r['email']) ?></span></td>
-          <td><span class="<?= $r['role']==='CLIENT'?'r-client':'r-admin' ?>"><?= $r['role'] ?></span></td>
-          <td><span class="<?= badge_kyc($r['status_kyc']) ?>"><?= $r['status_kyc'] ?></span></td>
-          <td><span class="badge <?= badge_status($r['status']) ?>"><span class="badge-dot" style="background:<?= badge_dot($r['status']) ?>"></span><?= $r['status'] ?></span></td>
-          <td><span class="td-mono"><?= date('d/m/Y H:i',strtotime($r['date_inscription'])) ?></span></td>
+          <td style="white-space:nowrap"><span class="td-mono"><?= date('d/m/Y H:i', strtotime($l['created_at'])) ?></span></td>
+          <td style="white-space:nowrap"><div class="td-name"><?= htmlspecialchars(($l['admin_nom']??'').' '.($l['admin_prenom']??'')) ?></div></td>
+          <td style="white-space:nowrap"><span class="badge" style="background:var(--blue-light);color:var(--blue);border:none"><?= htmlspecialchars($l['action']) ?></span></td>
+          <td style="white-space:nowrap">
+            <?php if($l['target_user_id']): ?>
+              <span class="td-mono">#<?= $l['target_user_id'] ?></span> <?= htmlspecialchars(($l['target_nom']??'').' '.($l['target_prenom']??'')) ?>
+            <?php else: ?>
+              <span style="color:var(--muted)">-</span>
+            <?php endif; ?>
+          </td>
+          <td style="font-size:.72rem;color:var(--muted)"><?= htmlspecialchars($l['details']) ?></td>
+          <td><span class="td-mono" style="font-size:.65rem"><?= htmlspecialchars($l['ip_address']) ?></span></td>
         </tr>
         <?php endforeach; ?>
+        <?php if(empty($logs)): ?>
+        <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">Aucun journal trouvé.</td></tr>
+        <?php endif; ?>
         </tbody>
       </table>
+      </div>
     </div>
     <?php else: ?>
     <div style="text-align:center;padding:4rem;color:var(--muted)">
@@ -981,8 +1132,8 @@ tr:hover td{background:var(--bg3);}
     </div>
     <?php endif; ?>
   </div>
-</div>
 <?php if (isset($_GET['ajax'])) exit; ?>
+</div>
 <script>
 function loadPage(url, pushState = true) {
     const main = document.getElementById('main-content');
@@ -1031,6 +1182,18 @@ document.addEventListener('click', function(e) {
     if (href && href.startsWith('?page=')) {
         e.preventDefault();
         loadPage(href);
+    }
+});
+document.addEventListener('submit', function(e) {
+    const form = e.target;
+    if (form.method.toLowerCase() === 'get') {
+        const pageInput = form.querySelector('input[name="page"]');
+        if (pageInput) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            loadPage('?' + params.toString());
+        }
     }
 });
 window.onpopstate = function(e) {
@@ -1268,7 +1431,71 @@ document.addEventListener('click', function(e) {
     }
   }
 });
+
+let adminStream = null;
+async function initAdminFaceSetup() {
+  try {
+    adminStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    document.getElementById('webcam-admin').srcObject = adminStream;
+    document.getElementById('face-id-setup-admin').style.display = 'none';
+    document.getElementById('face-admin-zone').style.display = 'flex';
+  } catch (err) { alert("Erreur caméra : " + err.message); }
+}
+function cancelAdminFace() {
+  if(adminStream) adminStream.getTracks().forEach(t => t.stop());
+  document.getElementById('face-id-setup-admin').style.display = 'block';
+  document.getElementById('face-admin-zone').style.display = 'none';
+}
+async function captureAdminFace() {
+  const video = document.getElementById('webcam-admin');
+  const canvas = document.getElementById('canvas-admin');
+  const btn = document.getElementById('capture-admin-btn');
+  const status = document.getElementById('face-admin-status');
+  
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const imageData = canvas.toDataURL('image/jpeg', 0.8);
+  
+  btn.disabled = true;
+  status.innerText = "Enregistrement...";
+  
+  const formData = new FormData();
+  formData.append('action', 'setup_face_id_admin');
+  formData.append('image', imageData);
+  
+  try {
+    const resp = await fetch('../../controller/UtilisateurController.php', { method:'POST', body:formData });
+    const res = await resp.json();
+    if(res.success) {
+      status.innerHTML = "✅ Face ID configuré !";
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      status.innerText = res.error;
+      btn.disabled = false;
+    }
+  } catch (e) { status.innerText = "Erreur serveur"; btn.disabled = false; }
+}
 </script>
+
+<!-- ═══ MODAL DESACTIVER 2FA (ADMIN) ═══ -->
+<div class="modal-overlay" id="m-disable-2fa-admin" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('m-disable-2fa-admin').classList.remove('open')">x</button>
+    <div class="modal-title">Désactiver le 2FA</div>
+    <form method="POST" action="../../controller/UtilisateurController.php">
+      <input type="hidden" name="action" value="disable_2fa">
+      <div class="mfield">
+        <label class="mlabel">Mot de passe actuel *</label>
+        <input class="minput" type="password" name="mdp" required placeholder="Pour des raisons de sécurité">
+      </div>
+      <div class="mfoot">
+        <button type="button" class="mbtn-cancel" onclick="document.getElementById('m-disable-2fa-admin').classList.remove('open')">Annuler</button>
+        <button type="submit" class="mbtn-danger">Désactiver</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 </body>
 </html>
 <?php endif; ?>

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/Session.php';
 require_once __DIR__ . '/../model/Utilisateur.php';
+require_once __DIR__ . '/../model/AuditLog.php';
 Session::start();
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 $m      = new Utilisateur();
@@ -123,49 +124,99 @@ if ($action === 'upload_file') {
         header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
         exit;
     }
+    // --- Validate ID document ---
     if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-        Session::setFlash('error', 'Erreur lors du dépôt de l\'ID.');
+        Session::setFlash('error', 'Le document ID est requis.');
         header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
         exit;
     }
-    $file = $_FILES['file'];
-    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
-    $maxSize = 5 * 1024 * 1024; 
-    if (!in_array($file['type'], $allowedTypes)) {
-        Session::setFlash('error', 'Type de fichier non autorisé. Seuls JPEG, PNG, GIF et PDF sont acceptés pour l\'ID.');
+    // --- Validate selfie ---
+    if (!isset($_FILES['selfie']) || $_FILES['selfie']['error'] !== UPLOAD_ERR_OK) {
+        Session::setFlash('error', 'Le selfie est requis pour la vérification d\'identité.');
         header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
         exit;
+    }
+    $file   = $_FILES['file'];
+    $selfie = $_FILES['selfie'];
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+    $allowedSelfieTypes = ['image/jpeg', 'image/png'];
+    $maxSize = 5 * 1024 * 1024;
+    if (!in_array($file['type'], $allowedTypes)) {
+        Session::setFlash('error', 'Type de fichier ID non autorisé. Seuls JPEG, PNG, GIF et PDF sont acceptés.');
+        header('Location: ../view/FrontOffice/frontoffice_utilisateur.php'); exit;
     }
     if ($file['size'] > $maxSize) {
         Session::setFlash('error', 'L\'ID est trop volumineux. Taille maximale : 5MB.');
-        header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
-        exit;
+        header('Location: ../view/FrontOffice/frontoffice_utilisateur.php'); exit;
+    }
+    if (!in_array($selfie['type'], $allowedSelfieTypes)) {
+        Session::setFlash('error', 'Le selfie doit être au format JPEG ou PNG.');
+        header('Location: ../view/FrontOffice/frontoffice_utilisateur.php'); exit;
+    }
+    if ($selfie['size'] > $maxSize) {
+        Session::setFlash('error', 'Le selfie est trop volumineux. Taille maximale : 5MB.');
+        header('Location: ../view/FrontOffice/frontoffice_utilisateur.php'); exit;
     }
     $uploadDir = __DIR__ . '/../model/uploads/';
-    $cleanName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', basename($file['name']));
-    $fileName = uniqid() . '_' . $cleanName;
-    $filePath = $uploadDir . $fileName;
+    // Save ID document
+    $cleanName    = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', basename($file['name']));
+    $fileName     = uniqid() . '_' . $cleanName;
+    $filePath     = $uploadDir . $fileName;
     $relativePath = 'model/uploads/' . $fileName;
-    if (move_uploaded_file($file['tmp_name'], $filePath)) {
+    // Save selfie
+    $selfieClean    = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', basename($selfie['name']));
+    $selfieFileName = 'selfie_' . uniqid() . '_' . $selfieClean;
+    $selfieFullPath = $uploadDir . $selfieFileName;
+    $selfieRelative = 'model/uploads/' . $selfieFileName;
+
+    if (move_uploaded_file($file['tmp_name'], $filePath) && move_uploaded_file($selfie['tmp_name'], $selfieFullPath)) {
         try {
             $m->updateFilePath($id, $relativePath);
+
+            // --- OCR Scan ---
             require_once __DIR__ . '/../model/OcrApiService.php';
             $ocr = new OcrApiService();
             $ocrResult = $ocr->scanDocument($relativePath);
             if ($ocrResult['success']) {
                 $m->updateOcrResult($id, $ocrResult);
             }
-            Session::setFlash('success', 'ID déposé avec succès. Analyse automatique en cours.');
+
+            // --- Face Verification ---
+            require_once __DIR__ . '/../model/FaceVerificationService.php';
+            $faceService = new FaceVerificationService();
+            $faceResult  = $faceService->compareFaces($relativePath, $selfieRelative);
+
+            if ($faceResult['success']) {
+                $score = (float)$faceResult['score'];
+                $m->updateSelfie($id, $selfieRelative, $score);
+
+                $simNote = !empty($faceResult['simulated']) ? ' (mode simulation)' : '';
+
+                if ($score >= 80) {
+                    // Auto-validate KYC
+                    $m->updateStatuts($id, 'ACTIF', 'VERIFIE', $user['status_aml'], $user['role']);
+                    AuditLog::log((int)Session::get('user_id'), "KYC Auto-validé (Face++)", $id, "Score biométrique: {$score}/100{$simNote}");
+                    Session::setFlash('success', "✅ Identité vérifiée avec succès (score: {$score}/100) ! Votre compte est maintenant actif{$simNote}.");
+                } else {
+                    AuditLog::log((int)Session::get('user_id'), "Vérification faciale échouée", $id, "Score biométrique insuffisant: {$score}/100{$simNote}");
+                    Session::setFlash('error', "⚠️ Vérification biométrique insuffisante (score: {$score}/100). Votre dossier est en attente de validation manuelle.");
+                }
+            } else {
+                Session::setFlash('success', 'ID déposé. Vérification biométrique en attente : ' . ($faceResult['error'] ?? 'erreur inconnue'));
+            }
+
         } catch (Exception $e) {
-            unlink($filePath);
-            Session::setFlash('error', 'Erreur lors de la sauvegarde en base de données.');
+            if (file_exists($filePath)) unlink($filePath);
+            if (file_exists($selfieFullPath)) unlink($selfieFullPath);
+            Session::setFlash('error', 'Erreur lors de la sauvegarde : ' . $e->getMessage());
         }
     } else {
-        Session::setFlash('error', 'Erreur lors de la sauvegarde de l\'ID.');
+        Session::setFlash('error', 'Erreur lors de la sauvegarde des fichiers.');
     }
     header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
     exit;
 }
+
 if ($action === 'admin_add') {
     Session::requireAdmin('../view/FrontOffice/login.php');
     $nom            = trim($_POST['nom']            ?? '');
@@ -235,6 +286,10 @@ if ($action === 'admin_add') {
         $m->setAdresse($adresse); $m->setCin($cin);
         $m->setRole($role);
         $m->create();
+        
+        $newId = (int)config::getConnexion()->lastInsertId();
+        AuditLog::log((int)Session::get('user_id'), "Création d'utilisateur ($role)", $newId, "Email: $email, Nom: $nom $prenom");
+
         Session::remove('old_admin_add');
         Session::setFlash('success', 'Utilisateur ajoute.');
     } catch (Exception $e) {
@@ -291,7 +346,20 @@ if ($action === 'admin_edit') {
     }
     try {
         $m->updateProfil($id, compact('nom','prenom','numTel','adresse'));
-        $m->updateStatuts($id, $status, $status_kyc, $status_aml, $role); 
+        $m->updateStatuts($id, $status, $status_kyc, $status_aml, $role);
+
+        // Build a specific diff log
+        $changes = [];
+        if ($existingUser['nom'] !== $nom)        $changes[] = "Nom: '{$existingUser['nom']}' → '$nom'";
+        if ($existingUser['prenom'] !== $prenom)  $changes[] = "Prénom: '{$existingUser['prenom']}' → '$prenom'";
+        if ($existingUser['numTel'] !== $numTel)  $changes[] = "Tél: '{$existingUser['numTel']}' → '$numTel'";
+        if ($existingUser['adresse'] !== $adresse) $changes[] = "Adresse modifiée";
+        if ($existingUser['status'] !== $status)   $changes[] = "Statut: '{$existingUser['status']}' → '$status'";
+        if ($existingUser['status_kyc'] !== $status_kyc) $changes[] = "KYC: '{$existingUser['status_kyc']}' → '$status_kyc'";
+        if ($existingUser['status_aml'] !== $status_aml) $changes[] = "AML: '{$existingUser['status_aml']}' → '$status_aml'";
+        $details = !empty($changes) ? implode(' | ', $changes) : 'Aucune modification détectée';
+        AuditLog::log((int)Session::get('user_id'), "Modification profil", $id, $details);
+
         Session::remove('old_admin_edit');
         Session::setFlash('success', 'Utilisateur modifie.');
     } catch (Exception $e) {
@@ -318,6 +386,7 @@ if ($action === 'admin_reset_pwd') {
     }
     try {
         $m->resetPassword($id, $newMdp);
+        AuditLog::log((int)Session::get('user_id'), "Réinitialisation mot de passe", $id);
         Session::setFlash('success', "Mot de passe reinitialise : $newMdp");
     } catch (Exception $e) {
         Session::setFlash('error', $e->getMessage());
@@ -336,6 +405,7 @@ if ($action === 'admin_delete') {
         header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
     }
     $m->delete($id);
+    AuditLog::log((int)Session::get('user_id'), "Suppression d'utilisateur", $id);
     Session::setFlash('success', 'Utilisateur supprime.');
     header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
 }
@@ -347,6 +417,7 @@ if ($action === 'valider_kyc') {
         header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
     }
     $m->updateStatuts($id, 'ACTIF', 'VERIFIE', 'CONFORME', $_POST['role'] ?? 'CLIENT');
+    AuditLog::log((int)Session::get('user_id'), "Validation KYC", $id);
     Session::setFlash('success', 'KYC valide.');
     header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
 }
@@ -362,6 +433,7 @@ if ($action === 'bloquer') {
         header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
     }
     $m->updateStatuts($id, 'SUSPENDU', $_POST['kyc'] ?? 'EN_ATTENTE', $_POST['aml'] ?? 'EN_ATTENTE', $_POST['role'] ?? 'CLIENT');
+    AuditLog::log((int)Session::get('user_id'), "Blocage / Suspension de compte", $id);
     Session::setFlash('success', 'Compte bloque.');
     header('Location: ../view/backoffice/backoffice_utilisateur.php'); exit;
 }
@@ -375,6 +447,7 @@ if ($action === 'admin_set_association') {
     }
     try {
         $m->updateAssociation($id, $assoc);
+        AuditLog::log((int)Session::get('user_id'), "Modification association", $id, $assoc ? 'Associé' : 'Non associé');
         Session::setFlash('success', 'Association mise à jour.');
     } catch (Exception $e) {
         Session::setFlash('error', $e->getMessage());
@@ -400,6 +473,7 @@ if ($action === 'admin_delete_file') {
         }
         try {
             $m->updateFilePath($id, '');
+            AuditLog::log((int)Session::get('user_id'), "Suppression document ID", $id);
             Session::setFlash('success', 'Fichier supprimé.');
         } catch (Exception $e) {
             Session::setFlash('error', $e->getMessage());
@@ -437,6 +511,9 @@ if ($action === 'scan_aml') {
     }
     $score = $apiResult['aml_score'];
     $m->updateAmlScore($id, $score, $apiResult['aml_reasons']);
+    
+    AuditLog::log((int)Session::get('user_id'), "Scan AML", $id, "Score: $score/100");
+
     if ($score > 70) {
         $m->updateStatuts($id, 'SUSPENDU', $user['status_kyc'], 'ALERTE', $user['role']);
         Session::setFlash('error', "Alerte de fraude ! Score AML : $score/100. Le compte a été automatiquement suspendu.");
@@ -462,10 +539,98 @@ if ($action === 'scan_ocr') {
     $ocrResult = $ocr->scanDocument($user['id_file_path']);
     if ($ocrResult['success']) {
         $m->updateOcrResult($id, $ocrResult);
+        AuditLog::log((int)Session::get('user_id'), "Scan OCR", $id, "Confiance: " . ($ocrResult['confiance'] ?? '0'));
         Session::setFlash('success', 'Analyse OCR terminée.');
     } else {
         Session::setFlash('error', 'Échec de l\'analyse OCR.');
     }
     header('Location: ../view/backoffice/backoffice_utilisateur.php?page=utilisateurs&detail=' . $id); exit;
 }
+
+if ($action === 'enable_2fa') {
+    Session::requireLogin('../view/FrontOffice/login.php');
+    $id = (int) Session::get('user_id');
+    $code = trim($_POST['code'] ?? '');
+    $secret = trim($_POST['secret'] ?? '');
+
+    require_once __DIR__ . '/../model/GoogleAuthenticator.php';
+    $ga = new GoogleAuthenticator();
+
+    if (empty($code) || empty($secret)) {
+        Session::setFlash('error', 'Code invalide.');
+        header('Location: ../view/FrontOffice/2fa_setup.php'); exit;
+    }
+
+    if ($ga->verifyCode($secret, $code, 2)) {
+        $m->update2FA($id, $secret, 1);
+        Session::setFlash('success', 'Authentification à deux facteurs activée avec succès.');
+        $redirect = (Session::isAdmin()) ? '../view/backoffice/backoffice_utilisateur.php?page=profil' : '../view/FrontOffice/frontoffice_utilisateur.php';
+        header("Location: $redirect"); exit;
+    } else {
+        Session::setFlash('error', 'Code incorrect. Veuillez réessayer.');
+        header('Location: ../view/FrontOffice/2fa_setup.php'); exit;
+    }
+}
+
+if ($action === 'setup_face_id_biometric' || $action === 'setup_face_id_admin') {
+    Session::requireLogin('../view/FrontOffice/login.php');
+    $id = (int) Session::get('user_id');
+    $imageData = $_POST['image'] ?? '';
+    
+    if (empty($imageData)) {
+        echo json_encode(['success' => false, 'error' => 'Image requise.']); exit;
+    }
+
+    $imageData = str_replace('data:image/jpeg;base64,', '', $imageData);
+    $imageData = str_replace(' ', '+', $imageData);
+    $data = base64_decode($imageData);
+    
+    $fileName = 'selfie_' . $id . '_' . uniqid() . '.jpg';
+    $path = __DIR__ . '/../model/uploads/' . $fileName;
+    file_put_contents($path, $data);
+    $relative = 'model/uploads/' . $fileName;
+
+    try {
+        $m->updateSelfie($id, $relative, 100); 
+        AuditLog::log($id, "Configuration Face ID", $id);
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'delete_selfie_admin' || $action === 'delete_selfie_client') {
+    Session::requireLogin('../view/FrontOffice/login.php');
+    $id = (int) Session::get('user_id');
+    $user = $m->findById($id);
+    if (!empty($user['selfie_path'])) {
+        $fullPath = __DIR__ . '/../' . $user['selfie_path'];
+        if (file_exists($fullPath)) unlink($fullPath);
+        $m->updateSelfie($id, '', 0);
+        AuditLog::log($id, "Suppression Face ID", $id);
+        Session::setFlash('success', 'Face ID supprimé.');
+    }
+    $redirect = (in_array($user['role'], ['ADMIN','SUPER_ADMIN'])) ? '../view/backoffice/backoffice_utilisateur.php?page=profil' : '../view/FrontOffice/frontoffice_utilisateur.php';
+    header('Location: ' . $redirect); exit;
+}
+
+if ($action === 'disable_2fa') {
+    Session::requireLogin('../view/FrontOffice/login.php');
+    $id = (int) Session::get('user_id');
+    $mdp = $_POST['mdp'] ?? '';
+    
+    $user = $m->findById($id);
+    $redirect = (Session::isAdmin()) ? '../view/backoffice/backoffice_utilisateur.php?page=profil' : '../view/FrontOffice/frontoffice_utilisateur.php';
+
+    if (!$m->verifyPassword($mdp, $user['mdp'])) {
+        Session::setFlash('error', 'Mot de passe incorrect.');
+        header("Location: $redirect"); exit;
+    }
+    
+    $m->update2FA($id, null, 0);
+    Session::setFlash('success', 'Authentification à deux facteurs désactivée.');
+    header("Location: $redirect"); exit;
+}
+
 header('Location: ../view/FrontOffice/login.php'); exit;

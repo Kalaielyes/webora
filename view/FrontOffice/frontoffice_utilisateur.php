@@ -195,7 +195,50 @@ function oldProfil(string $key, array $old, array $user): string {
         <div class="section-head"><div class="section-title">Sécurité du compte</div></div>
         <div class="security-card">
           <div class="sec-item"><div class="sec-left"><div class="sec-icon" style="background:rgba(79,142,247,.1)"><svg width="16" height="16" fill="none" stroke="var(--blue)" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div><div><div class="sec-title">Mot de passe</div><div class="sec-desc">Cliquez pour modifier</div></div></div><button class="btn-ghost" style="font-size:.7rem;padding:.22rem .6rem" onclick="document.getElementById('m-pwd').classList.add('open')">Changer</button></div>
-          <div class="sec-item"><div class="sec-left"><div class="sec-icon" style="background:rgba(34,197,94,.1)"><svg width="16" height="16" fill="none" stroke="var(--green)" stroke-width="1.8" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div><div><div class="sec-title">2FA SMS</div><div class="sec-desc">Authentification active</div></div></div><div class="toggle on"><div class="toggle-knob"></div></div></div>
+          <div class="sec-item">
+            <div class="sec-left">
+              <div class="sec-icon" style="background:rgba(34,197,94,.1)">
+                <svg width="16" height="16" fill="none" stroke="var(--green)" stroke-width="1.8" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+              </div>
+              <div>
+                <div class="sec-title">Authentification à 2 facteurs (2FA)</div>
+                <div class="sec-desc"><?= $user['two_factor_enabled'] == 1 ? 'Authentification active' : 'Authentification inactive' ?></div>
+              </div>
+            </div>
+            <?php if($user['two_factor_enabled'] == 1): ?>
+              <button class="btn-ghost" style="color:var(--rose); font-size:.7rem;padding:.22rem .6rem" onclick="document.getElementById('m-disable-2fa').classList.add('open')">Désactiver</button>
+            <?php else: ?>
+              <a href="2fa_setup.php" class="btn-primary" style="font-size:.7rem;padding:.22rem .6rem;text-decoration:none;">Activer</a>
+            <?php endif; ?>
+          </div>
+
+          <!-- 🤳 FACE ID SETUP -->
+          <div class="sec-item">
+            <div class="sec-left">
+              <div class="sec-icon" style="background:rgba(79,142,247,.1)">
+                <svg width="16" height="16" fill="none" stroke="var(--blue)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/><circle cx="12" cy="12" r="3"/><path d="M16 16v1m-8-1v1"/></svg>
+              </div>
+              <div>
+                <div class="sec-title">Connexion Face ID</div>
+                <div class="sec-desc"><?= !empty($user['selfie_path']) ? 'Reconnaissance faciale active' : 'Non configurée' ?></div>
+              </div>
+            </div>
+            <?php if(!empty($user['selfie_path'])): ?>
+              <button class="btn-ghost" style="color:var(--rose); font-size:.7rem;padding:.22rem .6rem" onclick="if(confirm('Désactiver le Face ID ?')) window.location.href='../../controller/UtilisateurController.php?action=delete_selfie_client'">Supprimer</button>
+            <?php else: ?>
+              <button class="btn-primary" style="font-size:.7rem;padding:.22rem .6rem" onclick="initClientFaceId()">Activer</button>
+            <?php endif; ?>
+          </div>
+          
+          <div id="face-client-zone" style="display:none; flex-direction:column; align-items:center; gap:.8rem; padding:1.5rem; background:var(--bg3); border-radius:12px; margin-top:.5rem; border:1px dashed var(--border);">
+            <video id="webcam-client" autoplay playsinline style="width:100%; max-width:240px; border-radius:12px; background:#000;"></video>
+            <canvas id="canvas-client" style="display:none;"></canvas>
+            <div id="face-client-status" style="font-size:.7rem; color:var(--muted); text-align:center;">Centrez votre visage</div>
+            <div style="display:flex; gap:.4rem; width:100%;">
+              <button type="button" class="btn-primary" style="flex:1; font-size:.75rem;" id="capture-client-btn" onclick="captureClientFace()">Enregistrer mon visage</button>
+              <button type="button" class="btn-ghost" style="font-size:.75rem;" onclick="cancelClientFace()">Annuler</button>
+            </div>
+          </div>
           
           <!-- 🌍 CARTE DE SÉCURITÉ CLIENT -->
           <div class="sec-item" style="flex-direction:column;align-items:stretch;gap:.8rem;border-bottom:none">
@@ -293,27 +336,128 @@ function oldProfil(string $key, array $old, array $user): string {
   </div>
 </div>
 
-<!-- ═══ MODAL DEPOT FICHIER ═══ -->
+<!-- ═══ MODAL DEPOT FICHIER + SELFIE ═══ -->
 <div class="modal-overlay" id="m-upload" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal">
+  <div class="modal" style="max-width:500px">
     <button class="modal-close" onclick="document.getElementById('m-upload').classList.remove('open')">x</button>
-    <div class="modal-title">Déposer votre ID</div>
+    <div class="modal-title">🪪 Vérification d'Identité</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:1.2rem;line-height:1.5;">
+      Pour valider votre identité automatiquement, veuillez déposer votre <strong>CIN/Passeport</strong> et prendre un <strong>selfie</strong>. Notre système comparera les deux images.
+    </p>
     <form method="POST" action="../../controller/UtilisateurController.php" enctype="multipart/form-data">
       <input type="hidden" name="action" value="upload_file">
+
+      <!-- ID Document -->
       <div class="mf">
-        <label class="ml">Sélectionner votre ID *</label>
-        <input class="mi" type="file" name="file" accept=".jpg,.jpeg,.png,.gif,.pdf" required>
-        <div style="font-size:.7rem;color:var(--muted);margin-top:.3rem">Formats acceptés : JPEG, PNG, GIF, PDF. Taille max : 5MB.</div>
+        <label class="ml">📄 Document d'identité (CIN / Passeport) *</label>
+        <input class="mi" type="file" name="file" id="id-file-input" accept=".jpg,.jpeg,.png,.gif,.pdf" required onchange="previewFile(this,'id-preview')">
+        <div style="font-size:.7rem;color:var(--muted);margin-top:.3rem">Formats : JPEG, PNG, GIF, PDF. Max : 5MB.</div>
+        <img id="id-preview" src="" alt="Aperçu ID" style="display:none;margin-top:.6rem;max-height:120px;border-radius:8px;border:1px solid var(--border);object-fit:cover;width:100%">
       </div>
-      <div class="mfoot">
+
+      <!-- Selfie -->
+      <div class="mf" style="margin-top:.8rem">
+        <label class="ml">🤳 Selfie (votre visage visible) *</label>
+        <input class="mi" type="file" name="selfie" id="selfie-input" accept="image/jpeg,image/png" capture="user" required onchange="previewFile(this,'selfie-preview')">
+        <div style="font-size:.7rem;color:var(--muted);margin-top:.3rem">Format : JPEG ou PNG. Max : 5MB. Assurez-vous que votre visage est bien visible.</div>
+        <img id="selfie-preview" src="" alt="Aperçu Selfie" style="display:none;margin-top:.6rem;max-height:120px;border-radius:8px;border:1px solid var(--border);object-fit:cover;width:100%">
+      </div>
+
+      <div style="background:rgba(79,142,247,.06);border:1px solid rgba(79,142,247,.2);border-radius:10px;padding:.7rem .9rem;font-size:.72rem;color:var(--blue);margin-top:1rem;line-height:1.5;">
+        🔒 <strong>Sécurisé :</strong> Vos données biométriques sont utilisées uniquement pour la vérification KYC et ne sont jamais partagées avec des tiers.
+      </div>
+
+      <div class="mfoot" style="margin-top:1rem">
         <button type="button" class="btn-ghost" onclick="document.getElementById('m-upload').classList.remove('open')">Annuler</button>
-        <button type="submit" class="btn-primary">Télécharger</button>
+        <button type="submit" class="btn-primary">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Vérifier mon identité
+        </button>
       </div>
     </form>
   </div>
 </div>
 
 <script>
+function previewFile(input, previewId) {
+  var preview = document.getElementById(previewId);
+  var file = input.files[0];
+  if (file && file.type.startsWith('image/')) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  } else {
+    preview.style.display = 'none';
+  }
+}
+</script>
+
+<!-- ═══ MODAL DESACTIVER 2FA ═══ -->
+<div class="modal-overlay" id="m-disable-2fa" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('m-disable-2fa').classList.remove('open')">x</button>
+    <div class="modal-title">Désactiver le 2FA</div>
+    <form method="POST" action="../../controller/UtilisateurController.php">
+      <input type="hidden" name="action" value="disable_2fa">
+      <div class="mf">
+        <label class="ml">Mot de passe actuel *</label>
+        <input class="mi" type="password" name="mdp" required placeholder="Pour des raisons de sécurité">
+      </div>
+      <div class="mfoot">
+        <button type="button" class="btn-ghost" onclick="document.getElementById('m-disable-2fa').classList.remove('open')">Annuler</button>
+        <button type="submit" class="btn-primary" style="background:var(--rose);border-color:var(--rose);">Désactiver</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+let clientStream = null;
+async function initClientFaceId() {
+  try {
+    clientStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    document.getElementById('webcam-client').srcObject = clientStream;
+    document.getElementById('face-client-zone').style.display = 'flex';
+    document.getElementById('face-client-zone').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) { alert("Caméra indisponible : " + err.message); }
+}
+function cancelClientFace() {
+  if(clientStream) clientStream.getTracks().forEach(t => t.stop());
+  document.getElementById('face-client-zone').style.display = 'none';
+}
+async function captureClientFace() {
+  const video = document.getElementById('webcam-client');
+  const canvas = document.getElementById('canvas-client');
+  const btn = document.getElementById('capture-client-btn');
+  const status = document.getElementById('face-client-status');
+  
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const imageData = canvas.toDataURL('image/jpeg', 0.8);
+  
+  btn.disabled = true;
+  status.innerText = "Traitement biométrique...";
+  
+  const formData = new FormData();
+  formData.append('action', 'setup_face_id_biometric');
+  formData.append('image', imageData);
+  
+  try {
+    const resp = await fetch('../../controller/UtilisateurController.php', { method:'POST', body:formData });
+    const res = await resp.json();
+    if(res.success) {
+      status.innerHTML = "✅ Face ID activé avec succès !";
+      setTimeout(() => location.reload(), 1200);
+    } else {
+      status.innerText = res.error;
+      btn.disabled = false;
+    }
+  } catch (e) { status.innerText = "Erreur de connexion"; btn.disabled = false; }
+}
+
 <?php if ($openModal): ?>
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('<?= $openModal ?>').classList.add('open');

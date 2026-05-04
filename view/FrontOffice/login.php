@@ -115,7 +115,11 @@ body{align-items:center;justify-content:center;overflow:hidden;}
 .or-divider{display:flex;align-items:center;gap:.75rem;margin:1.2rem 0;font-size:.72rem;color:var(--muted);}
 .or-divider::before,.or-divider::after{content:'';flex:1;border-top:1px solid var(--border);}
 .form-foot{margin-top:1.5rem;display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.7rem;color:var(--muted);}
-@media(max-width:768px){.brand-panel{display:none;}.form-panel{padding:2rem 1.5rem;}}
+.btn-face{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:.75rem 1rem;font-size:.85rem;font-weight:600;font-family:var(--fb);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.6rem;transition:all .15s;margin-top:.8rem;}
+.btn-face:hover{border-color:var(--blue);background:rgba(37,99,235,.04);}
+.face-container{display:none;flex-direction:column;align-items:center;gap:1rem;margin:1rem 0;animation:fadeUp .3s ease;}
+.face-video{width:100%;max-width:320px;height:240px;border-radius:12px;background:#000;object-fit:cover;border:2px solid var(--border);}
+.face-status{font-size:.75rem;color:var(--muted);text-align:center;}
 </style>
 </head>
 <body>
@@ -192,8 +196,21 @@ body{align-items:center;justify-content:center;overflow:hidden;}
         </button>
       </form>
       <div class="or-divider">Ou</div>
-      <div class="form-foot">
-        
+      <div id="login-standard">
+        <button type="button" class="btn-face" onclick="initFaceId()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/><path d="M16 8s-1.5 2-4 2-4-2-4-2"/><path d="M9 13h.01"/><path d="M15 13h.01"/></svg>
+          Se connecter avec Face ID
+        </button>
+      </div>
+
+      <div id="face-login-zone" class="face-container">
+        <video id="webcam" autoplay playsinline class="face-video"></video>
+        <canvas id="photo-canvas" style="display:none;"></canvas>
+        <div id="face-status" class="face-status">Positionnez votre visage devant la caméra</div>
+        <div style="display:flex;gap:.5rem;width:100%;">
+          <button type="button" class="btn-submit" id="capture-btn" onclick="captureFace()">Scanner mon visage</button>
+          <button type="button" class="btn-ghost" style="padding:.7rem;border-radius:10px;" onclick="cancelFace()">Annuler</button>
+        </div>
       </div>
     </div>
   </div>
@@ -203,6 +220,74 @@ function togglePwd(){
   var i=document.getElementById('mdp'),e=document.getElementById('eye-icon');
   if(i.type==='password'){i.type='text';e.innerHTML='<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';}
   else{i.type='password';e.innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';}
+}
+
+let stream = null;
+async function initFaceId() {
+  const email = document.querySelector('input[name="email"]').value;
+  if(!email) {
+    alert("Veuillez d'abord saisir votre adresse e-mail.");
+    return;
+  }
+  
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    const video = document.getElementById('webcam');
+    video.srcObject = stream;
+    document.getElementById('login-standard').style.display = 'none';
+    document.querySelector('form').style.display = 'none';
+    document.getElementById('face-login-zone').style.display = 'flex';
+  } catch (err) {
+    alert("Impossible d'accéder à la caméra : " + err.message);
+  }
+}
+
+function cancelFace() {
+  if(stream) stream.getTracks().forEach(t => t.stop());
+  document.getElementById('login-standard').style.display = 'block';
+  document.querySelector('form').style.display = 'block';
+  document.getElementById('face-login-zone').style.display = 'none';
+}
+
+async function captureFace() {
+  const video = document.getElementById('webcam');
+  const canvas = document.getElementById('photo-canvas');
+  const status = document.getElementById('face-status');
+  const btn = document.getElementById('capture-btn');
+  const email = document.querySelector('input[name="email"]').value;
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  
+  const imageData = canvas.toDataURL('image/jpeg', 0.8);
+  
+  status.innerHTML = "Vérification en cours...";
+  btn.disabled = true;
+  
+  const formData = new FormData();
+  formData.append('action', 'login_face');
+  formData.append('email', email);
+  formData.append('image', imageData);
+  
+  try {
+    const resp = await fetch('../../controller/AuthController.php', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await resp.json();
+    
+    if(result.success) {
+      status.innerHTML = "Vérification réussie ! Redirection...";
+      setTimeout(() => window.location.href = result.redirect, 1000);
+    } else {
+      status.innerHTML = '<span style="color:var(--rose)">' + result.error + '</span>';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    status.innerHTML = '<span style="color:var(--rose)">Erreur de connexion au serveur.</span>';
+    btn.disabled = false;
+  }
 }
 </script>
 </body></html>

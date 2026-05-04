@@ -18,6 +18,11 @@ class Utilisateur {
     private int    $niveau_acces = 1;
     private string $id_file_path = '';
     private bool   $association  = false;
+    private ?string $two_factor_secret = null;
+    private int $two_factor_enabled = 0;
+    private ?string $verification_code = null;
+    private int $is_verified = 0;
+
     public function __construct() {
         $this->db = config::getConnexion();
     }
@@ -36,6 +41,9 @@ class Utilisateur {
     public function getNiveauAcces()   : int    { return $this->niveau_acces; }
     public function getIdFilePath()   : string { return $this->id_file_path; }
     public function getAssociation()  : bool   { return $this->association; }
+    public function getTwoFactorSecret() : ?string { return $this->two_factor_secret; }
+    public function getTwoFactorEnabled() : int { return $this->two_factor_enabled; }
+
     public function setNom(string $v) : void {
         $v = trim($v);
         if (empty($v)) {
@@ -199,6 +207,13 @@ class Utilisateur {
     public function setAssociation(bool $v) : void {
         $this->association = $v;
     }
+    public function setTwoFactorSecret(?string $v) : void {
+        $this->two_factor_secret = $v;
+    }
+    public function setTwoFactorEnabled(int $v) : void {
+        $this->two_factor_enabled = $v;
+    }
+
     public function verifyPassword(string $plain, string $hash) : bool {
         return password_verify($plain, $hash);
     }
@@ -266,20 +281,47 @@ class Utilisateur {
         $this->validateForCreate();
         $s = $this->db->prepare(
             "INSERT INTO utilisateur (nom,prenom,email,mdp,numTel,date_naissance,adresse,cin,
-             status_kyc,status_aml,status,role,niveau_acces,id_file_path,association,date_creation,date_inscription)
+             status_kyc,status_aml,status,role,niveau_acces,id_file_path,association,date_creation,date_inscription,
+             verification_code,is_verified)
              VALUES (:nom,:prenom,:email,:mdp,:numTel,:dn,:adresse,:cin,
-             :skyc,:saml,:status,:role,:na,:file_path,:assoc,CURDATE(),NOW())"
+             :skyc,:saml,:status,:role,:na,:file_path,:assoc,CURDATE(),NOW(),
+             :vcode, :isv)"
         );
         $s->execute([
-            ':nom'=>$this->nom, ':prenom'=>$this->prenom, ':email'=>$this->email,
-            ':mdp'=>$this->mdp, ':numTel'=>$this->numTel, ':dn'=>$this->date_naissance,
-            ':adresse'=>$this->adresse, ':cin'=>$this->cin,
-            ':skyc'=>$this->status_kyc, ':saml'=>$this->status_aml,
-            ':status'=>$this->status, ':role'=>$this->role, ':na'=>$this->niveau_acces,
-            ':file_path'=>$this->id_file_path, ':assoc'=>(int)$this->association,
+            ':nom'       => $this->nom,
+            ':prenom'    => $this->prenom,
+            ':email'     => $this->email,
+            ':mdp'       => password_hash($this->mdp, PASSWORD_BCRYPT, ['cost' => 12]),
+            ':numTel'    => $this->numTel,
+            ':dn'        => $this->date_naissance,
+            ':adresse'   => $this->adresse,
+            ':cin'       => $this->cin,
+            ':skyc'      => $this->status_kyc,
+            ':saml'      => $this->status_aml,
+            ':status'    => $this->status,
+            ':role'      => $this->role,
+            ':na'        => $this->niveau_acces,
+            ':file_path' => $this->id_file_path,
+            ':assoc'     => (int)$this->association,
+            ':vcode'     => $this->verification_code,
+            ':isv'       => (int)$this->is_verified
         ]);
         $this->id = (int) $this->db->lastInsertId();
         return $this->id;
+    }
+    public function setVerificationCode(?string $v) : void {
+        $this->verification_code = $v;
+    }
+    public function setIsVerified(int $v) : void {
+        $this->is_verified = $v;
+    }
+    public function updateVerificationCode(int $id, ?string $code) : bool {
+        $s = $this->db->prepare("UPDATE utilisateur SET verification_code=:code WHERE id=:id");
+        return $s->execute([':code' => $code, ':id' => $id]);
+    }
+    public function verifyEmail(int $id) : bool {
+        $s = $this->db->prepare("UPDATE utilisateur SET is_verified=1, verification_code=NULL, status='ACTIF' WHERE id=:id");
+        return $s->execute([':id' => $id]);
     }
     public function updateProfil(int $id, array $data) : bool {
         $this->setNom($data['nom'] ?? '');
@@ -400,5 +442,17 @@ class Utilisateur {
         $sql = "UPDATE utilisateur SET last_ip = ?, last_city = ?, last_lat = ?, last_long = ? WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([$ip, $city, $lat, $long, $id]);
+    }
+
+    public function update2FA(int $id, ?string $secret, int $enabled) : bool {
+        $this->setTwoFactorSecret($secret);
+        $this->setTwoFactorEnabled($enabled);
+        $s = $this->db->prepare("UPDATE utilisateur SET two_factor_secret=:sec, two_factor_enabled=:en WHERE id=:id");
+        return $s->execute([':sec'=>$secret, ':en'=>$enabled, ':id'=>$id]);
+    }
+
+    public function updateSelfie(int $id, string $selfiePath, float $score): bool {
+        $s = $this->db->prepare("UPDATE utilisateur SET selfie_path=:sp, face_match_score=:score WHERE id=:id");
+        return $s->execute([':sp' => $selfiePath, ':score' => $score, ':id' => $id]);
     }
 }

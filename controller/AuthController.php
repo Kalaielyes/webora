@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/Session.php';
 require_once __DIR__ . '/../model/Utilisateur.php';
+require_once __DIR__ . '/../model/MailService.php';
 Session::start();
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 if (!function_exists('str_contains')) {
@@ -41,6 +42,14 @@ if ($action === 'login') {
         exit;
     }
     if ($user['status'] !== 'ACTIF') {
+        if (isset($user['is_verified']) && $user['is_verified'] == 0) {
+            $errors['general'] = 'Votre adresse e-mail n\'est pas encore vérifiée. Veuillez vérifier vos e-mails.';
+            Session::set('temp_verify_user_id', $user['id']);
+            Session::set('temp_verify_email', $user['email']);
+            Session::setFlash('error', 'Veuillez vérifier votre e-mail pour activer votre compte.');
+            header('Location: ../view/FrontOffice/verify_email.php');
+            exit;
+        }
         $errors['general'] = 'Compte suspendu ou inactif. Contactez le support.';
         Session::set('login_errors', $errors);
         Session::setFlash('error', 'Compte suspendu ou inactif. Contactez le support.');
@@ -50,6 +59,14 @@ if ($action === 'login') {
     }
     Session::remove('old_login');
     Session::remove('login_errors');
+
+    // 2FA Check
+    if (isset($user['two_factor_enabled']) && $user['two_factor_enabled'] == 1) {
+        Session::set('temp_2fa_user_id', $user['id']);
+        header('Location: ../view/FrontOffice/2fa_challenge.php');
+        exit;
+    }
+
     Session::set('user_id',      $user['id']);
     Session::set('user_nom',     $user['nom']);
     Session::set('user_prenom',  $user['prenom']);
@@ -75,7 +92,116 @@ if ($action === 'login') {
         header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
     }
     exit;
+    exit;
 }
+
+if ($action === 'verify_2fa') {
+    $code = trim($_POST['code'] ?? '');
+    $tempUserId = Session::get('temp_2fa_user_id');
+
+    if (!$tempUserId) {
+        header('Location: ../view/FrontOffice/login.php');
+        exit;
+    }
+
+    $m = new Utilisateur();
+    $user = $m->findById($tempUserId);
+
+    if (!$user || $user['two_factor_enabled'] != 1) {
+        header('Location: ../view/FrontOffice/login.php');
+        exit;
+    }
+
+    require_once __DIR__ . '/../model/GoogleAuthenticator.php';
+    $ga = new GoogleAuthenticator();
+
+    if ($ga->verifyCode($user['two_factor_secret'], $code, 2)) {
+        // Success, log them in
+        Session::remove('temp_2fa_user_id');
+        Session::remove('login_errors');
+        
+        Session::set('user_id',      $user['id']);
+        Session::set('user_nom',     $user['nom']);
+        Session::set('user_prenom',  $user['prenom']);
+        Session::set('user_email',   $user['email']);
+        Session::set('user_cin',     $user['cin']);
+        Session::set('status_kyc',   $user['status_kyc']);
+        Session::set('status_aml',   $user['status_aml']);
+        Session::set('role',         $user['role']);
+        Session::set('niveau_acces', $user['niveau_acces']);
+        
+        $m->updateDerniereConnexion($user['id']);
+        
+        $ip = $_SERVER['REMOTE_ADDR'];
+        if ($ip === '::1' || $ip === '127.0.0.1') $ip = '196.203.221.129'; 
+        $geoJson = @file_get_contents("http://ip-api.com/json/{$ip}");
+        if ($geoJson) {
+            $geo = json_decode($geoJson, true);
+            if ($geo && $geo['status'] === 'success') {
+                $m->updateGeoLocation($user['id'], $ip, $geo['city'], $geo['lat'], $geo['lon']);
+            }
+        }
+        
+        if (in_array($user['role'], ['ADMIN','SUPER_ADMIN'])) {
+            header('Location: ../view/backoffice/backoffice_utilisateur.php');
+        } else {
+            header('Location: ../view/FrontOffice/frontoffice_utilisateur.php');
+        }
+        exit;
+    } else {
+        Session::set('login_errors', ['code' => 'Code incorrect. Veuillez réessayer.']);
+        header('Location: ../view/FrontOffice/2fa_challenge.php');
+        exit;
+    }
+}
+
+if ($action === 'verify_otp') {
+    $code = trim($_POST['code'] ?? '');
+    $userId = Session::get('temp_verify_user_id');
+
+    if (!$userId) {
+        header('Location: ../view/FrontOffice/login.php');
+        exit;
+    }
+
+    $m = new Utilisateur();
+    $user = $m->findById($userId);
+
+    if ($user && $user['verification_code'] === $code) {
+        $m->verifyEmail($userId);
+        Session::remove('temp_verify_user_id');
+        Session::remove('temp_verify_email');
+        Session::setFlash('success', 'Votre adresse e-mail a été vérifiée. Vous pouvez maintenant vous connecter.');
+        header('Location: ../view/FrontOffice/login.php');
+    } else {
+        Session::set('verify_errors', ['code' => 'Code de vérification incorrect.']);
+        header('Location: ../view/FrontOffice/verify_email.php');
+    }
+    exit;
+}
+
+if ($action === 'resend_otp') {
+    $userId = Session::get('temp_verify_user_id');
+    $email = Session::get('temp_verify_email');
+
+    if (!$userId || !$email) {
+        header('Location: ../view/FrontOffice/login.php');
+        exit;
+    }
+
+    $m = new Utilisateur();
+    $user = $m->findById($userId);
+    
+    if ($user) {
+        $otp = sprintf("%06d", mt_rand(0, 999999));
+        $m->updateVerificationCode($userId, $otp);
+        MailService::sendOTP($email, $user['prenom'] . ' ' . $user['nom'], $otp);
+        Session::setFlash('success', 'Un nouveau code a été envoyé.');
+    }
+    header('Location: ../view/FrontOffice/verify_email.php');
+    exit;
+}
+
 if ($action === 'register') {
     $account_type   = trim($_POST['account_type'] ?? 'personal');
     $nom            = trim($_POST['nom']            ?? '');
@@ -221,15 +347,93 @@ if ($action === 'register') {
         $m->setAdresse($adresse);
         $m->setCin($cin);
         $m->setAssociation($association);
-        $m->create();
+        
+        // Generate OTP
+        $otp = sprintf("%06d", mt_rand(0, 999999));
+        $m->setVerificationCode($otp);
+        $m->setIsVerified(0);
+        $m->setStatus('INACTIF'); // Account is inactive until email verified
+        
+        $userId = $m->create();
+        
+        // Send Email
+        if (!MailService::sendOTP($email, "$prenom $nom", $otp)) {
+            Session::setFlash('warning', 'Compte créé, mais l\'envoi de l\'e-mail a échoué. Veuillez cliquer sur "Renvoyer le code".');
+        } else {
+            Session::setFlash('success', 'Un code de vérification a été envoyé à votre adresse e-mail.');
+        }
+
         Session::remove('old_register');
         Session::remove('register_errors');
-        Session::setFlash('success', 'Compte créé avec succès. Connectez-vous.');
-        header('Location: ../view/FrontOffice/login.php');
+        Session::set('temp_verify_user_id', $userId);
+        Session::set('temp_verify_email', $email);
+        
+        header('Location: ../view/FrontOffice/verify_email.php');
     } catch (Exception $e) {
         Session::setFlash('error', $e->getMessage());
         Session::set('old_register', $old);
         header('Location: ../view/FrontOffice/signup.php');
+    }
+    exit;
+}
+if ($action === 'login_face') {
+    $email = trim($_POST['email'] ?? '');
+    $imageData = $_POST['image'] ?? ''; // Base64 image
+    
+    if (empty($email) || empty($imageData)) {
+        echo json_encode(['success' => false, 'error' => 'Email et image requis.']);
+        exit;
+    }
+
+    $m = new Utilisateur();
+    $user = $m->findByEmail($email);
+
+    if (!$user) {
+        echo json_encode(['success' => false, 'error' => 'Utilisateur non trouvé.']);
+        exit;
+    }
+
+    if (empty($user['selfie_path'])) {
+        echo json_encode(['success' => false, 'error' => 'Aucun Face ID configuré pour ce compte. Veuillez d\'abord valider votre KYC.']);
+        exit;
+    }
+
+    if ($user['status'] !== 'ACTIF') {
+        echo json_encode(['success' => false, 'error' => 'Compte suspendu ou inactif.']);
+        exit;
+    }
+
+    // Save temporary login selfie
+    $imageData = str_replace('data:image/jpeg;base64,', '', $imageData);
+    $imageData = str_replace(' ', '+', $imageData);
+    $data = base64_decode($imageData);
+    
+    $tempFileName = 'login_' . uniqid() . '.jpg';
+    $tempPath = __DIR__ . '/../model/uploads/' . $tempFileName;
+    file_put_contents($tempPath, $data);
+    $relativeTempPath = 'model/uploads/' . $tempFileName;
+
+    require_once __DIR__ . '/../model/FaceVerificationService.php';
+    $faceService = new FaceVerificationService();
+    $faceResult  = $faceService->compareFaces($user['selfie_path'], $relativeTempPath);
+
+    // Cleanup temp file
+    if (file_exists($tempPath)) unlink($tempPath);
+
+    if ($faceResult['success'] && $faceResult['score'] >= 80) {
+        // Success, log them in
+        Session::set('user_id',      $user['id']);
+        Session::set('user_nom',     $user['nom']);
+        Session::set('user_prenom',  $user['prenom']);
+        Session::set('user_email',   $user['email']);
+        Session::set('role',         $user['role']);
+        
+        $m->updateDerniereConnexion($user['id']);
+        
+        echo json_encode(['success' => true, 'redirect' => (in_array($user['role'], ['ADMIN','SUPER_ADMIN']) ? '../backoffice/backoffice_utilisateur.php' : 'frontoffice_utilisateur.php')]);
+    } else {
+        $score = $faceResult['score'] ?? 0;
+        echo json_encode(['success' => false, 'error' => "Reconnaissance faciale échouée (score: $score/100).", 'score' => $score]);
     }
     exit;
 }
