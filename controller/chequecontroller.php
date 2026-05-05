@@ -1,6 +1,7 @@
 <?php
-require_once __DIR__ . '/../model/config.php';
+require_once __DIR__ . '/helpers/config.local.php';
 require_once __DIR__ . '/../model/cheque.php';
+require_once __DIR__ . '/helpers/mailer.php';
 
 class ChequeController {
 

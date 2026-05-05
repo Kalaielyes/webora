@@ -1,7 +1,7 @@
 <?php
 
-require_once __DIR__ . '/../src/Twilio/autoload.php';
-require_once __DIR__ . '/../model/config.php';
+require_once __DIR__ . '/src/Twilio/autoload.php';
+require_once __DIR__ . '/helpers/config.local.php';
 
 use Twilio\Rest\Client;
 

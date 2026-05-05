@@ -1,38 +1,56 @@
 <?php
 
-require_once __DIR__ . '/../model/config.php';
+// Restore original paths
+require_once __DIR__ . '/helpers/config.local.php';
 require_once __DIR__ . '/chequiercontroller.php';
-require_once __DIR__ . '/../helpers/mailer.php';
+require_once __DIR__ . '/helpers/mailer.php';
 
 $chequierC = new ChequierController();
-
 $chequiers = $chequierC->getChequiersExpirantMoinsDe15Jours();
 
+$envoyes = 0;
+$echecs  = 0;
+$ignores = 0;
+
 if (empty($chequiers)) {
+    echo "[" . date('Y-m-d H:i:s') . "] Aucun chéquier expirant dans 15 jours.\n";
     exit;
 }
 
 foreach ($chequiers as $chequier) {
 
-    $email = $chequier['email'] ?? null;
+    $email = trim($chequier['email'] ?? '');
+    $nom   = $chequier['nom_et_prenom'] ?? 'Client';
 
-    if (!$email) {
+    if (empty($email)) {
+        $ignores++;
         continue;
     }
 
-    $subject = "⚠️ Rappel expiration chéquier";
-
     $html = buildChequierEmail(
-        $chequier['nom_et_prenom'],
+        $nom,
         $chequier['numero_chequier'],
         $chequier['date_expiration'],
         $chequier['nombre_feuilles']
     );
 
-    sendMail(
+    $ok = sendMail(
         $email,
-        $chequier['nom_et_prenom'],
-        $subject,
+        $nom,
+        "⚠️ Rappel expiration chéquier",
         $html
     );
+
+    if ($ok) {
+        $envoyes++;
+        echo "[" . date('Y-m-d H:i:s') . "] ✅ Email envoyé à : $email ($nom)\n";
+    } else {
+        $echecs++;
+        echo "[" . date('Y-m-d H:i:s') . "] ❌ Échec envoi à : $email ($nom)\n";
+    }
 }
+
+echo "\n--- Résumé ---\n";
+echo "✅ Envoyés : $envoyes\n";
+echo "❌ Échecs  : $echecs\n";
+echo "⏭️  Ignorés : $ignores\n";

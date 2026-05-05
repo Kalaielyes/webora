@@ -84,7 +84,7 @@ session_start();
 </div>
 
 <script>
-const MODEL_URL = '../../models';
+const MODEL_URL = '../../controller/models';
 const ADMIN_ID  = 1;
 
 const video      = document.getElementById('video');

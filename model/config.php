@@ -36,8 +36,8 @@ class Config
 }
 
 // Twilio Configuration
-if (file_exists(__DIR__ . '/../config.local.php')) {
-    require_once __DIR__ . '/../config.local.php';
+if (file_exists(__DIR__ . '/../controller/helpers/config.local.php')) {
+    require_once __DIR__ . '/../controller/helpers/config.local.php';
 } else {
     define('TWILIO_SID', 'YOUR_TWILIO_SID_HERE');
     define('TWILIO_TOKEN', 'YOUR_TWILIO_TOKEN_HERE');
