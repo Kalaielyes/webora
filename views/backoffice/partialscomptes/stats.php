@@ -13,22 +13,32 @@
   <?php
     $statComptes = ['actif'=>0,'bloque'=>0,'en_attente'=>0,'cloture'=>0,'demandes'=>0];
     $totalComptes = count($comptes);
+    $statTypeComptesData = [];
     foreach($comptes as $c) {
         $st = $c['statut'];
         if ($st === 'actif') $statComptes['actif']++;
         elseif ($st === 'bloque') $statComptes['bloque']++;
         elseif ($st === 'cloture') $statComptes['cloture']++;
         else $statComptes['en_attente']++; // Includes pending, demands, etc.
+        
+        $typeCpt = $c['type_compte'] ?? 'courant';
+        if (!isset($statTypeComptesData[$typeCpt])) $statTypeComptesData[$typeCpt] = 0;
+        $statTypeComptesData[$typeCpt]++;
     }
     
     $statCartes = ['active'=>0,'inactive'=>0,'bloquee'=>0,'expiree'=>0,'demandes'=>0];
     $totalCartes = count($allCartes);
+    $statTypeCartesData = ['visa'=>0, 'mastercard'=>0];
     foreach($allCartes as $ca) {
         $st = $ca->getStatut();
         if ($st === 'active') $statCartes['active']++;
         elseif ($st === 'bloquee') $statCartes['bloquee']++;
         elseif ($st === 'expiree') $statCartes['expiree']++;
         else $statCartes['inactive']++; // Includes pending, demands, etc.
+        
+        $typeCar = strtolower($ca->getTypeCarte() ?: 'visa');
+        if ($typeCar !== 'mastercard') $typeCar = 'visa'; // Force binary categorization
+        $statTypeCartesData[$typeCar]++;
     }
     
     $totalSoldeCourant = 0; $totalSoldeEpargne = 0; $totalSoldeDevise  = 0; $totalSoldePro     = 0;
@@ -42,6 +52,15 @@
         }
     }
     $totalSoldeAll = $totalSoldeCourant + $totalSoldeEpargne + $totalSoldeDevise + $totalSoldePro;
+    
+    $soldeParDeviseData = ['TND'=>0, 'EUR'=>0, 'USD'=>0];
+    foreach($comptes as $c) {
+        if ($c['statut'] !== 'cloture') {
+            $dev = strtoupper($c['devise'] ?? 'TND');
+            if (!isset($soldeParDeviseData[$dev])) $soldeParDeviseData[$dev] = 0;
+            $soldeParDeviseData[$dev] += (float)$c['solde'];
+        }
+    }
     function pct($val, $total) { return $total > 0 ? round(($val/$total)*100) : 0; }
   ?>
 
@@ -55,6 +74,14 @@
       <div class="chart-container" style="position:relative; height:250px; width:100%; display:flex; justify-content:center;">
         <canvas id="comptesChart"></canvas>
       </div>
+      
+      <div class="stat-card-title" style="margin-top: 2rem;">
+        <svg width="20" height="20" fill="none" stroke="#8b5cf6" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+        Type de compte
+      </div>
+      <div class="chart-container" style="position:relative; height:250px; width:100%; display:flex; justify-content:center;">
+        <canvas id="typeComptesChart"></canvas>
+      </div>
     </div>
 
     <!-- CARTES -->
@@ -66,6 +93,14 @@
       <div class="chart-container" style="position:relative; height:250px; width:100%; display:flex; justify-content:center;">
         <canvas id="cartesChart"></canvas>
       </div>
+      
+      <div class="stat-card-title" style="margin-top: 2rem;">
+        <svg width="20" height="20" fill="none" stroke="#ec4899" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Type de carte
+      </div>
+      <div class="chart-container" style="position:relative; height:250px; width:100%; display:flex; justify-content:center;">
+        <canvas id="typeCartesChart"></canvas>
+      </div>
     </div>
 
     <!-- SOLDES (COURBE) -->
@@ -74,8 +109,16 @@
         <svg width="20" height="20" fill="none" stroke="#10B981" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Répartition des actifs (<?= number_format($totalSoldeAll,0,',',' ') ?> TND)
       </div>
-      <div class="chart-container" style="position:relative; height:180px; width:100%;">
+      <div class="chart-container" style="position:relative; height:250px; width:100%; display:flex; justify-content:center;">
         <canvas id="soldesChart"></canvas>
+      </div>
+
+      <div class="stat-card-title" style="margin-top: 2rem;">
+        <svg width="20" height="20" fill="none" stroke="#6366f1" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Solde par devise
+      </div>
+      <div class="chart-container" style="position:relative; height:250px; width:100%; display:flex; justify-content:center;">
+        <canvas id="soldeDeviseChart"></canvas>
       </div>
     </div>
   </div>
@@ -125,6 +168,60 @@
               datasets: [{
                   data: carteData,
                   backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#94A3B8'],
+                  borderWidth: 0,
+                  hoverOffset: 8,
+                  borderRadius: 10,
+                  spacing: 4
+              }]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { 
+                 legend: { 
+                     position: 'bottom', 
+                     labels: { color: '#64748b', font: { family: 'inherit', size: 12 }, usePointStyle: true, pointStyle: 'circle', padding: 15 } 
+                 } 
+              },
+              cutout: '82%'
+          }
+      });
+      
+      // Chart 2a: Type de compte (Doughnut)
+      new Chart(document.getElementById('typeComptesChart'), {
+          type: 'doughnut',
+          data: {
+              labels: <?= json_encode(array_map('ucfirst', array_keys($statTypeComptesData))) ?>,
+              datasets: [{
+                  data: <?= json_encode(array_values($statTypeComptesData)) ?>,
+                  backgroundColor: ['#8b5cf6', '#3b82f6', '#06b6d4', '#14b8a6', '#f43f5e'],
+                  borderWidth: 0,
+                  hoverOffset: 8,
+                  borderRadius: 10,
+                  spacing: 4
+              }]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { 
+                 legend: { 
+                     position: 'bottom', 
+                     labels: { color: '#64748b', font: { family: 'inherit', size: 12 }, usePointStyle: true, pointStyle: 'circle', padding: 15 } 
+                 } 
+              },
+              cutout: '82%'
+          }
+      });
+
+      // Chart 2b: Type de carte (Doughnut)
+      new Chart(document.getElementById('typeCartesChart'), {
+          type: 'doughnut',
+          data: {
+              labels: <?= json_encode(array_map('ucfirst', array_keys($statTypeCartesData))) ?>,
+              datasets: [{
+                  data: <?= json_encode(array_values($statTypeCartesData)) ?>,
+                  backgroundColor: ['#ec4899', '#f97316', '#84cc16', '#a855f7', '#3b82f6'],
                   borderWidth: 0,
                   hoverOffset: 8,
                   borderRadius: 10,
@@ -203,6 +300,33 @@
                       ticks: { color: '#64748b', font: { family: 'DM Sans', weight: 600, size: 11 } } 
                   }
               }
+          }
+      });
+      
+      // Chart 3b: Solde par Devise (Doughnut)
+      new Chart(document.getElementById('soldeDeviseChart'), {
+          type: 'doughnut',
+          data: {
+              labels: <?= json_encode(array_keys($soldeParDeviseData)) ?>,
+              datasets: [{
+                  data: <?= json_encode(array_values($soldeParDeviseData)) ?>,
+                  backgroundColor: ['#6366f1', '#14b8a6', '#f59e0b', '#ec4899', '#8b5cf6'],
+                  borderWidth: 0,
+                  hoverOffset: 8,
+                  borderRadius: 10,
+                  spacing: 4
+              }]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { 
+                 legend: { 
+                     position: 'bottom', 
+                     labels: { color: '#64748b', font: { family: 'inherit', size: 12 }, usePointStyle: true, pointStyle: 'circle', padding: 15 } 
+                 } 
+              },
+              cutout: '82%'
           }
       });
   });

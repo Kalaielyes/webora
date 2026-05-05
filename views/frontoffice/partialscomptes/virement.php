@@ -302,7 +302,7 @@ if (!isset($userId) || !isset($comptes)) {
   border: 4px solid var(--border);
   position: relative;
   background: #000;
-  transition: border-color 0.4s;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
 }
 
 .face-circle-wrap.active { border-color: var(--sec-color); }
@@ -464,31 +464,42 @@ async function startFaceScan() {
         const storedDescriptor = new Float32Array(JSON.parse(data.descriptor));
 
         faceInterval = setInterval(async () => {
-            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+            if (!cameraReady || !modelsLoaded) return;
+
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
                 .withFaceLandmarks(true)
                 .withFaceExpressions()
                 .withFaceDescriptor();
 
             if (detection) {
-                const isSmiling = detection.expressions.happy > 0.6;
+                // Smoothly update UI based on detection
+                faceWrap.style.borderColor = 'var(--sec-color)';
+                
+                const isSmiling = detection.expressions.happy > 0.5;
                 if (!isSmiling) {
-                    status.textContent = '😊 Veuillez SOURIRE pour valider.';
+                    status.innerHTML = '<span style="color:var(--amber)">😊 Veuillez SOURIRE pour valider.</span>';
                     return;
                 }
 
                 const distance = faceapi.euclideanDistance(detection.descriptor, storedDescriptor);
+                // Lower distance = better match. 0.6 is standard, 0.55 is stricter.
                 if (distance < 0.6) {
                     clearInterval(faceInterval);
                     faceInterval = null;
+                    status.innerHTML = '<span style="color:var(--green)">✅ Identité confirmée !</span>';
+                    
+                    // Stop tracks immediately for performance
                     if(video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-                    handleFaceSuccess();
+                    
+                    setTimeout(() => handleFaceSuccess(), 400); // Faster transition
                 } else {
-                    status.textContent = '❌ Visage non reconnu.';
+                    status.innerHTML = '<span style="color:var(--rose)">❌ Visage non reconnu.</span>';
                 }
             } else {
-                status.textContent = '🔍 Visage non détecté...';
+                faceWrap.style.borderColor = 'var(--border)';
+                status.textContent = '🔍 Recherche de visage...';
             }
-        }, 800);
+        }, 250); // Faster interval for smoother feel (was 800ms)
     } catch (e) {
         status.textContent = 'Erreur technique scan.';
     }
@@ -510,16 +521,18 @@ function handleFaceSuccess() {
     const inputCur = document.getElementById('input-currency').value;
     const amountInTnd = amount * (exchangeRates[inputCur]['TND'] || 1);
 
+    const transitionDelay = 600; // Smoother delay
+
     if (amountInTnd < 100) {
-        status.textContent = 'Montant faible (< 100 TND) : OTP ignoré.';
-        setTimeout(() => setStep(3), 1000);
+        status.textContent = 'Transfert autorisé.';
+        setTimeout(() => setStep(3), transitionDelay);
     } else {
         setTimeout(() => {
             document.getElementById('face-scan-section').style.display = 'none';
             document.getElementById('otp-section').style.display = 'block';
             document.getElementById('header-subtitle').textContent = 'Vérification WhatsApp requise.';
             sendVirementOtp();
-        }, 1000);
+        }, transitionDelay);
     }
 }
 
@@ -698,5 +711,11 @@ function executeVirement() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', onSourceChange);
+document.addEventListener('DOMContentLoaded', () => {
+  onSourceChange();
+  // Pre-load models in background for smoother UX
+  if (typeof faceapi !== 'undefined') {
+    loadFaceModels();
+  }
+});
 </script>

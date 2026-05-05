@@ -46,8 +46,17 @@ try {
         foreach (CarteController::findByCompte($c->getIdCompte()) as $carte)
             $allCartes[] = ['carte' => $carte, 'compte' => $c];
 
+    // Fetch transactions from SheetDB
+    $apiUrl = "https://sheetdb.io/api/v1/2eyctn6m5yzmz/search?id_utilisateur=" . $userId;
+    $ch = curl_init($apiUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 4);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $allTransactions = json_decode($response, true) ?? [];
+
     // Try Gemini (server-key, no referrer restriction) → fallback to conversational engine
-    $reply = callGemini($message, $history, $user, $comptes, $allCartes, $lang);
+    $reply = callGemini($message, $history, $user, $comptes, $allCartes, $allTransactions, $lang);
     if ($reply === null)
         $reply = conversationalReply($message, $history, $user, $comptes, $allCartes, $lang);
 
@@ -65,7 +74,7 @@ exit;
 // ════════════════════════════════════════════════════════════════════════════════
 // GEMINI ENGINE  (works only if API key has NO referrer restriction)
 // ════════════════════════════════════════════════════════════════════════════════
-function callGemini(string $msg, array $history, array $user, array $comptes, array $allCartes, string $lang = 'fr-FR'): ?string
+function callGemini(string $msg, array $history, array $user, array $comptes, array $allCartes, array $allTransactions, string $lang = 'fr-FR'): ?string
 {
     $key = defined('GEMINI_API_KEY') ? trim(GEMINI_API_KEY) : '';
     if ($key === '' || $key === 'YOUR_KEY_HERE') return null;
@@ -81,6 +90,16 @@ function callGemini(string $msg, array $history, array $user, array $comptes, ar
         $ctx .= "  - " . $crt->getTypeCarte() . " (" . $crt->getReseau() . ") ···" . substr($crt->getNumeroCarte(),-4) . " | " . $crt->getStatut() . "\n";
     }
 
+    $ctx .= "HISTORIQUE (30 DERNIÈRES TRANSACTIONS):\n";
+    $recent = array_slice(array_reverse($allTransactions), 0, 30);
+    if(empty($recent)) {
+        $ctx .= "  Aucune transaction trouvée.\n";
+    } else {
+        foreach($recent as $t) {
+            $ctx .= "  - Date: " . ($t['date'] ?? '') . " | Montant: " . ($t['montant'] ?? '') . " " . ($t['devise'] ?? 'TND') . " | Type: " . ($t['type'] ?? '') . " | Libellé: " . ($t['libelle'] ?? '') . " | Source: " . ($t['source'] ?? '') . "\n";
+        }
+    }
+
     $langName = 'français';
     if ($lang === 'en-US') $langName = 'anglais (English)';
     if ($lang === 'ar-SA') $langName = 'arabe (Arabic)';
@@ -92,7 +111,9 @@ function callGemini(string $msg, array $history, array $user, array $comptes, ar
         . "CAPACITÉS :\n"
         . "- Expliquer l'ouverture de compte, gestion des cartes, virements, plafonds, KYC, etc.\n"
         . "- Répondre à toute question générale sur le monde bancaire, la finance, la bourse ou l'économie.\n"
-        . "- Aider en cas de perte/vol de carte (blocage immédiat).\n\n"
+        . "- Aider en cas de perte/vol de carte (blocage immédiat).\n"
+        . "- FOURNIR L'HISTORIQUE: Si le client te demande son historique ou ses virements, résume-lui clairement ses transactions récentes listées ci-dessous.\n"
+        . "- GÉNÉRATION DE PDF: Si le client te demande de générer un PDF de son historique, donne-lui ce lien exact : [Aller vers l'Historique pour générer le PDF](?form=historique) et explique-lui de cliquer sur le bouton 'Télécharger Relevé PDF' sur cette page.\n\n"
         . "CONSIGNE CRUCIALE : Si l'utilisateur demande une carte pour un compte épargne, informe-le poliment que chez LegalFin, les comptes épargne ne sont pas éligibles aux cartes bancaires.\n\n"
         . "DONNÉES CLIENT EN TEMPS RÉEL :\n" . $ctx;
 
@@ -119,7 +140,7 @@ function callGemini(string $msg, array $history, array $user, array $comptes, ar
         'generationConfig'   => ['temperature' => 0.7, 'maxOutputTokens' => 900],
     ], JSON_UNESCAPED_UNICODE);
 
-    $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' . $key);
+    $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=' . $key);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true,
         CURLOPT_POSTFIELDS     => $payload,

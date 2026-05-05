@@ -2,7 +2,7 @@
 $userId = $_SESSION['user']['id'] ?? 0;
 
 // Fetch transactions from SheetDB
-//$apiUrl = "https://sheetdb.io/api/v1/2eyctn6m5yzmz/search?id_utilisateur=" . $userId;
+$apiUrl = "https://sheetdb.io/api/v1/2eyctn6m5yzmz/search?id_utilisateur=" . $userId;
 $ch = curl_init($apiUrl);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_TIMEOUT, 6);

@@ -1,0 +1,14 @@
+[2026-05-04 21:35:15] Gemini HTTP:200 cURL:ok resp:{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Bonjour Monsieur Kalai Elyes. Voici la liste de vos cartes bancaires actives chez LegalFin :\n\n• **Carte Visa Débit** (se terminant par **25 9**) : Statut **Active**\n• **Carte Visa Débit** (se te
+[2026-05-04 21:35:27] Gemini HTTP:200 cURL:ok resp:{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Bonjour Monsieur Kalai Elyes. Comment puis-je vous aider aujourd'hui ?\n\nEn tant qu'assistant expert de la banque **LegalFin**, je suis à votre disposition pour toute question concernant :\n\n• La ge

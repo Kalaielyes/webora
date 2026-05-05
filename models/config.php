@@ -4,6 +4,7 @@
  * No login page: the single DB user is loaded automatically into $_SESSION.
  */
 
+date_default_timezone_set('Africa/Tunis');
 require_once __DIR__ . '/Security.php';
 
 // ── APP_URL — auto-detected, no trailing slash ────────────────────────────────
@@ -17,7 +18,7 @@ if (!defined('APP_URL')) {
 
 // ── GEMINI API KEY ───────────────────────────────────────────────────────────
 if (!defined('GEMINI_API_KEY')) {
-    //define('GEMINI_API_KEY', 'AIzaSyAY_Ali_J-Wrlxu1voyK93kcutbG1K-WWo');
+    define('GEMINI_API_KEY', 'AIzaSyDAKNFDIZNtjdGk94nL0xDUodkZGKioBdk');
 }
 
 class Config
