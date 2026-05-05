@@ -208,10 +208,18 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                 </select>
               </div>
             </div>
+
+            <!-- BULK ACTIONS PANEL -->
+            <div id="bulk-actions-panel" style="display:none;padding:0.8rem;background:var(--info-bg);border-radius:0.4rem;margin-bottom:1rem;gap:1rem;align-items:center;border-left:3px solid var(--blue)">
+              <span style="color:var(--blue);font-weight:500"><span id="bulk-count">0</span> sélectionné(e)(s)</span>
+              <button onclick="bulkApprove()" class="btn-quick-approve" style="padding:0.4rem 0.8rem;font-size:0.85rem">✅ Approuver tout</button>
+              <button onclick="bulkDelete()" class="btn-del" style="padding:0.4rem 0.8rem;font-size:0.85rem">🗑️ Supprimer tout</button>
+            </div>
             <div style="overflow-x:auto">
               <table id="tbl-dem">
                 <thead>
                   <tr>
+                    <th style="width:35px"><input type="checkbox" id="check-all" onchange="toggleAllCheckboxes(this)"></th>
                     <th>#</th>
                     <th>Montant</th>
                     <th>Durée</th>
@@ -226,11 +234,12 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                 <tbody>
                   <?php if (empty($demandes)): ?>
                     <tr>
-                      <td colspan="9" style="text-align:center;padding:2rem;color:var(--muted);font-size:.8rem">Aucun
+                      <td colspan="10" style="text-align:center;padding:2rem;color:var(--muted);font-size:.8rem">Aucun
                         dossier</td>
                     </tr>
                   <?php else: foreach ($demandes as $d): ?>
                       <tr data-resultat="<?= $d['resultat'] ?>">
+                        <td><input type="checkbox" class="dem-checkbox" value="<?= $d['id'] ?>"></td>
                         <td>
                           <?= (int) $d['id'] ?>
                         </td>
@@ -249,8 +258,9 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                         <td><span class="badge <?= $sc[$d['statut']] ?? 'b-wait' ?>"><?= $sl[$d['statut']] ?? $d['statut'] ?></span></td>
                         <td><span class="badge <?= $rc[$d['resultat']] ?? 'b-wait' ?>"><?= $rl[$d['resultat']] ?? $d['resultat'] ?></span></td>
                         <td
-                          style="color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-                          title="<?= htmlspecialchars($d['motif_resultat'] ?? '') ?>">
+                          style="color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;"
+                          title="Click to view full motif"
+                          onclick="openMotifModal('<?= htmlspecialchars(addslashes($d['motif_resultat'] ?? ''), ENT_QUOTES) ?>')">
                           <?= htmlspecialchars(mb_substr($d['motif_resultat'] ?? '', 0, 40)) ?>    <?= mb_strlen($d['motif_resultat'] ?? '') > 40 ? '…' : '' ?>
                         </td>
                         <td>
@@ -751,6 +761,19 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
     </div>
   </div>
 
+  <!-- MOTIF MODAL -->
+  <div id="motif-modal" class="modal-overlay" style="display:none;" onclick="closeMotifModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title">📋 Motif complet</div>
+        <button class="modal-close" onclick="closeMotifModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="motif-text" style="padding:1rem;background:var(--bg-alt);border-radius:0.5rem;line-height:1.6;word-wrap:break-word;white-space:pre-wrap;max-height:400px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     function showPage(id, el) {
       document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
@@ -823,6 +846,122 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
         const matchR = !resF || row.dataset.resultat === resF;
         row.style.display = (matchT && matchR) ? '' : 'none';
       });
+    }
+
+    // ────── MOTIF MODAL ─────────────────────────────────────────────
+    function openMotifModal(motif) {
+      const modal = document.getElementById('motif-modal');
+      const motifText = document.getElementById('motif-text');
+      motifText.textContent = motif || '(Pas de motif)';
+      modal.style.display = 'flex';
+    }
+
+    function closeMotifModal() {
+      const modal = document.getElementById('motif-modal');
+      modal.style.display = 'none';
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeMotifModal();
+    });
+
+    // ────── CHECKBOX SELECTION ─────────────────────────────────────────────
+    function toggleAllCheckboxes(checkAllCheckbox) {
+      const checkboxes = document.querySelectorAll('.dem-checkbox');
+      checkboxes.forEach(cb => cb.checked = checkAllCheckbox.checked);
+      updateBulkActionButtons();
+    }
+
+    function updateBulkActionButtons() {
+      const selectedCheckboxes = document.querySelectorAll('.dem-checkbox:checked');
+      const bulkActionsPanel = document.getElementById('bulk-actions-panel');
+      if (!bulkActionsPanel) return;
+      
+      if (selectedCheckboxes.length > 0) {
+        bulkActionsPanel.style.display = 'flex';
+        document.getElementById('bulk-count').textContent = selectedCheckboxes.length;
+      } else {
+        bulkActionsPanel.style.display = 'none';
+      }
+    }
+
+    // Add change listeners to checkboxes
+    document.querySelectorAll('.dem-checkbox').forEach(cb => {
+      cb.addEventListener('change', function() {
+        updateBulkActionButtons();
+        const allCheckboxes = document.querySelectorAll('.dem-checkbox');
+        const checkedCheckboxes = document.querySelectorAll('.dem-checkbox:checked');
+        const checkAll = document.getElementById('check-all');
+        if (checkAll) {
+          checkAll.checked = allCheckboxes.length > 0 && allCheckboxes.length === checkedCheckboxes.length;
+        }
+      });
+    });
+
+    function getBulkActionIds() {
+      const selectedCheckboxes = document.querySelectorAll('.dem-checkbox:checked');
+      return Array.from(selectedCheckboxes).map(cb => cb.value);
+    }
+
+    function bulkApprove() {
+      const ids = getBulkActionIds();
+      if (ids.length === 0) {
+        alert('Veuillez sélectionner au moins une demande.');
+        return;
+      }
+      if (!confirm(`Approuver ${ids.length} demande(s) ?`)) return;
+      
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '<?= $self ?>';
+      
+      const actionInput = document.createElement('input');
+      actionInput.type = 'hidden';
+      actionInput.name = 'action';
+      actionInput.value = 'bulk_approve_demandes';
+      form.appendChild(actionInput);
+      
+      ids.forEach(id => {
+        const idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = 'ids[]';
+        idInput.value = id;
+        form.appendChild(idInput);
+      });
+      
+      document.body.appendChild(form);
+      form.submit();
+    }
+
+    function bulkDelete() {
+      const ids = getBulkActionIds();
+      if (ids.length === 0) {
+        alert('Veuillez sélectionner au moins une demande.');
+        return;
+      }
+      if (!confirm(`Supprimer ${ids.length} demande(s) ? Cette action est irréversible.`)) return;
+      
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '<?= $self ?>';
+      
+      const actionInput = document.createElement('input');
+      actionInput.type = 'hidden';
+      actionInput.name = 'action';
+      actionInput.value = 'bulk_delete_demandes';
+      form.appendChild(actionInput);
+      
+      ids.forEach(id => {
+        const idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = 'ids[]';
+        idInput.value = id;
+        form.appendChild(idInput);
+      });
+      
+      document.body.appendChild(form);
+      form.submit();
     }
 
     // Auto-activate correct page on load

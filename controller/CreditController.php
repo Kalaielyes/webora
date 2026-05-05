@@ -4,6 +4,7 @@ require_once __DIR__ . '/../model/Demande_Credit.php';
 require_once __DIR__ . '/../model/Garantie.php';
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/mailcredit.php';
+require_once __DIR__ . '/../model/ai_scoring.php';
 
 class CreditController
 {
@@ -28,6 +29,8 @@ class CreditController
             'delete_demande' => $this->deleteDemande(),
             'approve_demande' => $this->approveDemande(),
             'refuse_demande' => $this->refuseDemande(),
+            'bulk_approve_demandes' => $this->bulkApproveDemandes(),
+            'bulk_delete_demandes' => $this->bulkDeleteDemandes(),
             'create_garantie' => $this->createGarantie(),
             'update_garantie' => $this->updateGarantie(),
             'delete_garantie' => $this->deleteGarantie(),
@@ -38,27 +41,35 @@ class CreditController
 
     // ── DemandeCredit ─────────────────────────────────────────────────────────
     private function createDemande(): void
-    {
-        $data = $this->collectDemandePost();
+{
+    $data = $this->collectDemandePost();
 
-        $errors = array_values($this->demandeModel->validate($data));
-        if ($errors) {
-            $this->renderView(errors: $errors);
-            return;
-        }
-        try {
-            $result = $this->demandeModel->create($data);
-            if (!$result) {
-                $this->renderView(errors: ['Insert retourné false.']);
-                return;
-            }
-        } catch (\PDOException $e) {
-            $this->renderView(errors: ['Erreur DB : ' . $e->getMessage()]);
-            return;
-        }
-        
-        $this->renderView(success: 'Demande soumise.');
+    $errors = array_values($this->demandeModel->validate($data));
+    if ($errors) {
+        $this->renderView(errors: $errors);
+        return;
     }
+
+    // ── Scoring IA ──────────────────────────────────────────────────────
+    $scoring = analyserSolvabilite($data);
+    $data['resultat']       = $scoring['recommendation'];
+    $data['motif_resultat'] = '[Score IA: ' . $scoring['score'] . '/100 | Risque: ' . $scoring['risque'] . '] ' . $scoring['motif'];
+    // ────────────────────────────────────────────────────────────────────
+
+    try {
+        $result = $this->demandeModel->create($data);
+        if (!$result) {
+            $this->renderView(errors: ['Insert retourné false.']);
+            return;
+        }
+    } catch (\PDOException $e) {
+        $this->renderView(errors: ['Erreur DB : ' . $e->getMessage()]);
+        return;
+    }
+
+    $scoreMsg = "Score IA: {$scoring['score']}/100 — {$scoring['recommendation']} ({$scoring['risque']})";
+    $this->renderView(success: "Demande soumise. $scoreMsg");
+}
     private function updateDemande(): void
     {
         $id = (int) ($_POST['id'] ?? 0);
@@ -69,11 +80,11 @@ class CreditController
             $errors[] = 'ID invalide.';
 
         if ($errors) {
-            $this->renderView(errors: $errors, editDemandeId: $id, activeTab: 'demande');
+            $this->renderView(errors: $errors, editDemandeId: $id, activeTab: 'dem');
             return;
         }
         $this->demandeModel->update($id, $data);
-        $this->renderView(success: "Demande #$id mise à jour.", activeTab: 'demande');
+        $this->renderView(success: "Demande #$id mise à jour.", activeTab: 'dem');
     }
 
     private function deleteDemande(): void
@@ -150,7 +161,66 @@ class CreditController
         }
     }
 
-    // ── Garantie
+    private function bulkApproveDemandes(): void
+    {
+        $ids = $_POST['ids'] ?? [];
+        if (!is_array($ids)) {
+            $this->renderView(errors: ['Format IDs invalide.']);
+            return;
+        }
+        $ids = array_map(fn($id) => (int)$id, $ids);
+        $ids = array_filter($ids, fn($id) => $id > 0);
+        
+        if (empty($ids)) {
+            $this->renderView(errors: ['Aucune demande sélectionnée.']);
+            return;
+        }
+
+        $count = 0;
+        foreach ($ids as $id) {
+            $demande = $this->demandeModel->getById($id);
+            if (!$demande) continue;
+            
+            $data = [
+                'montant' => $demande['montant'],
+                'duree_mois' => $demande['duree_mois'],
+                'taux_interet' => $demande['taux_interet'],
+                'statut' => 'traitee',
+                'resultat' => 'approuvee',
+                'motif_resultat' => $demande['motif_resultat'] ?? '',
+                'date_traitement' => date('Y-m-d'),
+            ];
+            
+            if ($this->demandeModel->update($id, $data)) {
+                $count++;
+            }
+        }
+        $this->renderView(success: "$count demande(s) approuvée(s).");
+    }
+
+    private function bulkDeleteDemandes(): void
+    {
+        $ids = $_POST['ids'] ?? [];
+        if (!is_array($ids)) {
+            $this->renderView(errors: ['Format IDs invalide.']);
+            return;
+        }
+        $ids = array_map(fn($id) => (int)$id, $ids);
+        $ids = array_filter($ids, fn($id) => $id > 0);
+        
+        if (empty($ids)) {
+            $this->renderView(errors: ['Aucune demande sélectionnée.']);
+            return;
+        }
+
+        $count = 0;
+        foreach ($ids as $id) {
+            $this->garantieModel->deleteByDemande($id);
+            $this->demandeModel->delete($id);
+            $count++;
+        }
+        $this->renderView(success: "$count demande(s) et garanties associées supprimées.");
+    }
     private function createGarantie(): void
     {
         $data = $this->collectGarantiePost();
@@ -221,7 +291,7 @@ class CreditController
         string $success = '',
         int $editDemandeId = 0,
         int $editGarantieId = 0,
-        string $activeTab = 'demande'
+        string $activeTab = 'dem'
     ): void {
         if (!$editDemandeId && isset($_GET['edit_d']))
             $editDemandeId = (int) $_GET['edit_d'];
@@ -230,9 +300,9 @@ class CreditController
         if (isset($_GET['tab'])) {
             $activeTab = $_GET['tab'];
         } elseif ($editDemandeId) {
-            $activeTab = 'demande';
+            $activeTab = 'dem';
         } elseif ($editGarantieId) {
-            $activeTab = 'garantie';
+            $activeTab = 'gar';
         }
 
         $demandes = $this->demandeModel->getAll();

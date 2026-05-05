@@ -4,7 +4,7 @@ require_once __DIR__ . '/../model/Demande_Credit.php';
 require_once __DIR__ . '/../model/Garantie.php';
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/mailcredit.php';
-
+require_once __DIR__ . '/../model/ai_scoring.php';
 class AdminCreditController
 {
 
@@ -26,9 +26,14 @@ class AdminCreditController
             'create_demande' => $this->createDemande(),
             'update_demande' => $this->updateDemande(),
             'delete_demande' => $this->deleteDemande(),
+            'approve_demande' => $this->approveDemande(),
+            'refuse_demande' => $this->refuseDemande(),
+            'bulk_approve_demandes' => $this->bulkApproveDemandes(),
+            'bulk_delete_demandes' => $this->bulkDeleteDemandes(),
             'create_garantie' => $this->createGarantie(),
             'update_garantie' => $this->updateGarantie(),
             'delete_garantie' => $this->deleteGarantie(),
+            'update_garantie_status' => $this->updateGarantieStatus(),
             'download_garantie_file' => $this->downloadGarantieFile(),
             default => $this->renderView(),
         };
@@ -43,7 +48,11 @@ class AdminCreditController
             $this->renderView(errors: $errors);
             return;
         }
-
+        // ── Scoring IA ──────────────────────────────────────────────────────
+$scoring = analyserSolvabilite($data);
+$data['resultat']       = $scoring['recommendation'];
+$data['motif_resultat'] = '[Score IA: ' . $scoring['score'] . '/100 | Risque: ' . $scoring['risque'] . '] ' . $scoring['motif'];
+// ────────────────────────────────────────────────────────────────────
         try {
             $result = $this->demandeModel->create($data);
             if (!$result) {
@@ -90,6 +99,116 @@ class AdminCreditController
         $this->renderView(success: "Demande #$id et ses garanties supprimées.");
     }
 
+    private function approveDemande(): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id <= 0) {
+            $this->renderView(errors: ['ID invalide.']);
+            return;
+        }
+        
+        $demande = $this->demandeModel->getById($id);
+        if (!$demande) {
+            $this->renderView(errors: ["Demande #$id introuvable."]);
+            return;
+        }
+        
+        $this->demandeModel->update($id, [
+            'montant' => $demande['montant'],
+            'duree_mois' => $demande['duree_mois'],
+            'taux_interet' => $demande['taux_interet'],
+            'statut' => 'traitee',
+            'resultat' => 'approuvee',
+            'motif_resultat' => $demande['motif_resultat'] ?? '',
+            'date_traitement' => date('Y-m-d'),
+        ]);
+        $this->renderView(success: "Demande #$id approuvée.");
+    }
+
+    private function refuseDemande(): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id <= 0) {
+            $this->renderView(errors: ['ID invalide.']);
+            return;
+        }
+        
+        $demande = $this->demandeModel->getById($id);
+        if (!$demande) {
+            $this->renderView(errors: ["Demande #$id introuvable."]);
+            return;
+        }
+        
+        $this->demandeModel->update($id, [
+            'montant' => $demande['montant'],
+            'duree_mois' => $demande['duree_mois'],
+            'taux_interet' => $demande['taux_interet'],
+            'statut' => 'traitee',
+            'resultat' => 'refusee',
+            'motif_resultat' => $demande['motif_resultat'] ?? '',
+            'date_traitement' => date('Y-m-d'),
+        ]);
+        $this->renderView(success: "Demande #$id refusée.");
+    }
+
+    private function bulkApproveDemandes(): void
+    {
+        $ids = $_POST['ids'] ?? [];
+        if (!is_array($ids)) {
+            $this->renderView(errors: ['Format IDs invalide.']);
+            return;
+        }
+        $ids = array_map(fn($id) => (int)$id, $ids);
+        $ids = array_filter($ids, fn($id) => $id > 0);
+        
+        if (empty($ids)) {
+            $this->renderView(errors: ['Aucune demande sélectionnée.']);
+            return;
+        }
+
+        $count = 0;
+        foreach ($ids as $id) {
+            $demande = $this->demandeModel->getById($id);
+            if (!$demande) continue;
+            
+            $this->demandeModel->update($id, [
+                'montant' => $demande['montant'],
+                'duree_mois' => $demande['duree_mois'],
+                'taux_interet' => $demande['taux_interet'],
+                'statut' => 'traitee',
+                'resultat' => 'approuvee',
+                'motif_resultat' => $demande['motif_resultat'] ?? '',
+                'date_traitement' => date('Y-m-d'),
+            ]);
+            $count++;
+        }
+        $this->renderView(success: "$count demande(s) approuvée(s).");
+    }
+
+    private function bulkDeleteDemandes(): void
+    {
+        $ids = $_POST['ids'] ?? [];
+        if (!is_array($ids)) {
+            $this->renderView(errors: ['Format IDs invalide.']);
+            return;
+        }
+        $ids = array_map(fn($id) => (int)$id, $ids);
+        $ids = array_filter($ids, fn($id) => $id > 0);
+        
+        if (empty($ids)) {
+            $this->renderView(errors: ['Aucune demande sélectionnée.']);
+            return;
+        }
+
+        $count = 0;
+        foreach ($ids as $id) {
+            $this->garantieModel->deleteByDemande($id);
+            $this->demandeModel->delete($id);
+            $count++;
+        }
+        $this->renderView(success: "$count demande(s) et garanties associées supprimées.");
+    }
+
     // ── Garantie 
     private function createGarantie(): void
     {
@@ -126,6 +245,20 @@ class AdminCreditController
         if ($id > 0)
             $this->garantieModel->delete($id);
         $this->renderView(success: "Garantie #$id supprimée.", activeTab: 'gar');
+    }
+
+    private function updateGarantieStatus(): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        $statut = $_POST['statut'] ?? '';
+        
+        if ($id <= 0 || !in_array($statut, ['en_attente', 'approuvee', 'refusee'])) {
+            $this->renderView(errors: ['ID ou statut invalide.'], activeTab: 'gar');
+            return;
+        }
+        
+        $this->garantieModel->update($id, ['statut' => $statut]);
+        $this->renderView(success: "Statut garantie #$id mis à jour.", activeTab: 'gar');
     }
 
     /**
