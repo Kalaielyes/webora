@@ -3,6 +3,7 @@ require_once __DIR__ . "/../model/don.php";
 require_once __DIR__ . "/../model/config.php";
 require_once __DIR__ . "/cagnottecontroller.php";
 require_once __DIR__ . "/AchievementService.php";
+require_once __DIR__ . "/EmailService.php";
 
 class doncontroller {
 
@@ -331,10 +332,101 @@ class doncontroller {
             } catch (Throwable $e) {
                 // Keep confirmation successful even if achievement processing fails.
             }
+
+            // Send email notification to the association (non-blocking).
+            $this->sendDonationConfirmedEmail((int)$id, (int)$don['id_cagnotte'], (float)$don['montant']);
+
             return true;
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             return false;
+        }
+    }
+
+    /**
+     * Fetch all required data and send the donation-confirmed email to the association.
+     * Errors are logged; the donation result is never affected.
+     */
+    private function sendDonationConfirmedEmail(int $donId, int $cagnotteId, float $montant): void
+    {
+        try {
+            $pdo = Config::getConnexion();
+
+            // Guard: skip if already sent
+            $chk = $pdo->prepare("SELECT email_sent FROM don WHERE id_don = :id LIMIT 1");
+            $chk->execute(['id' => $donId]);
+            $flag = $chk->fetch();
+            if ($flag && (int)$flag['email_sent'] === 1) {
+                return;
+            }
+
+            // Fetch full donation row
+            $stmtDon = $pdo->prepare(
+                "SELECT d.id_don, d.montant, d.date_don, d.id_cagnotte, d.id_donateur
+                 FROM don d WHERE d.id_don = :id LIMIT 1"
+            );
+            $stmtDon->execute(['id' => $donId]);
+            $donRow = $stmtDon->fetch();
+            if (!$donRow) {
+                return;
+            }
+
+            // Fetch cagnotte (with updated montant_collecte after commit)
+            $stmtCag = $pdo->prepare(
+                "SELECT c.id_cagnotte, c.titre, c.objectif_montant, c.montant_collecte, c.id_createur
+                 FROM cagnotte c WHERE c.id_cagnotte = :id LIMIT 1"
+            );
+            $stmtCag->execute(['id' => $cagnotteId]);
+            $cagnotteRow = $stmtCag->fetch();
+            if (!$cagnotteRow) {
+                return;
+            }
+
+            // Only send email when the full target has been reached
+            $totalCollecte = (float)($cagnotteRow['montant_collecte'] ?? 0);
+            $objectif      = (float)($cagnotteRow['objectif_montant'] ?? 0);
+            if ($objectif <= 0 || $totalCollecte < $objectif) {
+                return;
+            }
+
+            // Fetch association (cagnotte creator)
+            $stmtAssoc = $pdo->prepare(
+                "SELECT id, nom, prenom, email FROM utilisateur WHERE id = :id LIMIT 1"
+            );
+            $stmtAssoc->execute(['id' => $cagnotteRow['id_createur']]);
+            $associationRow = $stmtAssoc->fetch();
+            if (!$associationRow) {
+                error_log('[doncontroller] Association not found for cagnotte #' . $cagnotteId);
+                return;
+            }
+
+            // Fetch donor (may be null if no valid id)
+            $donateurRow = null;
+            if (!empty($donRow['id_donateur'])) {
+                $stmtDon2 = $pdo->prepare(
+                    "SELECT id, nom, prenom, email FROM utilisateur WHERE id = :id LIMIT 1"
+                );
+                $stmtDon2->execute(['id' => $donRow['id_donateur']]);
+                $donateurRow = $stmtDon2->fetch() ?: null;
+            }
+
+            $emailService = new EmailService();
+            $sent = $emailService->sendDonationNotification(
+                $donRow,
+                $cagnotteRow,
+                $associationRow,
+                $donateurRow,
+                $totalCollecte
+            );
+
+            if ($sent) {
+                $upd = $pdo->prepare(
+                    "UPDATE don SET email_sent = 1, email_sent_at = NOW() WHERE id_don = :id"
+                );
+                $upd->execute(['id' => $donId]);
+            }
+        } catch (Throwable $e) {
+            error_log('[doncontroller] sendDonationConfirmedEmail error for don #' . $donId . ': ' . $e->getMessage());
         }
     }
 

@@ -48,6 +48,18 @@ class Config
                 } catch (PDOException $me) {
                 }
 
+                // Email-notification tracking columns on `don`
+                try {
+                    self::$pdo->exec("ALTER TABLE don ADD COLUMN email_sent TINYINT(1) NOT NULL DEFAULT 0");
+                } catch (PDOException $me) {
+                    // Column already exists — ignore
+                }
+                try {
+                    self::$pdo->exec("ALTER TABLE don ADD COLUMN email_sent_at DATETIME NULL DEFAULT NULL");
+                } catch (PDOException $me) {
+                    // Column already exists — ignore
+                }
+
             } catch (PDOException $e) {
                 error_log('[NexaBank] DB Connection failed: ' . $e->getMessage());
                 die(json_encode(['error' => 'Database unavailable. Please try later.']));
