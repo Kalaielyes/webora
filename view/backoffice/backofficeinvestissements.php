@@ -82,6 +82,7 @@
 <?php
 require_once __DIR__ . '/../../model/config.php';
 require_once __DIR__ . '/../../model/investissement.php';
+require_once __DIR__ . '/../../model/score.php';
 
 $pdo = Config::getConnexion();
 $projectsById = [];
@@ -111,6 +112,15 @@ try {
         if ($investment['status'] === 'EN_ATTENTE') {
             $pendingInvestmentsCount++;
         }
+    }
+
+    // Fetch scores
+    try { Score::recalculateAllUsers(); } catch (Exception $e) {}
+    $rawScores = [];
+    try { $rawScores = Score::getAdminScores(); } catch (Exception $e) {}
+    $scoresByUserId = [];
+    foreach ($rawScores as $rs) {
+        $scoresByUserId[$rs['user_id']] = $rs;
     }
 } catch (Exception $e) {
     $investments = [];
@@ -187,7 +197,7 @@ try {
         <table id="investments-table">
           <thead>
             <tr>
-              <th>Investisseur</th><th>Projet</th><th>Montant</th><th>Date</th><th>Statut</th><th>Actions</th>
+              <th>Investisseur</th><th>Score</th><th>Projet</th><th>Montant</th><th>Date</th><th>Statut</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="investments-tbody">
@@ -244,9 +254,25 @@ try {
                     data-p-rest="<?= htmlspecialchars($p_rest, ENT_QUOTES) ?>"
                     data-p-prog="<?= htmlspecialchars($p_prog, ENT_QUOTES) ?>"
                     data-p-taux="<?= htmlspecialchars($p_taux, ENT_QUOTES) ?>"
+                    data-p-taux="<?= htmlspecialchars($p_taux, ENT_QUOTES) ?>"
                     data-p-temps="<?= htmlspecialchars($p_temps, ENT_QUOTES) ?>"
+                    <?php 
+                      $uScore = $scoresByUserId[$investment['id_investisseur']] ?? null;
+                      $scoreVal = (int)($uScore['trust_score'] ?? 0);
+                      $scoreDetails = $uScore['score_details'] ?? '[]';
+                    ?>
+                    data-score="<?= $scoreVal ?>"
+                    data-score-details="<?= htmlspecialchars($scoreDetails, ENT_QUOTES) ?>"
                 >
                   <td><div class="td-name"><?= htmlspecialchars($investment['nom'] . ' ' . $investment['prenom']) ?></div><div class="td-sub"><?= htmlspecialchars($investment['email']) ?></div></td>
+                  <td>
+                    <?php
+                      $badgeClass = $scoreVal >= 75 ? 'score-green' : ($scoreVal >= 45 ? 'score-amber' : 'score-rose');
+                    ?>
+                    <span class="score-badge <?= $badgeClass ?>">
+                      <?= $scoreVal ?>/100
+                    </span>
+                  </td>
                   <td><?= htmlspecialchars($investment['projet_titre'] ?: 'N/A') ?></td>
                   <td><span class="td-mono"><?= number_format((float)$investment['montant_investi'], 2, ',', ' ') ?> TND</span></td>
                   <td><span class="td-mono"><?= htmlspecialchars($investment['date_investissement']) ?></span></td>
@@ -279,6 +305,15 @@ try {
           <div class="dp-row"><span class="dp-key">Objectif</span><span class="dp-val" id="dp-objectif">—</span></div>
           <div class="dp-row"><span class="dp-key">TRI</span><span class="dp-val" id="dp-taux">0%</span></div>
           <div class="dp-row"><span class="dp-key">Retour Brut</span><span class="dp-val" id="dp-temps">0 mois</span></div>
+          <div class="dp-row">
+            <span class="dp-key">Score Confiance</span>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <span class="dp-val" id="dp-score">0/100</span>
+              <button class="act-btn" id="btn-score-details" title="Détails du score" style="width:24px;height:24px;">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
         <div>
           <div class="dp-section">Collecte</div>
@@ -333,6 +368,20 @@ try {
   </div>
 </div>
 
+<!-- Score Modal -->
+<div id="score-modal" class="meeting-modal-overlay" style="z-index:16000">
+  <div class="meeting-modal" style="width:min(620px,100%)">
+    <div class="meeting-modal-head">
+      <div class="meeting-modal-title" id="score-modal-title">Détails du score</div>
+      <button type="button" class="act-btn" id="score-modal-close">×</button>
+    </div>
+    <div style="padding:1rem;max-height:70vh;overflow:auto;">
+      <div id="score-modal-summary" style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem;"></div>
+      <div id="score-modal-factors"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const invControllerUrl = new URL('../../controlller/investissement.php', window.location.href).href;
@@ -358,9 +407,11 @@ document.addEventListener('DOMContentLoaded', () => {
     refuse: document.getElementById('btn-refuse'),
     meeting: document.getElementById('btn-meeting'),
     joinNow: document.getElementById('btn-join-now'),
+    score: document.getElementById('dp-score'),
+    scoreBtn: document.getElementById('btn-score-details'),
   };
 
-  const selected = { id: null, status: null, email: '', lastMeetingLink: '' };
+  const selected = { id: null, status: null, email: '', lastMeetingLink: '', score: 0, scoreDetails: '[]' };
   const meetingModal = document.getElementById('meeting-modal-overlay');
   const meetingForm = document.getElementById('meeting-form');
   const meetingEmailInput = document.getElementById('meeting-investor-email');
@@ -380,9 +431,17 @@ document.addEventListener('DOMContentLoaded', () => {
     selected.id = row.dataset.investmentId;
     selected.status = row.dataset.status;
     selected.email = row.dataset.invEmail || '';
+    selected.score = row.dataset.score || 0;
+    selected.scoreDetails = row.dataset.scoreDetails || '[]';
 
     dp.title.textContent = row.dataset.invNom || 'Investisseur';
     dp.id.textContent = '#INV-' + selected.id;
+    dp.score.textContent = selected.score + '/100';
+    
+    // Score badge style in DP
+    const sVal = parseInt(selected.score);
+    dp.score.className = 'dp-val ' + (sVal >= 75 ? 'score-green' : (sVal >= 45 ? 'score-amber' : 'score-rose'));
+    // Actually dp-val might not support these classes, let's keep it simple or add styles
     dp.creator.textContent = row.dataset.pCreator || 'N/A';
     dp.secteur.textContent = row.dataset.pSector || '—';
     dp.dateCreation.textContent = row.dataset.pDateCrea || '—';
@@ -484,6 +543,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   dp.approve.addEventListener('click', () => changeStatus('VALIDE'));
   dp.refuse.addEventListener('click', () => changeStatus('REFUSE'));
+  
+  // Score Modal Logic
+  const scoreModal = document.getElementById('score-modal');
+  const scoreModalTitle = document.getElementById('score-modal-title');
+  const scoreModalSummary = document.getElementById('score-modal-summary');
+  const scoreModalFactors = document.getElementById('score-modal-factors');
+  const scoreModalClose = document.getElementById('score-modal-close');
+
+  dp.scoreBtn.addEventListener('click', () => {
+    if (!selected.id) return;
+    scoreModalTitle.textContent = `${dp.title.textContent} - ${selected.score}/100`;
+    scoreModalSummary.textContent = 'Breakdown pondéré, plafonné et pénalités appliquées.';
+    let parsed = [];
+    try { parsed = JSON.parse(selected.scoreDetails || '[]'); } catch (e) { parsed = []; }
+    scoreModalFactors.innerHTML = '';
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      scoreModalFactors.innerHTML = '<div style="padding:1rem;border:1px solid var(--border);border-radius:8px;font-size:.74rem;">Aucun détail disponible.</div>';
+    } else {
+      parsed.forEach((f) => {
+        const el = document.createElement('div');
+        el.style.cssText = 'border:1px solid var(--border);border-radius:10px;padding:.7rem .75rem;margin-bottom:.55rem;';
+        el.innerHTML = `<div style="font-size:.75rem;font-weight:700;margin-bottom:.2rem;">${f.factor || 'facteur'} : ${f.points ?? 0} / ${f.max ?? '?'}</div><div style="font-size:.74rem;color:var(--muted);line-height:1.45;">${f.reason || '—'}</div>`;
+        scoreModalFactors.appendChild(el);
+      });
+    }
+    scoreModal.classList.add('active');
+  });
+
+  scoreModalClose.addEventListener('click', () => scoreModal.classList.remove('active'));
+  scoreModal.addEventListener('click', (e) => { if (e.target === scoreModal) scoreModal.classList.remove('active'); });
+
   if (dp.meeting) dp.meeting.addEventListener('click', openMeetingModal);
   if (meetingCloseBtn) meetingCloseBtn.addEventListener('click', closeMeetingModal);
   if (meetingCancelBtn) meetingCancelBtn.addEventListener('click', closeMeetingModal);
