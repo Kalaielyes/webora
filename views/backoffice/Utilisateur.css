@@ -133,6 +133,7 @@ body {
     padding: .5rem 1.2rem .25rem;
 }
 
+<<<<<<< HEAD
 /* ── NAV DROPDOWN ───────────────────────────────────── */
 .nav-dropdown {
     margin: .15rem 0;
@@ -217,16 +218,37 @@ body {
 }
 
 .nav-sub-item:hover {
+=======
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .5rem 1.2rem;
+    font-size: .8rem;
+    color: #94A3B8;
+    cursor: pointer;
+    transition: all .15s;
+    border-left: 2px solid transparent;
+    text-decoration: none;
+}
+
+.nav-item:hover {
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     color: #F1F5F9;
     background: rgba(255, 255, 255, .05);
 }
 
+<<<<<<< HEAD
 .nav-sub-item.active {
+=======
+.nav-item.active {
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     color: #60A5FA;
     background: rgba(96, 165, 250, .08);
     border-left-color: #3B82F6;
 }
 
+<<<<<<< HEAD
 .nav-sub-dot {
     width: 4px;
     height: 4px;
@@ -239,6 +261,14 @@ body {
     background: #60A5FA;
 }
 
+=======
+.nav-item svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
 .nav-badge {
     margin-left: auto;
     background: rgba(220, 38, 38, .2);

@@ -368,4 +368,8 @@ class Api extends ApiBase {
         echo "validationRequests is deprecated. Use account->validationRequests instead.";
         return $this->v2010->account->validationRequests;
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

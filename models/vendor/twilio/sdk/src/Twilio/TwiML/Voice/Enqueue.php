@@ -86,4 +86,8 @@ class Enqueue extends TwiML {
     public function setWorkflowSid($workflowSid): self {
         return $this->setAttribute('workflowSid', $workflowSid);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

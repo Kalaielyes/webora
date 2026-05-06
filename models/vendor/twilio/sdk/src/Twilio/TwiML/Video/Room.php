@@ -20,4 +20,8 @@ class Room extends TwiML {
     public function __construct($name) {
         parent::__construct('Room', $name);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

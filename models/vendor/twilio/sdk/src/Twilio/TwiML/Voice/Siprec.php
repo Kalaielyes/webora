@@ -75,4 +75,8 @@ class Siprec extends TwiML {
     public function setStatusCallbackMethod($statusCallbackMethod): self {
         return $this->setAttribute('statusCallbackMethod', $statusCallbackMethod);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

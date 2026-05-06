@@ -31,4 +31,8 @@ print("Call made successfully with sid: ".$call->sid."\n\n");
 $callsList = $client->calls->read([],null,2);
 foreach ($callsList as $call) {
     print("Call {$call->sid}: {$call->duration} seconds\n");
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

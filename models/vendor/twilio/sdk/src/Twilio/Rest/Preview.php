@@ -175,4 +175,8 @@ class Preview extends PreviewBase {
         echo "sims(\$sid) is deprecated. Use wireless->sims(\$sid) instead.";
         return $this->wireless->sims($sid);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

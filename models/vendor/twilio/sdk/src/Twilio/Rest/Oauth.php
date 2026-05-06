@@ -68,4 +68,8 @@ class Oauth extends OauthBase {
         echo "userInfo() is deprecated. Use v1->userInfo() instead.";
         return $this->v1->userInfo();
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

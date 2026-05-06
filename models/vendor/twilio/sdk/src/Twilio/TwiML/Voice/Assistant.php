@@ -253,4 +253,8 @@ class Assistant extends TwiML {
     public function setDebug($debug): self {
         return $this->setAttribute('debug', $debug);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

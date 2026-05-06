@@ -158,4 +158,8 @@ class SsmlProsody extends TwiML {
     public function setPitch($pitch): self {
         return $this->setAttribute('pitch', $pitch);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

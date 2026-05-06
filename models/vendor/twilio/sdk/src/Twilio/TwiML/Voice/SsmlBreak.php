@@ -39,4 +39,8 @@ class SsmlBreak extends TwiML {
     public function setTime($time): self {
         return $this->setAttribute('time', $time);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

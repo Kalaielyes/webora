@@ -67,4 +67,8 @@ class Receive extends TwiML {
     public function setStoreMedia($storeMedia): self {
         return $this->setAttribute('storeMedia', $storeMedia);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

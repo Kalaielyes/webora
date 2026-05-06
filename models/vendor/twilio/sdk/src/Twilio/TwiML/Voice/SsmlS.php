@@ -107,4 +107,8 @@ class SsmlS extends TwiML {
     public function w($words, $attributes = []): SsmlW {
         return $this->nest(new SsmlW($words, $attributes));
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

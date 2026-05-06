@@ -26,4 +26,8 @@ class FaxResponse extends TwiML {
     public function receive($attributes = []): Fax\Receive {
         return $this->nest(new Fax\Receive($attributes));
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

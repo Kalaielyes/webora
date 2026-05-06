@@ -65,4 +65,8 @@ class Pricing extends PricingBase {
         echo "numbers(\$destinationNumber) is deprecated. Use v2->numbers(\$destinationNumber) instead.";
         return $this->v2->numbers($destinationNumber);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

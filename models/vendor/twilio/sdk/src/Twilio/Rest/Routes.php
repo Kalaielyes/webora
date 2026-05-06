@@ -55,4 +55,8 @@ class Routes extends RoutesBase {
         echo "trunks(\$sipTrunkDomain) is deprecated. Use v2->trunks(\$sipTrunkDomain instead.";
         return $this->v2->trunks($sipTrunkDomain);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

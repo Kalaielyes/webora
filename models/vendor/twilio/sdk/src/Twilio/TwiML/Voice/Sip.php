@@ -175,4 +175,8 @@ class Sip extends TwiML {
     public function setMachineDetectionSilenceTimeout($machineDetectionSilenceTimeout): self {
         return $this->setAttribute('machineDetectionSilenceTimeout', $machineDetectionSilenceTimeout);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

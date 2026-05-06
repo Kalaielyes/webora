@@ -66,4 +66,8 @@ class Sms extends TwiML {
     public function setStatusCallback($statusCallback): self {
         return $this->setAttribute('statusCallback', $statusCallback);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

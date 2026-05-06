@@ -139,4 +139,8 @@ class Supersim extends SupersimBase {
         echo "usageRecords is deprecated. Use v1->usageRecords instead.";
         return $this->v1->usageRecords;
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

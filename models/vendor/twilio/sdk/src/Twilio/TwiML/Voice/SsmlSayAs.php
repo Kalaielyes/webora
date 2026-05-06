@@ -40,4 +40,8 @@ class SsmlSayAs extends TwiML {
     public function setFormat($format): self {
         return $this->setAttribute('format', $format);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

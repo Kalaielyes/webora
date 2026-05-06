@@ -29,4 +29,8 @@ class Studio extends StudioBase {
         echo "flowValidate is deprecated. Use v2->flowValidate instead.";
         return $this->v2->flowValidate;
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

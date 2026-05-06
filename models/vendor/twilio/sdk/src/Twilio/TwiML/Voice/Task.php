@@ -39,4 +39,8 @@ class Task extends TwiML {
     public function setTimeout($timeout): self {
         return $this->setAttribute('timeout', $timeout);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

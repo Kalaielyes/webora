@@ -217,4 +217,8 @@ class Gather extends TwiML {
     public function setEnhanced($enhanced): self {
         return $this->setAttribute('enhanced', $enhanced);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

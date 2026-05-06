@@ -137,4 +137,8 @@ class SsmlLang extends TwiML {
     public function setXmlLang($xmlLang): self {
         return $this->setAttribute('xml:Lang', $xmlLang);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

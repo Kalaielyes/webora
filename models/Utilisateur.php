@@ -317,7 +317,11 @@ class Utilisateur {
             ':nom'       => $this->nom,
             ':prenom'    => $this->prenom,
             ':email'     => $this->email,
+<<<<<<< HEAD
             ':mdp'       => $this->mdp,
+=======
+            ':mdp'       => password_hash($this->mdp, PASSWORD_BCRYPT, ['cost' => 12]),
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
             ':numTel'    => $this->numTel,
             ':dn'        => $this->date_naissance,
             ':adresse'   => $this->adresse,
@@ -481,4 +485,8 @@ class Utilisateur {
         $s = $this->db->prepare("UPDATE utilisateur SET selfie_path=:sp, face_match_score=:score WHERE id=:id");
         return $s->execute([':sp' => $selfiePath, ':score' => $score, ':id' => $id]);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

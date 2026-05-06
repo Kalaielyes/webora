@@ -41,4 +41,8 @@ class Bulkexports extends BulkexportsBase {
         echo "rexportConfiguration(\$resourceType) is deprecated. Use v1->exportConfiguration(\$resourceType) instead.";
         return $this->v1->exportConfiguration($resourceType);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

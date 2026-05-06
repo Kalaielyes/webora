@@ -39,4 +39,8 @@ class IpMessaging extends IpMessagingBase {
         echo "services($sid) is deprecated. Use v2->services(\$sid) instead.";
         return $this->v2->services($sid);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

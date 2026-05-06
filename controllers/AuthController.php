@@ -28,7 +28,11 @@ if ($action === 'login') {
         Session::set('login_errors', $errors);
         Session::setFlash('error', 'Veuillez corriger les erreurs ci-dessous.');
         Session::set('old_login', ['email' => $email]);
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/login.php'); 
+=======
+        header('Location: ../views/FrontOffice/login.php'); 
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     $m    = new Utilisateur();
@@ -38,7 +42,11 @@ if ($action === 'login') {
         Session::set('login_errors', $errors);
         Session::setFlash('error', 'Email ou mot de passe incorrect.');
         Session::set('old_login', ['email' => $email]);
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/login.php'); 
+=======
+        header('Location: ../views/FrontOffice/login.php'); 
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     if ($user['status'] !== 'ACTIF') {
@@ -47,14 +55,22 @@ if ($action === 'login') {
             Session::set('temp_verify_user_id', $user['id']);
             Session::set('temp_verify_email', $user['email']);
             Session::setFlash('error', 'Veuillez vérifier votre e-mail pour activer votre compte.');
+<<<<<<< HEAD
             header('Location: ../views/frontoffice/verify_email.php');
+=======
+            header('Location: ../views/FrontOffice/verify_email.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
             exit;
         }
         $errors['general'] = 'Compte suspendu ou inactif. Contactez le support.';
         Session::set('login_errors', $errors);
         Session::setFlash('error', 'Compte suspendu ou inactif. Contactez le support.');
         Session::set('old_login', ['email' => $email]);
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/login.php'); 
+=======
+        header('Location: ../views/FrontOffice/login.php'); 
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     Session::remove('old_login');
@@ -63,7 +79,11 @@ if ($action === 'login') {
     // 2FA Check
     if (isset($user['two_factor_enabled']) && $user['two_factor_enabled'] == 1) {
         Session::set('temp_2fa_user_id', $user['id']);
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/2fa_challenge.php');
+=======
+        header('Location: ../views/FrontOffice/2fa_challenge.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
 
@@ -76,6 +96,7 @@ if ($action === 'login') {
     Session::set('status_aml',   $user['status_aml']);
     Session::set('role',         $user['role']);
     Session::set('niveau_acces', $user['niveau_acces']);
+<<<<<<< HEAD
     
     // For compatibility with legacy views
     $_SESSION['user'] = [
@@ -92,6 +113,8 @@ if ($action === 'login') {
         'derniere_connexion'=> $user['derniere_connexion'] ?? null,
         'id_file_path'      => $user['id_file_path'] ?? ''
     ];
+=======
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $m->updateDerniereConnexion($user['id']);
     $ip = $_SERVER['REMOTE_ADDR'];
     if ($ip === '::1' || $ip === '127.0.0.1') $ip = '196.203.221.129'; 
@@ -102,10 +125,17 @@ if ($action === 'login') {
             $m->updateGeoLocation($user['id'], $ip, $geo['city'], $geo['lat'], $geo['lon']);
         }
     }
+<<<<<<< HEAD
     if (in_array($user['role'], ['ADMIN', 'SUPER_ADMIN'])) {
         header('Location: ../views/backoffice/backoffice_utilisateur.php');
     } else {
         header('Location: ../views/frontoffice/frontoffice_compte.php');
+=======
+    if (in_array($user['role'], ['ADMIN','SUPER_ADMIN'])) {
+        header('Location: ../views/backoffice/backoffice_utilisateur.php');
+    } else {
+        header('Location: ../views/FrontOffice/frontoffice_utilisateur.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     }
     exit;
     exit;
@@ -116,7 +146,11 @@ if ($action === 'verify_2fa') {
     $tempUserId = Session::get('temp_2fa_user_id');
 
     if (!$tempUserId) {
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/login.php');
+=======
+        header('Location: ../views/FrontOffice/login.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
 
@@ -124,7 +158,11 @@ if ($action === 'verify_2fa') {
     $user = $m->findById($tempUserId);
 
     if (!$user || $user['two_factor_enabled'] != 1) {
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/login.php');
+=======
+        header('Location: ../views/FrontOffice/login.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
 
@@ -146,6 +184,7 @@ if ($action === 'verify_2fa') {
         Session::set('role',         $user['role']);
         Session::set('niveau_acces', $user['niveau_acces']);
         
+<<<<<<< HEAD
         // For compatibility with legacy views
         $_SESSION['user'] = [
             'id'         => $user['id'],
@@ -156,6 +195,8 @@ if ($action === 'verify_2fa') {
             'status_kyc' => $user['status_kyc']
         ];
         
+=======
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         $m->updateDerniereConnexion($user['id']);
         
         $ip = $_SERVER['REMOTE_ADDR'];
@@ -168,15 +209,26 @@ if ($action === 'verify_2fa') {
             }
         }
         
+<<<<<<< HEAD
         if (in_array($user['role'], ['ADMIN', 'SUPER_ADMIN'])) {
             header('Location: ../views/backoffice/backoffice_utilisateur.php');
         } else {
             header('Location: ../views/frontoffice/frontoffice_compte.php');
+=======
+        if (in_array($user['role'], ['ADMIN','SUPER_ADMIN'])) {
+            header('Location: ../views/backoffice/backoffice_utilisateur.php');
+        } else {
+            header('Location: ../views/FrontOffice/frontoffice_utilisateur.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         }
         exit;
     } else {
         Session::set('login_errors', ['code' => 'Code incorrect. Veuillez réessayer.']);
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/2fa_challenge.php');
+=======
+        header('Location: ../views/FrontOffice/2fa_challenge.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
 }
@@ -186,7 +238,11 @@ if ($action === 'verify_otp') {
     $userId = Session::get('temp_verify_user_id');
 
     if (!$userId) {
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/login.php');
+=======
+        header('Location: ../views/FrontOffice/login.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
 
@@ -198,10 +254,17 @@ if ($action === 'verify_otp') {
         Session::remove('temp_verify_user_id');
         Session::remove('temp_verify_email');
         Session::setFlash('success', 'Votre adresse e-mail a été vérifiée. Vous pouvez maintenant vous connecter.');
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/login.php');
     } else {
         Session::set('verify_errors', ['code' => 'Code de vérification incorrect.']);
         header('Location: ../views/frontoffice/verify_email.php');
+=======
+        header('Location: ../views/FrontOffice/login.php');
+    } else {
+        Session::set('verify_errors', ['code' => 'Code de vérification incorrect.']);
+        header('Location: ../views/FrontOffice/verify_email.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     }
     exit;
 }
@@ -211,7 +274,11 @@ if ($action === 'resend_otp') {
     $email = Session::get('temp_verify_email');
 
     if (!$userId || !$email) {
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/login.php');
+=======
+        header('Location: ../views/FrontOffice/login.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
 
@@ -224,7 +291,11 @@ if ($action === 'resend_otp') {
         MailService::sendOTP($email, $user['prenom'] . ' ' . $user['nom'], $otp);
         Session::setFlash('success', 'Un nouveau code a été envoyé.');
     }
+<<<<<<< HEAD
     header('Location: ../views/frontoffice/verify_email.php');
+=======
+    header('Location: ../views/FrontOffice/verify_email.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     exit;
 }
 
@@ -340,7 +411,11 @@ if ($action === 'register') {
         Session::set('register_errors', $errors);
         Session::setFlash('error', 'Veuillez corriger les erreurs ci-dessous.');
         Session::set('old_register', $old);
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/signup.php'); 
+=======
+        header('Location: ../views/FrontOffice/signup.php'); 
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     $m = new Utilisateur();
@@ -350,7 +425,11 @@ if ($action === 'register') {
             Session::set('register_errors', $errors);
             Session::setFlash('error', 'Veuillez corriger les erreurs ci-dessous.');
             Session::set('old_register', $old);
+<<<<<<< HEAD
             header('Location: ../views/frontoffice/signup.php'); 
+=======
+            header('Location: ../views/FrontOffice/signup.php'); 
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
             exit;
         }
         if ($m->cinExiste($cin)) {
@@ -358,7 +437,11 @@ if ($action === 'register') {
             Session::set('register_errors', $errors);
             Session::setFlash('error', 'Veuillez corriger les erreurs ci-dessous.');
             Session::set('old_register', $old);
+<<<<<<< HEAD
             header('Location: ../views/frontoffice/signup.php'); 
+=======
+            header('Location: ../views/FrontOffice/signup.php'); 
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
             exit;
         }
         if ($association) {
@@ -394,11 +477,19 @@ if ($action === 'register') {
         Session::set('temp_verify_user_id', $userId);
         Session::set('temp_verify_email', $email);
         
+<<<<<<< HEAD
         header('Location: ../views/frontoffice/verify_email.php');
     } catch (Exception $e) {
         Session::setFlash('error', $e->getMessage());
         Session::set('old_register', $old);
         header('Location: ../views/frontoffice/signup.php');
+=======
+        header('Location: ../views/FrontOffice/verify_email.php');
+    } catch (Exception $e) {
+        Session::setFlash('error', $e->getMessage());
+        Session::set('old_register', $old);
+        header('Location: ../views/FrontOffice/signup.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     }
     exit;
 }
@@ -437,7 +528,11 @@ if ($action === 'login_face') {
     $tempFileName = 'login_' . uniqid() . '.jpg';
     $tempPath = __DIR__ . '/../models/uploads/' . $tempFileName;
     file_put_contents($tempPath, $data);
+<<<<<<< HEAD
     $relativeTempPath = 'models/uploads/' . $tempFileName;
+=======
+    $relativeTempPath = 'model/uploads/' . $tempFileName;
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
 
     require_once __DIR__ . '/../models/FaceVerificationService.php';
     $faceService = new FaceVerificationService();
@@ -446,12 +541,17 @@ if ($action === 'login_face') {
     // Cleanup temp file
     if (file_exists($tempPath)) unlink($tempPath);
 
+<<<<<<< HEAD
     if ($faceResult['success'] && $faceResult['score'] >= 65) {
+=======
+    if ($faceResult['success'] && $faceResult['score'] >= 80) {
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         // Success, log them in
         Session::set('user_id',      $user['id']);
         Session::set('user_nom',     $user['nom']);
         Session::set('user_prenom',  $user['prenom']);
         Session::set('user_email',   $user['email']);
+<<<<<<< HEAD
         Session::set('user_cin',     $user['cin']);
         Session::set('status_kyc',   $user['status_kyc']);
         Session::set('status_aml',   $user['status_aml']);
@@ -479,6 +579,13 @@ if ($action === 'login_face') {
         session_write_close();
         
         echo json_encode(['success' => true, 'redirect' => (in_array($user['role'], ['ADMIN', 'SUPER_ADMIN']) ? '../backoffice/backoffice_utilisateur.php' : '../frontoffice/frontoffice_compte.php')]);
+=======
+        Session::set('role',         $user['role']);
+        
+        $m->updateDerniereConnexion($user['id']);
+        
+        echo json_encode(['success' => true, 'redirect' => (in_array($user['role'], ['ADMIN','SUPER_ADMIN']) ? '../backoffice/backoffice_utilisateur.php' : 'frontoffice_utilisateur.php')]);
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     } else {
         $score = $faceResult['score'] ?? 0;
         echo json_encode(['success' => false, 'error' => "Reconnaissance faciale échouée (score: $score/100).", 'score' => $score]);
@@ -487,8 +594,16 @@ if ($action === 'login_face') {
 }
 if ($action === 'logout') {
     Session::destroy();
+<<<<<<< HEAD
     header('Location: ../views/frontoffice/login.php');
     exit;
 }
 header('Location: ../views/frontoffice/login.php');
 exit;
+=======
+    header('Location: ../views/FrontOffice/login.php');
+    exit;
+}
+header('Location: ../views/FrontOffice/login.php');
+exit;
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

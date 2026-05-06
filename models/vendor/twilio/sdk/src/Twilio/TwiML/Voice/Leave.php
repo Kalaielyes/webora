@@ -18,4 +18,8 @@ class Leave extends TwiML {
     public function __construct() {
         parent::__construct('Leave', null);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

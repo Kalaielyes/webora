@@ -20,4 +20,8 @@ class ApplicationSid extends TwiML {
     public function __construct($sid) {
         parent::__construct('ApplicationSid', $sid);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

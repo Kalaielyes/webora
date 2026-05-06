@@ -13,4 +13,8 @@ class Numbers extends NumbersBase {
         return $this->v2->regulatoryCompliance;
     }
 
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

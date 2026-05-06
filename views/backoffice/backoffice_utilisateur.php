@@ -2,7 +2,11 @@
 require_once __DIR__ . '/../../models/Session.php';
 require_once __DIR__ . '/../../models/Utilisateur.php';
 require_once __DIR__ . '/../../models/AuditLog.php';
+<<<<<<< HEAD
 Session::requireAdmin('../frontoffice/login.php');
+=======
+Session::requireAdmin('../FrontOffice/login.php');
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
 $auditModel = new AuditLog();
 $logs = [];
 if (($_GET['page'] ?? '') === 'audit') {
@@ -360,7 +364,64 @@ tr:hover td{background:var(--bg3);}
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body>
+<<<<<<< HEAD
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
+=======
+<div class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-name">Legal<span>Fin</span></div>
+    <div class="sb-logo-env">ADMIN</div>
+  </div>
+  <div class="sb-admin">
+    <div class="sb-av"><?= $adminInitials ?></div>
+    <div>
+      <div class="sb-aname"><?= htmlspecialchars(Session::get('user_nom').' '.Session::get('user_prenom')) ?></div>
+      <div class="sb-arole"><?= Session::get('role') ?></div>
+    </div>
+  </div>
+  <nav class="sb-nav">
+    <div class="nav-section">Principal</div>
+    <a href="?page=utilisateurs&filtre=tous" class="nav-item <?= $page==='utilisateurs'?'active':'' ?> <?= !in_array('utilisateurs',$myModules)?'disabled':'' ?>">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      Utilisateurs
+      <?php if($stats['kyc']>0): ?><span class="nav-badge"><?= $stats['kyc'] ?></span><?php endif; ?>
+    </a>
+    <a href="?page=statistiques" class="nav-item <?= $page==='statistiques'?'active':'' ?> <?= !in_array('statistiques',$myModules)?'disabled':'' ?>">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Statistiques
+    </a>
+    <?php foreach(['comptes','actions','credit','demande_chequier','dons_collectes'] as $mk): ?>
+    <a href="#" class="nav-item <?= !in_array($mk,$myModules)?'disabled':'' ?>">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><?= $ALL_MODULES[$mk]['icon'] ?></svg>
+      <?= $ALL_MODULES[$mk]['label'] ?>
+    </a>
+    <?php endforeach; ?>
+    <div class="nav-section">Compte</div>
+    <a href="?page=profil" class="nav-item <?= $page==='profil'?'active':'' ?>">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Mon Profil
+    </a>
+    <?php if($currentUserRole==='SUPER_ADMIN'): ?>
+    <a href="?page=permissions" class="nav-item <?= $page==='permissions'?'active':'' ?>">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Permissions
+    <?php endif; ?>
+    <?php if(in_array('audit', $myModules)): ?>
+    <a href="?page=audit" class="nav-item <?= $page==='audit'?'active':'' ?>">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><?= $ALL_MODULES['audit']['icon'] ?></svg>
+      Journal d'Audit
+    </a>
+    <?php endif; ?>
+  </nav>
+  <div class="sb-footer">
+    <div class="sb-status"><div class="status-dot"></div>Système opérationnel</div>
+    <a href="../../controllers/AuthController.php?action=logout" style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:#475569;text-decoration:none;margin-top:.6rem;">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      Déconnexion
+    </a>
+  </div>
+</div>
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
 <div class="main" id="main-content">
 <?php endif; ?>
   <div class="topbar">
@@ -1521,6 +1582,7 @@ async function captureAdminFace() {
     </form>
   </div>
 </div>
+<<<<<<< HEAD
 <script>
 function toggleDropdown(id) {
     document.getElementById(id).classList.toggle('open');
@@ -1529,3 +1591,9 @@ function toggleDropdown(id) {
 </body>
 </html>
 <?php endif; ?>
+=======
+
+</body>
+</html>
+<?php endif; ?>
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

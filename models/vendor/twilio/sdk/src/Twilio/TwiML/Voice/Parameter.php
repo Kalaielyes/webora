@@ -38,4 +38,8 @@ class Parameter extends TwiML {
     public function setValue($value): self {
         return $this->setAttribute('value', $value);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

@@ -22,4 +22,8 @@ class Content extends ContentBase {
         echo "contents(\$sid) is deprecated. Use v1->contents(\$sid) instead.";
         return $this->v1->contents($sid);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

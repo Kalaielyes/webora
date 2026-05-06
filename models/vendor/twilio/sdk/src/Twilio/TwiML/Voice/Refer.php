@@ -48,4 +48,8 @@ class Refer extends TwiML {
     public function setMethod($method): self {
         return $this->setAttribute('method', $method);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

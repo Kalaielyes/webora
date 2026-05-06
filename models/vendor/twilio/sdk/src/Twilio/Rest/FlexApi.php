@@ -115,4 +115,8 @@ class FlexApi extends FlexApiBase {
         echo "webChannels is deprecated. Use v2->webChannels instead.";
         return $this->v2->webChannels;
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
