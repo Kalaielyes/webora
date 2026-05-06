@@ -399,85 +399,254 @@ function createZoomMeetingLink(string $startAtIso): ?string
     return (string)$data['join_url'];
 }
 
-function sendMeetingEmails(array $emails, array $meetingData): array
+function getInvestmentDetailsForEmail(int $investmentId): array
 {
-    $settings = Config::getMeetingSettings();
-    $brevoKey = $settings['brevo_api_key'];
-    if ($brevoKey !== '') {
-        $body = "A video meeting has been scheduled.\n\n"
-            . "Date: {$meetingData['date']}\n"
-            . "Time: {$meetingData['time']}\n"
-            . "Meeting link: {$meetingData['meeting_link']}\n";
+    try {
+        $sql = "SELECT
+                    i.id_investissement,
+                    CONCAT(u.nom, ' ', u.prenom) AS investor_name,
+                    u.email                       AS investor_email,
+                    p.titre                       AS project_title,
+                    p.secteur                     AS project_sector,
+                    i.montant_investi             AS amount,
+                    i.date_investissement         AS investment_date,
+                    i.status                      AS status
+                FROM investissement i
+                LEFT JOIN utilisateur u ON i.id_investisseur = u.id
+                LEFT JOIN projet      p ON i.id_projet       = p.id_projet
+                WHERE i.id_investissement = :id
+                LIMIT 1";
+        $stmt = Config::getConnexion()->prepare($sql);
+        $stmt->execute(['id' => $investmentId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
 
-        if ($meetingData['message'] !== '') {
-            $body .= "Message: {$meetingData['message']}\n";
+function sendMeetingEmails(array $emails, array $meetingData, array $investmentInfo = []): array
+{
+    require_once __DIR__ . '/../model/mailer.php';
+
+    // ── Format date & time nicely ────────────────────────────────────────────
+    $rawDate = $meetingData['date'] ?? '';
+    $rawTime = $meetingData['time'] ?? '';
+
+    $formattedDate = $rawDate;
+    if ($rawDate !== '') {
+        $ts = strtotime($rawDate);
+        if ($ts !== false) {
+            // e.g. «Mercredi 07 mai 2026»
+            $days   = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+            $months = ['','janvier','février','mars','avril','mai','juin',
+                       'juillet','août','septembre','octobre','novembre','décembre'];
+            $formattedDate = $days[date('w', $ts)] . ' ' .
+                             ltrim(date('d', $ts), '0') . ' ' .
+                             $months[(int)date('n', $ts)] . ' ' .
+                             date('Y', $ts);
         }
-
-        $payload = json_encode([
-            'sender' => [
-                'name' => $settings['sender_name'],
-                'email' => $settings['sender_email'],
-            ],
-            'to' => array_map(static fn($email) => ['email' => $email], $emails),
-            'subject' => 'Meeting confirmation',
-            'textContent' => $body,
-        ]);
-
-        $ch = curl_init('https://api.brevo.com/v3/smtp/email');
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'api-key: ' . $brevoKey,
-            'accept: application/json',
-            'content-type: application/json',
-        ]);
-        $response = curl_exec($ch);
-        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($response === false || $httpCode < 200 || $httpCode >= 300) {
-            return [
-                'sent' => false,
-                'provider' => 'brevo',
-                'message' => 'Brevo email API failed. Check BREVO_API_KEY and sender email.',
-            ];
-        }
-        return [
-            'sent' => true,
-            'provider' => 'brevo',
-            'message' => 'Emails sent via Brevo API.',
-        ];
     }
 
-    $subject = 'Meeting confirmation';
-    $body = "Date: {$meetingData['date']}\n"
-        . "Time: {$meetingData['time']}\n"
-        . "Meeting link: {$meetingData['meeting_link']}\n";
-    if ($meetingData['message'] !== '') {
-        $body .= "Message: {$meetingData['message']}\n";
+    $meetingLink     = htmlspecialchars($meetingData['meeting_link'] ?? '', ENT_QUOTES);
+    $meetingMessage  = htmlspecialchars($meetingData['message'] ?? '', ENT_QUOTES);
+
+    // ── Investment info block ────────────────────────────────────────────────
+    $statusLabels = [
+        'EN_ATTENTE' => 'En attente', 'VALIDE' => 'Validé',
+        'REFUSE'     => 'Refusé',     'ANNULE'  => 'Annulé',
+    ];
+    $statusColors = [
+        'EN_ATTENTE' => '#f59e0b', 'VALIDE' => '#10b981',
+        'REFUSE'     => '#ef4444', 'ANNULE'  => '#6b7280',
+    ];
+    $invStatus      = $investmentInfo['status'] ?? '';
+    $statusLabel    = $statusLabels[$invStatus]  ?? $invStatus;
+    $statusColor    = $statusColors[$invStatus]  ?? '#6b7280';
+
+    $hasInv = !empty($investmentInfo);
+    $invBlock = '';
+    if ($hasInv) {
+        $amount = isset($investmentInfo['amount'])
+            ? number_format((float)$investmentInfo['amount'], 2, ',', ' ') . ' TND'
+            : '—';
+        $invDate = '';
+        if (!empty($investmentInfo['investment_date'])) {
+            $ts2 = strtotime($investmentInfo['investment_date']);
+            $invDate = $ts2 !== false ? date('d/m/Y', $ts2) : $investmentInfo['investment_date'];
+        }
+        $invName    = htmlspecialchars($investmentInfo['investor_name']    ?? '', ENT_QUOTES);
+        $invEmail   = htmlspecialchars($investmentInfo['investor_email']   ?? '', ENT_QUOTES);
+        $projTitle  = htmlspecialchars($investmentInfo['project_title']    ?? '', ENT_QUOTES);
+        $projSector = htmlspecialchars($investmentInfo['project_sector']   ?? '', ENT_QUOTES);
+
+        $invBlock = "
+        <!-- Investment section -->
+        <tr>
+          <td style='padding:0 32px 8px'>
+            <p style='margin:0 0 12px;font-size:13px;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.08em;color:#64748b;border-bottom:1px solid #e2e8f0;padding-bottom:8px'>
+              📋 Détails de l'investissement
+            </p>
+            <table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse'>
+              <tr>
+                <td style='padding:5px 0;font-size:13px;color:#64748b;width:45%'>Investisseur</td>
+                <td style='padding:5px 0;font-size:13px;color:#0f172a;font-weight:600'>$invName</td>
+              </tr>
+              <tr>
+                <td style='padding:5px 0;font-size:13px;color:#64748b'>Email</td>
+                <td style='padding:5px 0;font-size:13px;color:#0f172a'>$invEmail</td>
+              </tr>
+              <tr>
+                <td style='padding:5px 0;font-size:13px;color:#64748b'>Projet</td>
+                <td style='padding:5px 0;font-size:13px;color:#0f172a;font-weight:600'>$projTitle</td>
+              </tr>
+              <tr>
+                <td style='padding:5px 0;font-size:13px;color:#64748b'>Secteur</td>
+                <td style='padding:5px 0;font-size:13px;color:#0f172a'>$projSector</td>
+              </tr>
+              <tr>
+                <td style='padding:5px 0;font-size:13px;color:#64748b'>Montant investi</td>
+                <td style='padding:5px 0;font-size:13px;color:#0f172a;font-weight:600'>$amount</td>
+              </tr>
+              <tr>
+                <td style='padding:5px 0;font-size:13px;color:#64748b'>Date d'investissement</td>
+                <td style='padding:5px 0;font-size:13px;color:#0f172a'>$invDate</td>
+              </tr>
+              <tr>
+                <td style='padding:5px 0;font-size:13px;color:#64748b'>Statut</td>
+                <td style='padding:5px 0'>
+                  <span style='display:inline-block;padding:2px 10px;border-radius:20px;
+                               background:$statusColor;color:#fff;font-size:11px;font-weight:700'>
+                    $statusLabel
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>";
     }
 
-    $headers = 'From: ' . $settings['sender_email'];
-    $sentAtLeastOne = false;
+    $msgRow = '';
+    if ($meetingMessage !== '') {
+        $msgRow = "
+        <tr>
+          <td style='padding:0 32px 24px'>
+            <div style='background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px;
+                        padding:12px 16px;font-size:13px;color:#065f46;line-height:1.6'>
+              <strong>Message :</strong> $meetingMessage
+            </div>
+          </td>
+        </tr>";
+    }
+
+    $htmlBody = "
+<!DOCTYPE html>
+<html lang='fr'>
+<head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/></head>
+<body style='margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif'>
+  <table width='100%' cellpadding='0' cellspacing='0'>
+    <tr><td style='padding:32px 16px'>
+      <table width='600' align='center' cellpadding='0' cellspacing='0'
+             style='background:#ffffff;border-radius:12px;
+                    box-shadow:0 4px 20px rgba(0,0,0,.08);overflow:hidden;max-width:100%'>
+
+        <!-- Header -->
+        <tr>
+          <td style='background:linear-gradient(135deg,#1e40af,#3b82f6);
+                     padding:28px 32px;text-align:center'>
+            <p style='margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.12em;color:#bfdbfe'>LegalFin — Invitation de réunion</p>
+            <h1 style='margin:0;font-size:22px;font-weight:800;color:#ffffff'>📅 Réunion planifiée</h1>
+          </td>
+        </tr>
+
+        <!-- Meeting date/time banner -->
+        <tr>
+          <td style='background:#eff6ff;padding:20px 32px;border-bottom:1px solid #dbeafe'>
+            <table width='100%' cellpadding='0' cellspacing='0'>
+              <tr>
+                <td style='text-align:center;padding:0 12px'>
+                  <p style='margin:0 0 4px;font-size:11px;font-weight:700;
+                            text-transform:uppercase;letter-spacing:.08em;color:#93c5fd'>📆 Date</p>
+                  <p style='margin:0;font-size:16px;font-weight:800;color:#1e40af'>$formattedDate</p>
+                </td>
+                <td style='text-align:center;padding:0 12px;
+                           border-left:1px solid #bfdbfe;border-right:1px solid #bfdbfe'>
+                  <p style='margin:0 0 4px;font-size:11px;font-weight:700;
+                            text-transform:uppercase;letter-spacing:.08em;color:#93c5fd'>🕐 Heure</p>
+                  <p style='margin:0;font-size:16px;font-weight:800;color:#1e40af'>$rawTime</p>
+                </td>
+                <td style='text-align:center;padding:0 12px'>
+                  <p style='margin:0 0 4px;font-size:11px;font-weight:700;
+                            text-transform:uppercase;letter-spacing:.08em;color:#93c5fd'>🎥 Plateforme</p>
+                  <p style='margin:0;font-size:16px;font-weight:800;color:#1e40af'>Jitsi Meet</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Join button -->
+        <tr>
+          <td style='padding:24px 32px;text-align:center'>
+            <a href='{$meetingData['meeting_link']}' target='_blank'
+               style='display:inline-block;background:linear-gradient(135deg,#1e40af,#3b82f6);
+                      color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;
+                      padding:14px 36px;border-radius:8px;
+                      box-shadow:0 4px 14px rgba(59,130,246,.4)'>
+              🚀 Rejoindre la réunion
+            </a>
+            <p style='margin:10px 0 0;font-size:11px;color:#94a3b8'>Ou copiez ce lien : 
+               <a href='{$meetingData['meeting_link']}' style='color:#3b82f6;word-break:break-all'>
+                 {$meetingData['meeting_link']}
+               </a>
+            </p>
+          </td>
+        </tr>
+
+        $invBlock
+
+        $msgRow
+
+        <!-- Footer -->
+        <tr>
+          <td style='background:#f8fafc;border-top:1px solid #e2e8f0;
+                     padding:16px 32px;text-align:center'>
+            <p style='margin:0;font-size:11px;color:#94a3b8'>
+              Cet email a été envoyé automatiquement par <strong>LegalFin</strong>.<br/>
+              Veuillez ne pas répondre à cet email.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>";
+
+    $subject = '📅 Réunion planifiée — ' . $formattedDate . ' à ' . $rawTime;
+
+    $sent   = 0;
+    $failed = 0;
     foreach ($emails as $email) {
-        $ok = @mail($email, $subject, $body, $headers);
-        if ($ok) {
-            $sentAtLeastOne = true;
-        }
+        $recipientName = $investmentInfo['investor_name'] ?? $email;
+        $ok = sendMail($email, $recipientName, $subject, $htmlBody);
+        if ($ok) { $sent++; } else { $failed++; }
     }
 
-    if ($sentAtLeastOne) {
+    if ($sent > 0) {
         return [
-            'sent' => true,
-            'provider' => 'php_mail',
-            'message' => 'Emails sent via PHP mail().',
+            'sent'     => true,
+            'provider' => 'gmail_smtp',
+            'message'  => "$sent email(s) sent successfully.",
         ];
     }
-
     return [
-        'sent' => false,
-        'provider' => 'php_mail',
-        'message' => 'PHP mail() failed. Configure BREVO_API_KEY for reliable delivery.',
+        'sent'     => false,
+        'provider' => 'gmail_smtp',
+        'message'  => "All emails failed ($failed).",
     ];
 }
 
@@ -549,51 +718,47 @@ if ($method === 'POST') {
             $time = gmdate('H:i');
 
             $invitedEmails = parseMeetingInviteEmails($invitedEmailsRaw);
-            $existingMeeting = getLatestMeetingByInviteEmail($invitedEmails[0]);
-            if ($existingMeeting !== null) {
-                $meetingId = (int)$existingMeeting['id_meeting'];
-                $meetingLink = (string)$existingMeeting['meeting_link'];
-                $provider = (string)($existingMeeting['provider'] ?? 'jitsi');
-                $date = (string)($existingMeeting['meeting_date'] ?? $date);
-                $time = substr((string)($existingMeeting['meeting_time'] ?? ($time . ':00')), 0, 5);
-            } else {
-                $startAt = new DateTime('now', new DateTimeZone('UTC'));
-                $startAtIso = $startAt->format('Y-m-d\TH:i:s\Z');
 
-                $roomName = 'webora-now-' . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
-                $zoomLink = createZoomMeetingLink($startAtIso);
-                $meetingLink = $zoomLink ?: createJitsiMeetingLink($roomName);
-                $provider = $zoomLink ? 'zoom' : 'jitsi';
+            // Always create a fresh room so email and join-link are always the same
+            $startAt    = new DateTime('now', new DateTimeZone('UTC'));
+            $startAtIso = $startAt->format('Y-m-d\TH:i:s\Z');
 
-                $meetingId = Meeting::create([
-                    'organiser_id' => (int)$userId,
-                    'invited_emails' => implode(',', $invitedEmails),
-                    'meeting_date' => $date,
-                    'meeting_time' => $time . ':00',
-                    'message' => $message,
-                    'meeting_link' => $meetingLink,
-                    'provider' => $provider,
-                ]);
-            }
+            $roomName    = 'webora-now-' . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+            $zoomLink    = createZoomMeetingLink($startAtIso);
+            $meetingLink = $zoomLink ?: createJitsiMeetingLink($roomName);
+            $provider    = $zoomLink ? 'zoom' : 'jitsi';
+
+            $meetingId = Meeting::create([
+                'organiser_id'   => (int)$userId,
+                'invited_emails' => implode(',', $invitedEmails),
+                'meeting_date'   => $date,
+                'meeting_time'   => $time . ':00',
+                'message'        => $message,
+                'meeting_link'   => $meetingLink,
+                'provider'       => $provider,
+            ]);
+
+            $investmentId = !empty($_POST['investment_id']) ? (int)$_POST['investment_id'] : 0;
+            $investmentInfo = $investmentId > 0 ? getInvestmentDetailsForEmail($investmentId) : [];
 
             $emailStatus = sendMeetingEmails($invitedEmails, [
-                'date' => $date,
-                'time' => $time,
-                'message' => $message,
+                'date'         => $date,
+                'time'         => $time,
+                'message'      => $message,
                 'meeting_link' => $meetingLink,
-            ]);
+            ], $investmentInfo);
 
             echo json_encode([
                 'success' => true,
-                'data' => [
-                    'meeting_id' => $meetingId,
-                    'meeting_link' => $meetingLink,
-                    'provider' => $provider,
-                    'date' => $date,
-                    'time' => $time,
-                    'email_sent' => (bool)$emailStatus['sent'],
+                'data'    => [
+                    'meeting_id'     => $meetingId,
+                    'meeting_link'   => $meetingLink,
+                    'provider'       => $provider,
+                    'date'           => $date,
+                    'time'           => $time,
+                    'email_sent'     => (bool)$emailStatus['sent'],
                     'email_provider' => $emailStatus['provider'],
-                    'email_message' => $emailStatus['message'],
+                    'email_message'  => $emailStatus['message'],
                 ],
             ]);
         } catch (Throwable $e) {
@@ -642,12 +807,15 @@ if ($method === 'POST') {
                 'provider' => $provider,
             ]);
 
+            $investmentId = !empty($_POST['investment_id']) ? (int)$_POST['investment_id'] : 0;
+            $investmentInfo = $investmentId > 0 ? getInvestmentDetailsForEmail($investmentId) : [];
+
             $emailStatus = sendMeetingEmails($invitedEmails, [
-                'date' => $date,
-                'time' => $time,
-                'message' => $message,
+                'date'         => $date,
+                'time'         => $time,
+                'message'      => $message,
                 'meeting_link' => $meetingLink,
-            ]);
+            ], $investmentInfo);
 
             echo json_encode([
                 'success' => true,

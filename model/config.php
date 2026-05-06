@@ -101,7 +101,7 @@ class Config
             'zoom_client_id' => self::getEnv('ZOOM_CLIENT_ID', ''),
             'zoom_client_secret' => self::getEnv('ZOOM_CLIENT_SECRET', ''),
             'zoom_user_id' => self::getEnv('ZOOM_USER_ID', 'me'),
-            'brevo_api_key' => self::getEnv('BREVO_API_KEY', ''),
+            
             'sender_name' => self::getEnv('MEETING_SENDER_NAME', 'Webora'),
             'sender_email' => self::getEnv('MEETING_SENDER_EMAIL', 'noreply@example.com'),
         ];

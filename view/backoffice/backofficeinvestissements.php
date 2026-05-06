@@ -360,7 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
     joinNow: document.getElementById('btn-join-now'),
   };
 
-  const selected = { id: null, status: null, email: '' };
+  const selected = { id: null, status: null, email: '', lastMeetingLink: '' };
   const meetingModal = document.getElementById('meeting-modal-overlay');
   const meetingForm = document.getElementById('meeting-form');
   const meetingEmailInput = document.getElementById('meeting-investor-email');
@@ -501,6 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const formData = new FormData(meetingForm);
       formData.append('action', 'create_meeting');
+      // Send the selected investment id so the email includes investment details
+      if (selected.id) formData.append('investment_id', selected.id);
 
       try {
         const response = await fetch(projectControllerUrl, { method: 'POST', body: formData });
@@ -508,11 +510,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!result.success) throw new Error(result.message || 'Impossible de planifier la reunion.');
         const link = result.data?.meeting_link || '';
         const emailMessage = result.data?.email_message || '';
+        // Store the meeting link so "Rejoindre maintenant" opens the SAME link
+        if (link) selected.lastMeetingLink = link;
         if (meetingSuccess) {
-          meetingSuccess.textContent = `Invitation envoyee. Lien: ${link}${emailMessage ? ' | Email: ' + emailMessage : ''}`;
+          meetingSuccess.innerHTML = `Invitation envoyee. <a href="${link}" target="_blank" rel="noopener noreferrer">Ouvrir la reunion</a>${emailMessage ? ' | Email: ' + emailMessage : ''}`;
           meetingSuccess.style.display = 'block';
         }
-        
       } catch (error) {
         if (meetingError) {
           meetingError.textContent = error.message || 'Erreur reseau.';
@@ -524,15 +527,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (dp.joinNow) {
     dp.joinNow.addEventListener('click', async () => {
-      if (!selected.id || !selected.email) {
+      if (!selected.id) {
+        alert('Selectionnez un investissement.');
+        return;
+      }
+
+      // If a meeting was already scheduled this session, open the same link
+      if (selected.lastMeetingLink) {
+        window.open(selected.lastMeetingLink, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      if (!selected.email) {
         alert('Selectionnez un investissement avec un email investisseur valide.');
         return;
       }
 
+      // No meeting yet — create an instant one
       const formData = new FormData();
       formData.append('action', 'create_meeting_instant');
       formData.append('invited_emails', selected.email);
       formData.append('message', 'Invitation a une reunion immediate.');
+      if (selected.id) formData.append('investment_id', selected.id);
 
       try {
         const response = await fetch(projectControllerUrl, { method: 'POST', body: formData });
@@ -540,9 +556,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!result.success) throw new Error(result.message || 'Impossible de creer une reunion immediate.');
         const link = result.data?.meeting_link || '';
         if (!link) throw new Error('Lien de reunion manquant.');
+        // Store so subsequent clicks reuse same link
+        selected.lastMeetingLink = link;
         window.open(link, '_blank', 'noopener,noreferrer');
         if (result.data?.email_message) {
-          alert('Reunion ouverte. Statut email: ' + result.data.email_message);
+          alert('Reunion ouverte. Email envoye: ' + result.data.email_message);
         }
       } catch (error) {
         alert(error.message || 'Erreur reseau.');
