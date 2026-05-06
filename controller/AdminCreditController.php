@@ -6,6 +6,7 @@ require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/mailcredit.php';
 require_once __DIR__ . '/../model/ai_scoring.php';
 require_once __DIR__ . '/../model/ClientGeolocation.php';
+require_once __DIR__ . '/../model/GeolocHelper.php';
 class AdminCreditController
 {
 
@@ -36,6 +37,8 @@ class AdminCreditController
             'delete_garantie' => $this->deleteGarantie(),
             'update_garantie_status' => $this->updateGarantieStatus(),
             'download_garantie_file' => $this->downloadGarantieFile(),
+            'get_client_location' => $this->getClientLocation(),
+            'get_loan_simulation' => $this->getLoanSimulation(),
             default => $this->renderView(),
         };
     }
@@ -347,6 +350,80 @@ class AdminCreditController
         header('Cache-Control: public, max-age=3600');
 
         readfile($filePath);
+        exit;
+    }
+
+    // ── Geolocation AJAX ──────────────────────────────────────────────────────────
+    private function getClientLocation(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        
+        try {
+            $location = ClientGeolocation::getClientLocation();
+            $rules = ClientGeolocation::getRegionalRules($location['country_code']);
+            
+            $_SESSION['client_geolocation'] = $location;
+            $_SESSION['regional_rules'] = $rules;
+            
+            echo json_encode([
+                'location' => $location,
+                'rules' => $rules
+            ]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'error' => 'Geolocation error: ' . $e->getMessage()
+            ]);
+        }
+        exit;
+    }
+
+    private function getLoanSimulation(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        
+        try {
+            $location = $_SESSION['client_geolocation'] ?? ClientGeolocation::getClientLocation();
+            $montant = (float)($_POST['montant'] ?? 0);
+
+            if (!$montant) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Montant requis']);
+                exit;
+            }
+
+            $offer = GeolocHelper::createCompleteLoanOffer(
+                requestedAmount: $montant,
+                clientIp: $location['ip'] ?? null,
+                riskProfile: 'medium',
+                preferredMonths: 36
+            );
+
+            if (!$offer['success']) {
+                echo json_encode(['error' => $offer['error']]);
+                exit;
+            }
+
+            $o = $offer['offer'];
+            $l = $offer['location'];
+            
+            echo json_encode([
+                'montant' => $o['amount_requested'],
+                'currency' => $l['currency'],
+                'currency_symbol' => $l['currency_symbol'],
+                'taux_annuel' => $o['annual_rate'],
+                'duree_mois' => $o['duration_months'],
+                'mensualite' => $o['monthly_payment'],
+                'total_avec_interets' => $o['total_with_interest'],
+                'frais_interets' => $o['interest_cost'],
+                'date_fin_prevue' => date('Y-m-d', strtotime('+' . $o['duration_months'] . ' months')),
+            ]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'error' => 'Simulation error: ' . $e->getMessage()
+            ]);
+        }
         exit;
     }
 

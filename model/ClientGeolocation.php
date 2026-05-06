@@ -24,6 +24,7 @@ class ClientGeolocation
         'DZ' => ['currency' => 'DZD', 'name' => 'Dinar Algérien', 'symbol' => 'د.ج'],
         'MA' => ['currency' => 'MAD', 'name' => 'Dirham Marocain', 'symbol' => 'د.م.'],
         'LY' => ['currency' => 'LYD', 'name' => 'Dinar Libyen', 'symbol' => 'ل.د'],
+        'DEFAULT' => ['currency' => 'EUR', 'name' => 'Euro', 'symbol' => '€'],
     ];
     
     // Règles de crédit par région

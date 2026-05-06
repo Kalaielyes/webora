@@ -32,7 +32,13 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
     href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=Cabinet+Grotesk:wght@300;400;500;700&display=swap"
     rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="/view/frontCredit/geolocation-form.js"></script>
+  <!-- Controller path for AJAX calls -->
+  <script>
+    // Make controller path available globally for geolocation AJAX
+    window.CONTROLLER_PATH = '<?= htmlspecialchars($self) ?>';
+    console.log('[Setup] Controller path:', window.CONTROLLER_PATH);
+  </script>
+  <script src="<?= htmlspecialchars($viewRoot) ?>/frontCredit/geolocation-form.js"></script>
 </head>
 
 <body>
@@ -245,10 +251,17 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                         <td>
                           <?= (int) $d['id'] ?>
                         </td>
-                        <td><strong>
-                          <td style="text-align:center;font-size:1.3rem" title="<?= htmlspecialchars($d['country_code'] ?? 'TN') ?>">
-                            <?= number_format($d['montant'], 0, ',', ' ') ?> TND
-                          </strong></td>
+                        <td style="text-align:center;cursor:pointer;" 
+    onclick="openMapModal('<?= htmlspecialchars($d['country_code'] ?? 'TN') ?>', '<?= htmlspecialchars($d['ip_client'] ?? '') ?>')"
+    title="Voir sur la carte">
+  <?php
+    $flags = ['TN'=>'🇹🇳','FR'=>'🇫🇷','US'=>'🇺🇸','GB'=>'🇬🇧','DE'=>'🇩🇪','IT'=>'🇮🇹','ES'=>'🇪🇸','CH'=>'🇨🇭','CA'=>'🇨🇦','BE'=>'🇧🇪','DZ'=>'🇩🇿','MA'=>'🇲🇦','LY'=>'🇱🇾'];
+    $cc = $d['country_code'] ?? 'TN';
+    echo ($flags[$cc] ?? '🌍') . ' ' . htmlspecialchars($cc);
+  ?>
+  <span style="font-size:0.6rem;display:block;color:var(--muted)">🗺️ voir carte</span>
+</td>
+<td><strong><?= number_format($d['montant'], 0, ',', ' ') ?> TND</strong></td>
                         <td>
                           <?= (int) $d['duree_mois'] ?> mois
                         </td>
@@ -765,6 +778,18 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
   </div>
 
   <!-- MOTIF MODAL -->
+   <!-- MAP MODAL -->
+<div id="map-modal" class="modal-overlay" style="display:none;" onclick="closeMapModal()">
+  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:700px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title" id="map-modal-title">🗺️ Localisation client</div>
+      <button class="modal-close" onclick="closeMapModal()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <iframe id="map-iframe" src="" width="100%" height="420" style="border:none;border-radius:0 0 0.5rem 0.5rem;" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+  </div>
+</div>
   <div id="motif-modal" class="modal-overlay" style="display:none;" onclick="closeMotifModal()">
     <div class="modal-content" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -863,11 +888,44 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
       const modal = document.getElementById('motif-modal');
       modal.style.display = 'none';
     }
+    // ────── MAP MODAL ────────────────────────────────────────────────
+const countryCoords = {
+  TN:{lat:33.8869,lon:9.5375,name:'Tunisie'},
+  FR:{lat:46.2276,lon:2.2137,name:'France'},
+  US:{lat:37.0902,lon:-95.7129,name:'États-Unis'},
+  GB:{lat:55.3781,lon:-3.4360,name:'Royaume-Uni'},
+  DE:{lat:51.1657,lon:10.4515,name:'Allemagne'},
+  IT:{lat:41.8719,lon:12.5674,name:'Italie'},
+  ES:{lat:40.4637,lon:-3.7492,name:'Espagne'},
+  CH:{lat:46.8182,lon:8.2275,name:'Suisse'},
+  CA:{lat:56.1304,lon:-106.3468,name:'Canada'},
+  BE:{lat:50.5039,lon:4.4699,name:'Belgique'},
+  DZ:{lat:28.0339,lon:1.6596,name:'Algérie'},
+  MA:{lat:31.7917,lon:-7.0926,name:'Maroc'},
+  LY:{lat:26.3351,lon:17.2283,name:'Libye'},
+};
+
+function openMapModal(countryCode, ip) {
+  const modal = document.getElementById('map-modal');
+  const iframe = document.getElementById('map-iframe');
+  const title  = document.getElementById('map-modal-title');
+  const info   = countryCoords[countryCode] || {lat:0,lon:0,name:countryCode};
+  const zoom   = 5;
+
+  title.textContent = '🗺️ ' + info.name + (ip ? '  —  IP: ' + ip : '');
+  iframe.src = `https://www.openstreetmap.org/export/embed.html?bbox=${info.lon-8},${info.lat-6},${info.lon+8},${info.lat+6}&layer=mapnik&marker=${info.lat},${info.lon}`;
+  modal.style.display = 'flex';
+}
+
+function closeMapModal() {
+  document.getElementById('map-modal').style.display = 'none';
+  document.getElementById('map-iframe').src = '';
+}
 
     // Close modal on Escape key
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') closeMotifModal();
-    });
+  if (e.key === 'Escape') { closeMotifModal(); closeMapModal(); }
+});
 
     // ────── CHECKBOX SELECTION ─────────────────────────────────────────────
     function toggleAllCheckboxes(checkAllCheckbox) {
