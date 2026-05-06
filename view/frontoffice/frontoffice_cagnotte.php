@@ -308,13 +308,6 @@ foreach ($userDons as $d) {
       <div>
         <div class="section-head" style="margin-bottom:.9rem;display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;">
           <div class="section-title">Cagnottes en cours</div>
-          <button type="button" class="btn-ghost" id="btn-ai-urgent" onclick="suggestUrgentCampaign()">🤖 AI Suggest Most Urgent Campaign</button>
-        </div>
-        <div id="ai-urgent-result" style="display:none;margin-bottom:1rem;background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.35);border-radius:12px;padding:.85rem 1rem;">
-          <div style="font-weight:700;color:#99f6e4;margin-bottom:.25rem;">AI Recommendation</div>
-          <div id="ai-urgent-title" style="font-weight:600;color:#f8fafc;"></div>
-          <div id="ai-urgent-score" style="color:#7dd3fc;font-size:.9rem;margin-top:.2rem;"></div>
-          <div id="ai-urgent-explanation" style="color:#cbd5e1;font-size:.86rem;margin-top:.45rem;"></div>
         </div>
         <div class="cagnottes-grid">
         <?php if (empty($activeCagnottes)): ?>
@@ -1562,50 +1555,6 @@ function selPay(v) { payOn=v; ['carte','virement'].forEach(p => document.getElem
 function donStep1() {
   ['don-step1','don-step2','don-step3'].forEach(s => document.getElementById(s).style.display = s === 'don-step1' ? 'block' : 'none');
   if (stripeCardElement) { try { stripeCardElement.unmount(); } catch(e) {} stripeCardElement.destroy(); stripeCardElement = null; }
-}
-
-function suggestUrgentCampaign() {
-  var btn = document.getElementById('btn-ai-urgent');
-  var panel = document.getElementById('ai-urgent-result');
-  var title = document.getElementById('ai-urgent-title');
-  var score = document.getElementById('ai-urgent-score');
-  var explanation = document.getElementById('ai-urgent-explanation');
-
-  if (!btn || !panel || !title || !score || !explanation) {
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = '🤖 AI is analyzing...';
-  panel.style.display = 'block';
-  title.textContent = 'Processing campaigns...';
-  score.textContent = '';
-  explanation.textContent = '';
-
-  fetch('../../controller/urgent_campaign_ai.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ action: 'suggest_urgent' })
-  })
-  .then(function(response) { return response.json(); })
-  .then(function(data) {
-    if (!data.ok || !data.data) {
-      throw new Error(data.error || 'AI request failed');
-    }
-
-    title.textContent = data.data.title + ' (ID #' + data.data.campaign_id + ')';
-    score.textContent = 'Urgency score: ' + data.data.urgency_score + '/100';
-    explanation.textContent = data.data.explanation;
-  })
-  .catch(function(error) {
-    title.textContent = 'Unable to get recommendation';
-    score.textContent = '';
-    explanation.textContent = error.message || 'Please retry in a moment.';
-  })
-  .finally(function() {
-    btn.disabled = false;
-    btn.textContent = '🤖 AI Suggest Most Urgent Campaign';
-  });
 }
 
 function confirmerDon() {
