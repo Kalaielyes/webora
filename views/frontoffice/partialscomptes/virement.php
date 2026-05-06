@@ -181,6 +181,15 @@ if (!isset($userId) || !isset($comptes)) {
 
         <div id="virement-otp-error" style="color:#ef4444; font-size:0.75rem; font-weight:600; margin-bottom:1.5rem; min-height:1rem;"></div>
         
+        <div style="margin-bottom: 1.5rem;">
+            <div id="otp-timer-display" style="font-size: 0.85rem; color: var(--sec-color); font-weight: 700; margin-bottom: 0.5rem;">
+                Expire dans : <span id="otp-timer-count">05:00</span>
+            </div>
+            <button id="resend-otp-btn" onclick="resendVirementOtp()" disabled style="background: none; border: none; color: var(--muted2); font-size: 0.8rem; font-weight: 600; cursor: not-allowed; text-decoration: underline; transition: 0.3s;">
+                Renvoyer le code
+            </button>
+        </div>
+
         <button id="virement-otp-btn" class="btn-primary" onclick="verifyVirementOtp()" style="padding:12px 25px; border-radius:12px; margin:0 auto 1rem;">Vérifier le code</button>
       </div>
 
@@ -543,6 +552,43 @@ async function sendVirementOtp() {
         body: JSON.stringify({ action: 'send_otp' })
     });
     document.querySelectorAll('.otp-box')[0].focus();
+    startOtpTimer(300); // 5 minutes
+}
+
+let otpTimer = null;
+function startOtpTimer(seconds) {
+    if (otpTimer) clearInterval(otpTimer);
+    const display = document.getElementById('otp-timer-count');
+    const resendBtn = document.getElementById('resend-otp-btn');
+    
+    resendBtn.disabled = true;
+    resendBtn.style.color = 'var(--muted2)';
+    resendBtn.style.cursor = 'not-allowed';
+
+    let timeLeft = seconds;
+    otpTimer = setInterval(() => {
+        const mins = Math.floor(timeLeft / 60);
+        const secs = timeLeft % 60;
+        display.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        
+        if (timeLeft <= 0) {
+            clearInterval(otpTimer);
+            display.textContent = "00:00";
+            resendBtn.disabled = false;
+            resendBtn.style.color = 'var(--sec-color)';
+            resendBtn.style.cursor = 'pointer';
+        }
+        timeLeft--;
+    }, 1000);
+}
+
+async function resendVirementOtp() {
+    const resendBtn = document.getElementById('resend-otp-btn');
+    if (resendBtn.disabled) return;
+    
+    resendBtn.textContent = 'Envoi...';
+    await sendVirementOtp();
+    resendBtn.textContent = 'Renvoyer le code';
 }
 
 async function verifyVirementOtp() {
@@ -563,6 +609,7 @@ async function verifyVirementOtp() {
     const data = await res.json();
 
     if (data.success) {
+        if (otpTimer) clearInterval(otpTimer);
         setStep(3);
     } else {
         err.textContent = 'Code incorrect. Réessayez.';
@@ -594,6 +641,7 @@ function goToStep2(e) {
 
 function goBackToStep1() {
   if (faceInterval) clearInterval(faceInterval);
+  if (otpTimer) clearInterval(otpTimer);
   faceInterval = null;
   const video = document.getElementById('virement-video');
   if(video && video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());

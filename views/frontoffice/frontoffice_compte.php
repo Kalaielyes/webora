@@ -122,8 +122,8 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
     </div>
   </div>
   <?php
-    $isCompteSection = (!$showCompteForm && !$showCarteForm && !$showAttente && !$showVirementForm && !$showObjectifs) || $showCompteForm || $showCarteForm;
-    $isOperationSection = $showVirementForm || $showObjectifs;
+    $isCompteSection = (!$showCompteForm && !$showCarteForm && !$showAttente && !$showVirementForm && !$showObjectifs && !$showHistorique) || $showCompteForm || $showCarteForm;
+    $isOperationSection = $showVirementForm || $showObjectifs || $showHistorique;
   ?>
   <nav class="sb-nav">
     <!-- ══ COMPTE DROPDOWN ══ -->
