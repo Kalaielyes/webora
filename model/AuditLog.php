@@ -43,7 +43,7 @@ class AuditLog {
      * @param array $filters
      * @return array
      */
-    public function getFilteredLogs(array $filters = []): array {
+    public function getFilteredLogs(array $filters = [], int $limit = 0, int $offset = 0): array {
         $conditions = [];
         $params = [];
 
@@ -78,8 +78,52 @@ class AuditLog {
                 $where
                 ORDER BY a.created_at DESC";
         
+        if ($limit > 0) {
+            $sql .= " LIMIT :limit OFFSET :offset";
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        if ($limit > 0) {
+            $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function countFilteredLogs(array $filters = []): int {
+        $conditions = [];
+        $params = [];
+
+        if (!empty($filters['admin_id'])) {
+            $conditions[] = "admin_id = :admin_id";
+            $params[':admin_id'] = $filters['admin_id'];
+        }
+
+        if (!empty($filters['action'])) {
+            $conditions[] = "action LIKE :action";
+            $params[':action'] = '%' . $filters['action'] . '%';
+        }
+
+        if (!empty($filters['date_from'])) {
+            $conditions[] = "created_at >= :date_from";
+            $params[':date_from'] = $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $conditions[] = "created_at <= :date_to";
+            $params[':date_to'] = $filters['date_to'] . ' 23:59:59';
+        }
+
+        $where = !empty($conditions) ? "WHERE " . implode(" AND ", $conditions) : "";
+
+        $sql = "SELECT COUNT(*) FROM audit_log $where";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return (int)$stmt->fetchColumn();
     }
 }

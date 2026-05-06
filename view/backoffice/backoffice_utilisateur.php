@@ -12,13 +12,25 @@ if (($_GET['page'] ?? '') === 'audit') {
         'date_from' => $_GET['audit_from'] ?? '',
         'date_to'   => $_GET['audit_to'] ?? '',
     ];
-    $logs = $auditModel->getFilteredLogs($filters);
+    $auditLimit = 15;
+    $auditP = max(1, (int)($_GET['p'] ?? 1));
+    $auditOffset = ($auditP - 1) * $auditLimit;
+    $totalLogs = $auditModel->countFilteredLogs($filters);
+    $totalAuditPages = ceil($totalLogs / $auditLimit);
+    $logs = $auditModel->getFilteredLogs($filters, $auditLimit, $auditOffset);
 }
 $allAdmins = \config::getConnexion()->query("SELECT id, nom, prenom FROM utilisateur WHERE role IN ('ADMIN', 'SUPER_ADMIN') ORDER BY nom ASC")->fetchAll();
 $m      = new Utilisateur();
 $filtre = $_GET['filtre'] ?? 'tous';
 $page   = $_GET['page'] ?? 'utilisateurs'; 
-$users  = $m->findAll($filtre);
+
+// Pagination Logic
+$limit  = 10; // Users per page
+$p      = max(1, (int)($_GET['p'] ?? 1));
+$offset = ($p - 1) * $limit;
+$totalUsers = $m->countAll($filtre);
+$totalPages = ceil($totalUsers / $limit);
+$users  = $m->findPaginated($filtre, $limit, $offset);
 $periode= $_GET['periode'] ?? 'tout';
 $stats  = $m->getStats($periode);
 $flash  = Session::getFlash();
@@ -111,12 +123,16 @@ function initials(string $n, string $p): string {
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="Utilisateur.css">
 <style>
-body{display:grid;grid-template-columns:230px 1fr;grid-template-rows:100vh;overflow:hidden;margin:0;}
-.sidebar{background:var(--navy);display:flex;flex-direction:column;height:100vh;overflow-y:auto;}
-.main{display:grid;grid-template-rows:52px 1fr;overflow:hidden;height:100vh;position:relative;}
-.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.8rem;display:flex;align-items:center;justify-content:space-between;}
-.content{padding:1.4rem 1.8rem;overflow-y:auto;background:var(--bg);}
-.content > *{margin-bottom:1.2rem;}
+html, body { height: 100vh; margin: 0; padding: 0; overflow: hidden !important; }
+body { display: flex; background: var(--bg); font-family: var(--fb); }
+.sidebar { width: 230px; background: var(--navy); display: flex; flex-direction: column; height: 100vh; overflow-y: auto; flex-shrink: 0; }
+.main { flex: 1; display: flex; flex-direction: column; height: 100vh; min-width: 0; position: relative; overflow: hidden !important; }
+.content { height: calc(100vh - 52px); overflow-y: scroll !important; padding: 1.4rem 1.8rem; background: var(--bg); display: block; width: 100%; }
+.content::-webkit-scrollbar { width: 8px; }
+.content::-webkit-scrollbar-track { background: var(--bg3); }
+.content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+.content::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+.content > * { margin-bottom: 1.2rem; }
 .sb-logo{padding:1.2rem 1.2rem .9rem;border-bottom:1px solid rgba(255,255,255,.08);}
 .sb-logo-name{font-family:var(--fh);font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-.01em;}
 .sb-logo-name span{color:#60A5FA;}
@@ -183,8 +199,13 @@ body{display:grid;grid-template-columns:230px 1fr;grid-template-rows:100vh;overf
 .module-label{font-size:.8rem;font-weight:600;}
 .module-sub{font-size:.68rem;color:var(--muted);}
 .lock-badge{font-size:.6rem;background:var(--rose-light);color:var(--rose);border-radius:99px;padding:2px 8px;font-weight:600;}
-.two-col-layout{display:grid;grid-template-columns:1fr 320px;gap:1.2rem;}
-.table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:visible;}
+.two-col-layout{display:grid;grid-template-columns:minmax(0, 1fr) 320px;gap:1.2rem;}
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+.table-responsive::-webkit-scrollbar{height:6px;}
+.table-responsive::-webkit-scrollbar-track{background:var(--bg3);}
+.table-responsive::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
+.table-responsive::-webkit-scrollbar-thumb:hover{background:var(--muted2);}
 .table-toolbar{padding:.75rem 1.1rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
 .table-toolbar-title{font-size:.88rem;font-weight:500;}
 .filters{display:flex;gap:.5rem;flex-wrap:wrap;}
@@ -326,7 +347,14 @@ tr:hover td{background:var(--bg3);}
 .perm-toggle-v2 .switch{position:relative; display:inline-block; width:34px; height:18px; background-color:var(--border2); border-radius:20px; transition:.2s; flex-shrink:0;}
 .perm-toggle-v2 .switch:before{position:absolute; content:""; height:14px; width:14px; left:2px; bottom:2px; background-color:white; transition:.2s; border-radius:50%;}
 .perm-toggle-v2.active .switch{background-color:var(--blue);}
-.perm-toggle-v2.active .switch:before{transform:translateX(16px);}
+.pg-item.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.pg-item.disabled{opacity:.4;pointer-events:none;}
+.pagination{display:flex;justify-content:center;align-items:center;gap:.4rem;margin-top:1.2rem;padding:1rem 0;}
+.pg-link{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:var(--muted);text-decoration:none;transition:all .15s;}
+.pg-link:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-light);}
+.pg-link.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.pg-link.disabled{opacity:.4;pointer-events:none;}
+.pg-text{font-size:.72rem;color:var(--muted);margin:0 1rem;}
 </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -493,7 +521,7 @@ tr:hover td{background:var(--bg3);}
     <div class="two-col-layout">
       <div class="table-card">
         <div class="table-toolbar" style="flex-wrap: wrap; gap: 1rem;">
-          <div class="table-toolbar-title">Liste des utilisateurs (<?= count($users) ?>)</div>
+          <div class="table-toolbar-title">Liste des utilisateurs (<?= $totalUsers ?>)</div>
           <div style="display:flex; gap: 0.8rem; align-items: center; margin-left: auto;">
             <div class="search-bar">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -510,7 +538,7 @@ tr:hover td{background:var(--bg3);}
             <?php endforeach; ?>
           </div>
         </div>
-        <div style="overflow-x:auto;">
+        <div class="table-responsive">
         <table id="user-table">
           <thead><tr>
             <th>Utilisateur</th><th>Email</th><th>Rôle</th><th>KYC</th><th>AML</th><th>Statut</th><th>Inscription</th><th style="min-width:110px; text-align:right;">Actions</th>
@@ -544,6 +572,29 @@ tr:hover td{background:var(--bg3);}
           </tbody>
         </table>
         </div>
+        
+        <!-- Pagination -->
+        <?php if ($totalPages > 1): ?>
+        <div class="pagination">
+          <a href="?page=utilisateurs&filtre=<?= $filtre ?>&p=<?= max(1, $p-1) ?>" class="pg-link <?= $p <= 1 ? 'disabled' : '' ?>">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          </a>
+          
+          <?php 
+          $start = max(1, $p - 2);
+          $end = min($totalPages, $p + 2);
+          if($start > 1) echo '<span class="pg-text">...</span>';
+          for($i = $start; $i <= $end; $i++): ?>
+            <a href="?page=utilisateurs&filtre=<?= $filtre ?>&p=<?= $i ?>" class="pg-link <?= $i === $p ? 'active' : '' ?>"><?= $i ?></a>
+          <?php endfor; 
+          if($end < $totalPages) echo '<span class="pg-text">...</span>';
+          ?>
+          
+          <a href="?page=utilisateurs&filtre=<?= $filtre ?>&p=<?= min($totalPages, $p+1) ?>" class="pg-link <?= $p >= $totalPages ? 'disabled' : '' ?>">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+        </div>
+        <?php endif; ?>
       </div>
       <?php if($detail): $ini=initials($detail['nom'],$detail['prenom']); ?>
       <div class="detail-panel" id="detail-panel">
@@ -863,7 +914,7 @@ tr:hover td{background:var(--bg3);}
             <input type="text" id="perm-search" placeholder="Rechercher un admin..." oninput="filterPermTable()">
           </div>
         </div>
-        <div style="overflow-x:auto;">
+        <div class="table-responsive">
           <table id="perm-table">
             <thead><tr><th>Admin</th><th>Email</th><th>Modules</th></tr></thead>
             <tbody>
@@ -1054,7 +1105,7 @@ tr:hover td{background:var(--bg3);}
     <div class="table-card">
       <div class="table-toolbar" style="flex-direction:column; align-items:stretch; gap:1rem;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="table-toolbar-title">Journal d'Audit (<?= count($logs) ?>)</div>
+            <div class="table-toolbar-title">Journal d'Audit (<?= $totalLogs ?>)</div>
             <a href="?page=audit" class="btn-ghost" style="font-size:.7rem;">Réinitialiser les filtres</a>
         </div>
         
@@ -1096,7 +1147,7 @@ tr:hover td{background:var(--bg3);}
             </div>
         </form>
       </div>
-      <div style="overflow-x:auto;">
+      <div class="table-responsive">
       <table>
         <thead><tr><th>Date</th><th>Admin</th><th>Action</th><th>Cible</th><th>Détails</th><th>IP</th></tr></thead>
         <tbody>
@@ -1122,6 +1173,34 @@ tr:hover td{background:var(--bg3);}
         </tbody>
       </table>
       </div>
+      
+      <!-- Audit Pagination -->
+      <?php if (isset($totalAuditPages) && $totalAuditPages > 1): ?>
+      <?php 
+        $qParams = $_GET;
+        unset($qParams['p']);
+        $baseQuery = http_build_query($qParams);
+      ?>
+      <div class="pagination">
+        <a href="?<?= $baseQuery ?>&p=<?= max(1, $auditP-1) ?>" class="pg-link <?= $auditP <= 1 ? 'disabled' : '' ?>">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        
+        <?php 
+        $start = max(1, $auditP - 2);
+        $end = min($totalAuditPages, $auditP + 2);
+        if($start > 1) echo '<span class="pg-text">...</span>';
+        for($i = $start; $i <= $end; $i++): ?>
+          <a href="?<?= $baseQuery ?>&p=<?= $i ?>" class="pg-link <?= $i === $auditP ? 'active' : '' ?>"><?= $i ?></a>
+        <?php endfor; 
+        if($end < $totalAuditPages) echo '<span class="pg-text">...</span>';
+        ?>
+        
+        <a href="?<?= $baseQuery ?>&p=<?= min($totalAuditPages, $auditP+1) ?>" class="pg-link <?= $auditP >= $totalAuditPages ? 'disabled' : '' ?>">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+      </div>
+      <?php endif; ?>
     </div>
     <?php else: ?>
     <div style="text-align:center;padding:4rem;color:var(--muted)">

@@ -258,6 +258,32 @@ class Utilisateur {
         };
         return $this->db->query("SELECT * FROM utilisateur $where ORDER BY date_inscription DESC")->fetchAll();
     }
+    public function countAll(string $filtre = 'tous') : int {
+        $where = match($filtre) {
+            'clients'     => "WHERE role='CLIENT'",
+            'admins'      => "WHERE role='ADMIN'",
+            'association' => "WHERE association=1 AND role != 'SUPER_ADMIN'",
+            'bloques'     => "WHERE status='SUSPENDU' AND role != 'SUPER_ADMIN'",
+            'kyc_attente' => "WHERE status_kyc='EN_ATTENTE' AND role != 'SUPER_ADMIN'",
+            default       => "WHERE role != 'SUPER_ADMIN'"
+        };
+        return (int)$this->db->query("SELECT COUNT(*) FROM utilisateur $where")->fetchColumn();
+    }
+    public function findPaginated(string $filtre = 'tous', int $limit = 10, int $offset = 0) : array {
+        $where = match($filtre) {
+            'clients'     => "WHERE role='CLIENT'",
+            'admins'      => "WHERE role='ADMIN'",
+            'association' => "WHERE association=1 AND role != 'SUPER_ADMIN'",
+            'bloques'     => "WHERE status='SUSPENDU' AND role != 'SUPER_ADMIN'",
+            'kyc_attente' => "WHERE status_kyc='EN_ATTENTE' AND role != 'SUPER_ADMIN'",
+            default       => "WHERE role != 'SUPER_ADMIN'"
+        };
+        $s = $this->db->prepare("SELECT * FROM utilisateur $where ORDER BY date_inscription DESC LIMIT :limit OFFSET :offset");
+        $s->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+        $s->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        $s->execute();
+        return $s->fetchAll();
+    }
     public function getStats(string $periode = 'tout') : array {
         $where = "";
         if ($periode === 'mois') {
