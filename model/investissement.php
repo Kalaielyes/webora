@@ -72,9 +72,21 @@ class Investissement
 
     public static function getInvestmentsByUser(int $userId): array
     {
-        $sql = "SELECT i.id_investissement, i.id_projet, p.titre AS projet_titre, i.montant_investi, i.date_investissement, i.status, i.commentaire
+        $sql = "SELECT i.id_investissement, i.id_projet, p.titre AS projet_titre, i.montant_investi, i.date_investissement, i.status, i.commentaire,
+                       COALESCE(pp_latest.pourcentage, 0) AS progress_pourcentage,
+                       COALESCE(pp_latest.description, '') AS progress_description,
+                       pp_latest.date_update AS progress_date_update
                 FROM investissement i
                 LEFT JOIN projet p ON i.id_projet = p.id_projet
+                LEFT JOIN (
+                    SELECT pp1.projet_id, pp1.pourcentage, pp1.description, pp1.date_update
+                    FROM projet_progress pp1
+                    INNER JOIN (
+                        SELECT projet_id, MAX(id) AS max_id
+                        FROM projet_progress
+                        GROUP BY projet_id
+                    ) latest ON latest.projet_id = pp1.projet_id AND latest.max_id = pp1.id
+                ) pp_latest ON pp_latest.projet_id = i.id_projet
                 WHERE i.id_investisseur = :userId
                 ORDER BY i.date_investissement DESC";
         $stmt = self::getConnexion()->prepare($sql);

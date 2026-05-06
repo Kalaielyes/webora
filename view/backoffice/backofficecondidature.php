@@ -6,6 +6,7 @@
 <title>BankFlow Admin — Gestion des Projets</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="action.css">
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
 /* ── Project CRUD Modal ───────────────────────────────────── */
 .pm-overlay{
@@ -71,6 +72,24 @@ textarea.pm-input{resize:vertical;min-height:80px;}
   font-family:var(--fb);display:flex;align-items:center;gap:.4rem;transition:background .15s;
 }
 .btn-add-project:hover{background:#1D4ED8;}
+.ppm-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(15,23,42,.7);backdrop-filter:blur(5px);
+  z-index:9200;align-items:center;justify-content:center;padding:1.5rem;
+}
+.ppm-overlay.active{display:flex;}
+.ppm-card{width:min(540px,100%);background:#fff;border-radius:16px;box-shadow:0 25px 70px rgba(15,23,42,.28);overflow:hidden;}
+.ppm-head{background:linear-gradient(135deg,#0EA5E9,#2563EB);padding:1rem 1.3rem;display:flex;align-items:center;justify-content:space-between;}
+.ppm-title{font-family:var(--fh);font-size:.98rem;font-weight:700;color:#fff;}
+.ppm-close{background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;}
+.ppm-body{padding:1.1rem 1.3rem;display:flex;flex-direction:column;gap:.8rem;}
+.ppm-field{display:flex;flex-direction:column;gap:.35rem;}
+.ppm-label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.ppm-input{border:1.5px solid var(--border2);border-radius:8px;padding:.5rem .72rem;font-size:.83rem;font-family:var(--fb);color:var(--text);outline:none;}
+.ppm-input:focus{border-color:var(--blue);}
+.ppm-footer{padding:.9rem 1.3rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.6rem;background:var(--bg);}
+.ppm-error{font-size:.75rem;color:var(--rose);padding:.4rem .6rem;background:var(--rose-light);border-radius:6px;display:none;}
+.act-btn.progress-btn{width:auto;padding:.35rem .55rem;gap:.35rem;font-size:.72rem;font-weight:600;}
 </style>
 </head>
 <body>
@@ -85,10 +104,22 @@ try {
     $stmt = $pdo->query("
         SELECT p.id_projet, p.titre, p.description, p.montant_objectif, p.secteur,
                p.date_limite, p.date_creation, p.status, p.taux_rentabilite, p.temps_retour_brut,
+               COALESCE(pp.pourcentage, 0) AS progress_value,
+               COALESCE(pp.description, '') AS progress_description,
+               pp.date_update AS progress_updated_at,
                u.nom AS createur_nom,
                COALESCE((SELECT SUM(i.montant_investi) FROM investissement i WHERE i.id_projet = p.id_projet AND i.status = 'VALIDE'), 0) AS total_investi
         FROM projet p
         LEFT JOIN utilisateur u ON p.id_createur = u.id
+        LEFT JOIN (
+          SELECT pp1.projet_id, pp1.pourcentage, pp1.description, pp1.date_update
+          FROM projet_progress pp1
+          INNER JOIN (
+            SELECT projet_id, MAX(id) AS max_id
+            FROM projet_progress
+            GROUP BY projet_id
+          ) latest ON latest.projet_id = pp1.projet_id AND latest.max_id = pp1.id
+        ) pp ON pp.projet_id = p.id_projet
         ORDER BY p.date_creation DESC
     ");
     $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -191,6 +222,7 @@ try {
                 <tr class="project-row" 
                     data-project-id="<?= $project['id_projet'] ?>" 
                     data-name="<?= htmlspecialchars(strtolower($project['titre']), ENT_QUOTES) ?>"
+                    data-project-name="<?= htmlspecialchars($project['titre'], ENT_QUOTES) ?>"
                     data-description="<?= htmlspecialchars($project['description'] ?? '', ENT_QUOTES) ?>"
                     data-creator="<?= htmlspecialchars($project['createur_nom'] ?: 'N/A', ENT_QUOTES) ?>"
                     data-sector="<?= htmlspecialchars($project['secteur'], ENT_QUOTES) ?>"
@@ -202,6 +234,9 @@ try {
                     data-col="<?= htmlspecialchars((string)$collected, ENT_QUOTES) ?>"
                     data-rest="<?= htmlspecialchars((string)$remaining, ENT_QUOTES) ?>"
                     data-prog="<?= htmlspecialchars((string)$progress, ENT_QUOTES) ?>"
+                    data-suivi-pourcentage="<?= htmlspecialchars((string)($project['progress_value'] ?? 0), ENT_QUOTES) ?>"
+                    data-suivi-description="<?= htmlspecialchars($project['progress_description'] ?? '', ENT_QUOTES) ?>"
+                    data-suivi-date="<?= htmlspecialchars($project['progress_updated_at'] ?? '', ENT_QUOTES) ?>"
                 >
                   <td><div class="td-name"><?= htmlspecialchars($project['titre']) ?></div><div class="td-sub">Par: <?= htmlspecialchars($project['createur_nom'] ?: 'N/A') ?></div></td>
                   <td><span class="t-<?= htmlspecialchars($sectorClass) ?>"><?= htmlspecialchars($project['secteur']) ?></span></td>
@@ -211,6 +246,14 @@ try {
                   <td><span class="td-mono" style="color:var(--amber)"><?= number_format($remaining, 0, ',', ' ') ?></span></td>
                   <td><div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" style="width:<?= min(100,$progress) ?>%;background:var(--<?= $progress>=100?'green':($progress>50?'blue':'amber') ?>)"></div></div><span class="progress-pct"><?= $progress ?>%</span></div></td>
                   <td><div class="action-group">
+                    <button class="act-btn edit progress-btn" title="Suivi du projet" data-action="progress"
+                      data-id="<?= $project['id_projet'] ?>"
+                      data-progress="<?= htmlspecialchars((string)($project['progress_value'] ?? 0), ENT_QUOTES) ?>"
+                      data-progress-description="<?= htmlspecialchars($project['progress_description'] ?? '', ENT_QUOTES) ?>"
+                      data-updated-at="<?= htmlspecialchars($project['progress_updated_at'] ?? '', ENT_QUOTES) ?>">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                      Suivi
+                    </button>
                     <button class="act-btn edit" title="Modifier" data-action="edit"
                       data-id="<?= $project['id_projet'] ?>"
                       data-titre="<?= htmlspecialchars($project['titre'], ENT_QUOTES) ?>"
@@ -257,6 +300,12 @@ try {
           <div class="dp-row"><span class="dp-key">Montant collecté</span><span class="dp-val" id="dp-collect">0 TND</span></div>
           <div class="dp-row"><span class="dp-key">Restant</span><span class="dp-val" id="dp-restant">0 TND</span></div>
           <div class="dp-row"><span class="dp-key">Progression</span><div class="progress-wrap"><div class="progress-bar"><div id="dp-progress-fill" class="progress-fill" style="width:0%;background:var(--green)"></div></div><span id="dp-progress-pct" class="progress-pct">0%</span></div></div>
+        </div>
+        <div>
+          <div class="dp-section">Suivi</div>
+          <div class="dp-row"><span class="dp-key">Avancement déclaré</span><span class="dp-val" id="dp-suivi-pourcentage">0%</span></div>
+          <div class="dp-row"><span class="dp-key">Dernière mise à jour</span><span class="dp-val" id="dp-suivi-date">Jamais</span></div>
+          <div id="dp-suivi-desc" style="font-size:.78rem;color:var(--text2);line-height:1.5;padding:.45rem 0;white-space:pre-wrap;">Aucun suivi disponible.</div>
         </div>
         <div class="dp-actions">
           <button class="dp-action-btn da-neutral" id="btn-export">Exporter le rapport</button>
@@ -356,6 +405,34 @@ try {
   </div>
 </div>
 
+<div id="ppm-overlay" class="ppm-overlay" role="dialog" aria-modal="true">
+  <div class="ppm-card">
+    <div class="ppm-head">
+      <div class="ppm-title">Suivi du projet</div>
+      <button class="ppm-close" id="ppm-close-btn" aria-label="Fermer">×</button>
+    </div>
+    <div class="ppm-body">
+      <div id="ppm-error" class="ppm-error"></div>
+      <div class="ppm-field">
+        <label class="ppm-label">Progression (%)</label>
+        <input id="ppm-progress" class="ppm-input" type="number" min="0" max="100" step="0.1">
+      </div>
+      <div class="ppm-field">
+        <label class="ppm-label">Description</label>
+        <textarea id="ppm-progress-description" class="ppm-input" rows="4"></textarea>
+      </div>
+      <div class="ppm-field">
+        <label class="ppm-label">Derniere mise a jour</label>
+        <input id="ppm-date-update" class="ppm-input" type="text" readonly>
+      </div>
+    </div>
+    <div class="ppm-footer">
+      <button class="pm-btn-cancel" id="ppm-cancel-btn">Annuler</button>
+      <button class="pm-btn-save" id="ppm-save-btn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const controllerUrl = new URL('../../controlller/projet.php', window.location.href).href;
@@ -374,7 +451,11 @@ document.addEventListener('DOMContentLoaded', () => {
     restant: document.getElementById('dp-restant'),
     progressFill: document.getElementById('dp-progress-fill'),
     progressPct: document.getElementById('dp-progress-pct'),
+    suiviPct: document.getElementById('dp-suivi-pourcentage'),
+    suiviDate: document.getElementById('dp-suivi-date'),
+    suiviDesc: document.getElementById('dp-suivi-desc'),
   };
+  const selectedProjectData = { value: null };
 
   const selectRow = (row) => {
     document.querySelectorAll('.project-row.selected').forEach(el => el.classList.remove('selected'));
@@ -382,6 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
     row.classList.add('selected');
     
     const d = row.dataset;
+    selectedProjectData.value = d;
     dp.title.textContent = row.querySelector('.td-name').textContent || 'Projet';
     dp.description.textContent = d.description || 'Aucune description fournie.';
     dp.creator.textContent = d.creator || 'N/A';
@@ -398,6 +480,9 @@ document.addEventListener('DOMContentLoaded', () => {
     dp.progressFill.style.width = Math.min(100, prog) + '%';
     dp.progressFill.style.background = prog >= 100 ? 'var(--green)' : (prog > 50 ? 'var(--blue)' : 'var(--amber)');
     dp.progressPct.textContent = prog + '%';
+    dp.suiviPct.textContent = `${d.suiviPourcentage || 0}%`;
+    dp.suiviDate.textContent = d.suiviDate ? new Date(d.suiviDate).toLocaleString('fr-FR') : 'Jamais';
+    dp.suiviDesc.textContent = d.suiviDescription || 'Aucun suivi disponible.';
   };
 
   document.querySelectorAll('.project-row').forEach(row => {
@@ -431,6 +516,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const errMontant      = document.getElementById('err-montant');
   const errDateLimite   = document.getElementById('err-datelimite');
   const errDesc         = document.getElementById('err-description');
+  const ppmOverlay = document.getElementById('ppm-overlay');
+  const ppmProgress = document.getElementById('ppm-progress');
+  const ppmProgressDescription = document.getElementById('ppm-progress-description');
+  const ppmDateUpdate = document.getElementById('ppm-date-update');
+  const ppmError = document.getElementById('ppm-error');
+  const ppmSaveBtn = document.getElementById('ppm-save-btn');
+  let ppmProjectId = null;
 
   function clearErrors() {
     pmError.style.display = 'none';
@@ -527,6 +619,69 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  function openProgressModal(data = {}) {
+    ppmProjectId = data.id || null;
+    ppmProgress.value = data.progress || 0;
+    ppmProgressDescription.value = data.progressDescription || '';
+    ppmDateUpdate.value = data.updatedAt || 'Jamais mis a jour';
+    ppmError.style.display = 'none';
+    ppmOverlay.classList.add('active');
+  }
+
+  function closeProgressModal() { ppmOverlay.classList.remove('active'); }
+
+  document.querySelectorAll('[data-action="progress"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const projectId = btn.dataset.id;
+      const payload = new FormData();
+      payload.append('action', 'admin_get_project_progress');
+      payload.append('project_id', projectId);
+      try {
+        const res = await fetch(controllerUrl, { method: 'POST', body: payload });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Erreur de chargement.');
+        openProgressModal({
+          id: projectId,
+          progress: result.data.pourcentage || 0,
+          progressDescription: result.data.description || '',
+          updatedAt: result.data.date_update ? new Date(result.data.date_update).toLocaleString('fr-FR') : 'Jamais mis a jour'
+        });
+      } catch (err) {
+        alert(err.message || 'Erreur reseau.');
+      }
+    });
+  });
+
+  document.getElementById('ppm-close-btn').addEventListener('click', closeProgressModal);
+  document.getElementById('ppm-cancel-btn').addEventListener('click', closeProgressModal);
+  ppmOverlay.addEventListener('click', (e) => { if (e.target === ppmOverlay) closeProgressModal(); });
+
+  ppmSaveBtn.addEventListener('click', async () => {
+    if (!ppmProjectId) return;
+    const progressValue = parseFloat(ppmProgress.value || '0');
+    if (Number.isNaN(progressValue) || progressValue < 0 || progressValue > 100) {
+      ppmError.textContent = 'Le pourcentage doit etre entre 0 et 100.';
+      ppmError.style.display = 'block';
+      return;
+    }
+    const payload = new FormData();
+    payload.append('action', 'admin_update_project_progress');
+    payload.append('project_id', ppmProjectId);
+    payload.append('pourcentage', progressValue.toString());
+    payload.append('description', ppmProgressDescription.value.trim());
+    try {
+      const res = await fetch(controllerUrl, { method: 'POST', body: payload });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.message || 'Erreur de mise a jour.');
+      closeProgressModal();
+      window.location.reload();
+    } catch (err) {
+      ppmError.textContent = err.message || 'Erreur reseau.';
+      ppmError.style.display = 'block';
+    }
+  });
+
   document.getElementById('del-cancel-btn').addEventListener('click', () => delOverlay.classList.remove('active'));
   delConfirm.addEventListener('click', async () => {
     if (!deleteId) return;
@@ -546,6 +701,96 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.project-row').forEach(row => {
       row.style.display = row.dataset.name.includes(term) ? '' : 'none';
     });
+  });
+
+  document.getElementById('btn-export').addEventListener('click', () => {
+    const d = selectedProjectData.value;
+    if (!d) {
+      alert('Sélectionnez d’abord un projet.');
+      return;
+    }
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      alert('Le module PDF n’est pas chargé.');
+      return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 16;
+
+    const addLine = (label, value) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${label}:`, 14, y);
+      doc.setFont('helvetica', 'normal');
+      const text = String(value ?? '—');
+      const wrapped = doc.splitTextToSize(text, 125);
+      doc.text(wrapped, 62, y);
+      y += Math.max(7, wrapped.length * 5);
+    };
+
+    const addSection = (title) => {
+      y += 2;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(12, y - 4, pageWidth - 24, 8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 64, 175);
+      doc.text(title, 14, y + 1.5);
+      y += 9;
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(10);
+    };
+
+    // Header/logo style
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 30, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('LegalFin', 14, 13);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Rapport de Suivi Projet', 14, 20);
+    doc.text(`Édité le ${new Date().toLocaleString('fr-FR')}`, pageWidth - 72, 20);
+
+    y = 40;
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text(d.projectName || 'Projet', 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    addSection('Informations Projet');
+    addLine('Créateur', d.creator || 'N/A');
+    addLine('Secteur', d.sector || '—');
+    addLine('Date création', d.dateCreation || '—');
+    addLine('Date limite', d.dateLimite ? new Date(d.dateLimite).toLocaleDateString('fr-FR') : '—');
+    addLine('Objectif', `${Number(d.objectif || 0).toLocaleString('fr-FR')} TND`);
+    addLine('TRI', `${d.taux || 0}%`);
+    addLine('Retour brut', `${d.temps || 0} mois`);
+
+    addSection('Collecte');
+    addLine('Montant collecté', `${Number(d.col || 0).toLocaleString('fr-FR')} TND`);
+    addLine('Montant restant', `${Number(d.rest || 0).toLocaleString('fr-FR')} TND`);
+    addLine('Progression financière', `${d.prog || 0}%`);
+
+    addSection('Suivi du Projet');
+    addLine('Pourcentage de suivi', `${d.suiviPourcentage || 0}%`);
+    addLine('Dernière mise à jour', d.suiviDate ? new Date(d.suiviDate).toLocaleString('fr-FR') : 'Jamais');
+    addLine('Description', d.suiviDescription || 'Aucune description');
+
+    addSection('Description détaillée');
+    addLine('Projet', d.description || 'Aucune description');
+
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Document généré automatiquement par LegalFin Administration.', 14, 286);
+
+    const safeTitle = (d.projectName || 'projet').replace(/[^\w\-]+/g, '_');
+    doc.save(`Rapport_Suivi_${safeTitle}.pdf`);
   });
 
   // Sidebar Dropdown Logic

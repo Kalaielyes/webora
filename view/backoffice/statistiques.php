@@ -6,6 +6,7 @@
 <title>BankFlow Admin — Statistiques</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="action.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 .stat-section{margin-bottom:1.5rem;}
 .stat-section-title{font-family:var(--fh);font-size:.88rem;font-weight:700;margin-bottom:.8rem;display:flex;align-items:center;gap:.5rem;color:var(--text);}
@@ -40,6 +41,22 @@
 .donut-legend{display:flex;flex-direction:column;gap:.5rem;}
 .legend-item{display:flex;align-items:center;gap:.5rem;font-size:.75rem;}
 .legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+.score-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem;}
+.score-table{width:100%;border-collapse:collapse;}
+.score-table th,.score-table td{padding:.65rem .55rem;border-bottom:1px solid var(--border);text-align:left;font-size:.78rem;}
+.score-table th{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.score-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .55rem;border-radius:999px;font-weight:700;font-size:.72rem;}
+.score-green{background:#dcfce7;color:#166534;}
+.score-amber{background:#fef3c7;color:#92400e;}
+.score-rose{background:#fee2e2;color:#991b1b;}
+.score-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:12000;align-items:center;justify-content:center;padding:1rem;}
+.score-modal.active{display:flex;}
+.score-modal-card{width:min(620px,100%);background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 30px 80px rgba(15,23,42,.28);}
+.score-modal-head{padding:.9rem 1rem;background:#0f172a;color:#fff;display:flex;justify-content:space-between;align-items:center;}
+.score-modal-body{padding:1rem;max-height:70vh;overflow:auto;}
+.score-factor{border:1px solid #e2e8f0;border-radius:10px;padding:.7rem .75rem;margin-bottom:.55rem;}
+.score-factor-title{font-size:.75rem;font-weight:700;color:#0f172a;margin-bottom:.2rem;}
+.score-factor-reason{font-size:.74rem;color:#64748b;line-height:1.45;}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -60,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <?php
 require_once __DIR__ . '/../../model/config.php';
 require_once __DIR__ . '/../../model/investissement.php';
+require_once __DIR__ . '/../../model/score.php';
 
 $pdo = Config::getConnexion();
 $projects = []; $investments = [];
@@ -105,6 +123,18 @@ try {
     }
     $activeInvestorsCount = count($uniqueInvestors);
 } catch (Exception $e) { $investments = []; }
+
+try {
+    Score::recalculateAllUsers();
+} catch (Exception $e) {
+    // non-blocking
+}
+$userScores = [];
+try {
+    $userScores = Score::getAdminScores();
+} catch (Exception $e) {
+    $userScores = [];
+}
 
 $avgInvestment = $validCount > 0 ? $totalInvestedAmount / $validCount : 0;
 $acceptanceRate = $totalCount > 0 ? round(($approvedProjects / $totalCount) * 100, 1) : 0;
@@ -290,57 +320,208 @@ $maxSectorInv = !empty($sectors) ? max(array_column($sectors, 'invested')) : 1;
 
     <!-- ═══ CHARTS ═══ -->
     <div class="two-chart">
-      <div class="chart-card">
+      <div class="chart-card" style="position: relative; height: 300px;">
         <div class="chart-title">Top Projets Financés</div>
-        <div class="bar-chart">
-          <?php foreach ($topProjects as $tp): $pct = $maxInvested > 0 ? round(($tp['total_investi'] / $maxInvested) * 100) : 0; ?>
-          <div class="bar-row">
-            <div class="bar-label"><?= htmlspecialchars($tp['titre']) ?></div>
-            <div class="bar-track"><div class="bar-fill" style="width:<?= $pct ?>%;background:linear-gradient(90deg,var(--blue),var(--teal));"></div></div>
-            <div class="bar-value"><?= number_format($tp['total_investi'], 0, ',', ' ') ?> TND</div>
-          </div>
-          <?php endforeach; ?>
-          <?php if (empty($topProjects)): ?>
-          <div style="text-align:center;color:var(--muted);padding:1rem;font-size:.8rem;">Aucun projet financé</div>
-          <?php endif; ?>
-        </div>
+        <canvas id="chart-top-projects"></canvas>
       </div>
-      <div class="chart-card">
+      <div class="chart-card" style="position: relative; height: 300px;">
         <div class="chart-title">Top Investisseurs</div>
-        <div class="rank-list">
-          <?php $i=0; foreach(array_slice($investorsTotals, 0, 5, true) as $name => $amount): $i++; ?>
-          <div class="rank-item">
-            <div class="rank-num"><?= $i ?></div>
-            <div class="rank-name"><?= htmlspecialchars($name) ?></div>
-            <div class="rank-val" style="color:var(--green)"><?= number_format($amount, 0, ',', ' ') ?> TND</div>
-          </div>
-          <?php endforeach; ?>
-          <?php if (empty($investorsTotals)): ?>
-          <div style="text-align:center;color:var(--muted);padding:1rem;font-size:.8rem;">Aucun investisseur</div>
-          <?php endif; ?>
-        </div>
+        <canvas id="chart-top-investors"></canvas>
       </div>
     </div>
 
     <!-- ═══ SECTOR BREAKDOWN ═══ -->
-    <div class="chart-card">
+    <div class="chart-card" style="position: relative; height: 350px; margin-top: 1rem;">
       <div class="chart-title">Répartition par Secteur</div>
-      <div class="bar-chart">
-        <?php foreach ($sectors as $sName => $sData): $pct = $maxSectorInv > 0 ? round(($sData['invested'] / $maxSectorInv) * 100) : 0;
-          $colors = ['Énergie'=>'var(--amber)','Tech'=>'var(--teal)','Santé'=>'var(--violet)','Agriculture'=>'var(--green)','Immobilier'=>'var(--blue)','Finance'=>'#6366F1'];
-          $c = $colors[$sName] ?? 'var(--muted2)';
-        ?>
-        <div class="bar-row">
-          <div class="bar-label"><?= htmlspecialchars($sName) ?> (<?= $sData['count'] ?>)</div>
-          <div class="bar-track"><div class="bar-fill" style="width:<?= $pct ?>%;background:<?= $c ?>;"></div></div>
-          <div class="bar-value"><?= number_format($sData['invested'], 0, ',', ' ') ?> TND</div>
-        </div>
-        <?php endforeach; ?>
-        <?php if (empty($sectors)): ?>
-        <div style="text-align:center;color:var(--muted);padding:1rem;font-size:.8rem;">Aucune donnée</div>
-        <?php endif; ?>
+      <canvas id="chart-sectors"></canvas>
+    </div>
+
+    <?php
+    $topProjectLabels = array_map(fn($p) => htmlspecialchars_decode($p['titre']), $topProjects);
+    $topProjectData = array_map(fn($p) => (float)$p['total_investi'], $topProjects);
+
+    $investorsSlice = array_slice($investorsTotals, 0, 5, true);
+    $investorLabels = array_map('htmlspecialchars_decode', array_keys($investorsSlice));
+    $investorData = array_values($investorsSlice);
+
+    $sectorLabels = array_map('htmlspecialchars_decode', array_keys($sectors));
+    $sectorData = array_column($sectors, 'invested');
+    $sectorColors = [];
+    $defaultColors = ['Énergie'=>'#fde68a','Tech'=>'#99f6e4','Santé'=>'#ddd6fe','Agriculture'=>'#a7f3d0','Immobilier'=>'#bfdbfe','Finance'=>'#c7d2fe'];
+    foreach ($sectorLabels as $lbl) {
+        $sectorColors[] = $defaultColors[$lbl] ?? '#e2e8f0';
+    }
+    ?>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      Chart.defaults.color = 'rgba(148, 163, 184, 0.8)';
+      Chart.defaults.font.family = "'DM Sans', sans-serif";
+
+      // 1. Top Projets Financés (Bar Chart)
+      new Chart(document.getElementById('chart-top-projects'), {
+        type: 'bar',
+        data: {
+          labels: <?= json_encode($topProjectLabels) ?>,
+          datasets: [{
+            label: 'Montant Investi (TND)',
+            data: <?= json_encode($topProjectData) ?>,
+            backgroundColor: 'rgba(147, 197, 253, 0.9)',
+            borderWidth: 0,
+            borderRadius: 6,
+            barPercentage: 0.6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+
+      // 2. Top Investisseurs (Horizontal Bar Chart)
+      new Chart(document.getElementById('chart-top-investors'), {
+        type: 'bar',
+        data: {
+          labels: <?= json_encode($investorLabels) ?>,
+          datasets: [{
+            label: 'Total Investi (TND)',
+            data: <?= json_encode($investorData) ?>,
+            backgroundColor: 'rgba(167, 243, 208, 0.9)',
+            borderWidth: 0,
+            borderRadius: 6,
+            barPercentage: 0.6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+
+      // 3. Répartition par Secteur (Doughnut Chart)
+      new Chart(document.getElementById('chart-sectors'), {
+        type: 'doughnut',
+        data: {
+          labels: <?= json_encode($sectorLabels) ?>,
+          datasets: [{
+            data: <?= json_encode($sectorData) ?>,
+            backgroundColor: <?= json_encode($sectorColors) ?>,
+            borderWidth: 0,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '70%',
+          plugins: {
+            legend: { position: 'right' }
+          }
+        }
+      });
+    });
+    </script>
+
+    <div class="stat-section" style="margin-top:1rem;">
+      <div class="stat-section-title">
+        <svg fill="none" stroke="var(--teal)" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Score Utilisateur (/100)
+      </div>
+      <div class="score-card">
+        <table class="score-table" id="score-table">
+          <thead>
+            <tr><th>Utilisateur</th><th>Email</th><th>Score</th><th>Mis a jour</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <?php if (empty($userScores)): ?>
+              <tr><td colspan="5" style="color:var(--muted);text-align:center;">Aucun score disponible.</td></tr>
+            <?php else: ?>
+              <?php foreach ($userScores as $s): ?>
+                <?php
+                  $score = (int)($s['trust_score'] ?? 0);
+                  $badgeClass = $score >= 75 ? 'score-green' : ($score >= 45 ? 'score-amber' : 'score-rose');
+                  $fullName = trim(($s['nom'] ?? '') . ' ' . ($s['prenom'] ?? ''));
+                ?>
+                <tr data-score="<?= $score ?>">
+                  <td><?= htmlspecialchars($fullName !== '' ? $fullName : ('Utilisateur #' . $s['user_id'])) ?></td>
+                  <td><?= htmlspecialchars($s['email'] ?? 'N/A') ?></td>
+                  <td><span class="score-badge <?= $badgeClass ?>"><?= $score ?>/100</span></td>
+                  <td><?= htmlspecialchars($s['updated_at'] ?? 'N/A') ?></td>
+                  <td><button class="btn-ghost btn-score-details" type="button"
+                    data-user="<?= htmlspecialchars($fullName !== '' ? $fullName : ('Utilisateur #' . $s['user_id']), ENT_QUOTES) ?>"
+                    data-score="<?= $score ?>"
+                    data-details="<?= htmlspecialchars((string)($s['score_details'] ?? '[]'), ENT_QUOTES) ?>"
+                    style="padding:.35rem .6rem;font-size:.72rem;">Voir details</button></td>
+                </tr>
+              <?php endforeach; ?>
+            <?php endif; ?>
+          </tbody>
+        </table>
       </div>
     </div>
+
+    <div id="score-modal" class="score-modal" aria-hidden="true">
+      <div class="score-modal-card">
+        <div class="score-modal-head">
+          <div id="score-modal-title" style="font-size:.86rem;font-weight:700;">Details score</div>
+          <button id="score-modal-close" type="button" style="background:transparent;border:none;color:#fff;font-size:1.2rem;cursor:pointer;">×</button>
+        </div>
+        <div class="score-modal-body">
+          <div id="score-modal-summary" style="font-size:.78rem;color:#334155;margin-bottom:.8rem;"></div>
+          <div id="score-modal-factors"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const rows = Array.from(document.querySelectorAll('#score-table tbody tr[data-score]'));
+      const tbody = document.querySelector('#score-table tbody');
+      rows.sort((a, b) => Number(b.dataset.score) - Number(a.dataset.score));
+      rows.forEach((r) => tbody.appendChild(r));
+
+      const modal = document.getElementById('score-modal');
+      const modalTitle = document.getElementById('score-modal-title');
+      const modalSummary = document.getElementById('score-modal-summary');
+      const modalFactors = document.getElementById('score-modal-factors');
+      const closeBtn = document.getElementById('score-modal-close');
+
+      const openModal = (user, score, detailsRaw) => {
+        modalTitle.textContent = `${user} - ${score}/100`;
+        modalSummary.textContent = 'Breakdown ponderé, plafonné et pénalités appliquées.';
+        let parsed = [];
+        try { parsed = JSON.parse(detailsRaw || '[]'); } catch (e) { parsed = []; }
+        modalFactors.innerHTML = '';
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+          modalFactors.innerHTML = '<div class="score-factor"><div class="score-factor-reason">Aucun detail disponible.</div></div>';
+        } else {
+          parsed.forEach((f) => {
+            const el = document.createElement('div');
+            el.className = 'score-factor';
+            el.innerHTML = `<div class="score-factor-title">${f.factor || 'facteur'} : ${f.points ?? 0} / ${f.max ?? '?'}</div><div class="score-factor-reason">${f.reason || '—'}</div>`;
+            modalFactors.appendChild(el);
+          });
+        }
+        modal.classList.add('active');
+      };
+
+      document.querySelectorAll('.btn-score-details').forEach((btn) => {
+        btn.addEventListener('click', () => openModal(btn.dataset.user || 'Utilisateur', btn.dataset.score || '0', btn.dataset.details || '[]'));
+      });
+      closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+    });
+    </script>
 
   </div>
 </div>

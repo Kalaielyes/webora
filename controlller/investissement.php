@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/investissement.php';
+require_once __DIR__ . '/../model/score.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -30,6 +31,40 @@ if ($userId === null) {
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_REQUEST['action'] ?? '';
 
+function recalculateScoreForInvestmentStakeholders(?int $investmentId = null, ?int $projectId = null, ?int $investorId = null): void
+{
+    try {
+        $pdo = Config::getConnexion();
+        if ($investorId !== null && $investorId > 0) {
+            Score::recalculateForUser($investorId);
+        }
+
+        if ($projectId === null && $investmentId !== null && $investmentId > 0) {
+            $q = $pdo->prepare("SELECT id_projet, id_investisseur FROM investissement WHERE id_investissement = :id LIMIT 1");
+            $q->execute(['id' => $investmentId]);
+            $row = $q->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                $projectId = (int)$row['id_projet'];
+                if ($investorId === null) {
+                    $investorId = (int)$row['id_investisseur'];
+                    Score::recalculateForUser($investorId);
+                }
+            }
+        }
+
+        if ($projectId !== null && $projectId > 0) {
+            $q2 = $pdo->prepare("SELECT id_createur FROM projet WHERE id_projet = :pid LIMIT 1");
+            $q2->execute(['pid' => $projectId]);
+            $row2 = $q2->fetch(PDO::FETCH_ASSOC);
+            if ($row2 && !empty($row2['id_createur'])) {
+                Score::recalculateForUser((int)$row2['id_createur']);
+            }
+        }
+    } catch (Exception $e) {
+        // Non-blocking: score recalculation should never block CRUD flow.
+    }
+}
+
 // Admin actions (no user check required)
 if ($action === 'admin_list_investments') {
     echo json_encode(['success' => true, 'data' => Investissement::getAllInvestments()]);
@@ -47,6 +82,7 @@ if ($action === 'admin_update_investment_status' && !empty($_POST['investment_id
     
     try {
         if (Investissement::updateInvestmentStatus($investmentId, $newStatus)) {
+            recalculateScoreForInvestmentStakeholders($investmentId, null, null);
             echo json_encode(['success' => true, 'message' => 'Statut mis à jour.']);
             exit;
         }
@@ -106,6 +142,7 @@ if ($method === 'POST') {
                     'status' => $status,
                     'commentaire' => $commentaire,
                 ]);
+                recalculateScoreForInvestmentStakeholders($investmentId, (int)$projectId, $userId);
                 echo json_encode(['success' => true, 'message' => 'Investissement ajouté.', 'investment_id' => $investmentId]);
                 exit;
             }
@@ -118,6 +155,7 @@ if ($method === 'POST') {
                     'status' => $status,
                     'commentaire' => $commentaire,
                 ])) {
+                    recalculateScoreForInvestmentStakeholders($investmentId, (int)$projectId, $userId);
                     echo json_encode(['success' => true, 'message' => 'Investissement mis à jour.']);
                     exit;
                 }
@@ -132,7 +170,18 @@ if ($method === 'POST') {
 
     if ($action === 'delete_investment' && !empty($_POST['investment_id'])) {
         $investmentId = (int)$_POST['investment_id'];
+        $projectIdForScore = null;
+        try {
+            $pdo = Config::getConnexion();
+            $s = $pdo->prepare("SELECT id_projet FROM investissement WHERE id_investissement = :id LIMIT 1");
+            $s->execute(['id' => $investmentId]);
+            $r = $s->fetch(PDO::FETCH_ASSOC);
+            if ($r) $projectIdForScore = (int)$r['id_projet'];
+        } catch (Exception $e) {
+            $projectIdForScore = null;
+        }
         if (Investissement::deleteInvestment($investmentId, $userId)) {
+            recalculateScoreForInvestmentStakeholders(null, $projectIdForScore, $userId);
             echo json_encode(['success' => true, 'message' => 'Investissement supprimé.']);
             exit;
         }

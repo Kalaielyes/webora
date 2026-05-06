@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/projet.php';
 require_once __DIR__ . '/../model/investissement.php';
+require_once __DIR__ . '/../model/score.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -171,6 +172,81 @@ function adminUpdateProject(int $projectId, array $data): bool
     ]);
 }
 
+function getProjectProgressByProjectId(int $projectId): ?array
+{
+    $sql = "SELECT id, projet_id, pourcentage, description, date_update
+            FROM projet_progress
+            WHERE projet_id = :projectId
+            ORDER BY date_update DESC, id DESC
+            LIMIT 1";
+    $stmt = getConnexion()->prepare($sql);
+    $stmt->execute(['projectId' => $projectId]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $result === false ? null : $result;
+}
+
+function upsertProjectProgress(int $projectId, float $pourcentage, string $description): bool
+{
+    $existing = getProjectProgressByProjectId($projectId);
+    if ($existing !== null) {
+        $sql = "UPDATE projet_progress
+                SET pourcentage = :pourcentage,
+                    description = :description,
+                    date_update = CURRENT_TIMESTAMP
+                WHERE id = :id";
+        $stmt = getConnexion()->prepare($sql);
+        return $stmt->execute([
+            'pourcentage' => $pourcentage,
+            'description' => $description,
+            'id' => $existing['id'],
+        ]);
+    }
+
+    $sql = "INSERT INTO projet_progress (projet_id, pourcentage, description)
+            VALUES (:projectId, :pourcentage, :description)";
+    $stmt = getConnexion()->prepare($sql);
+    return $stmt->execute([
+        'projectId' => $projectId,
+        'pourcentage' => $pourcentage,
+        'description' => $description,
+    ]);
+}
+
+function validateProjectProgressInput(mixed $pourcentageRaw, string $descriptionRaw): array
+{
+    if ($pourcentageRaw === '' || $pourcentageRaw === null) {
+        return ['valid' => false, 'message' => 'Le champ pourcentage est obligatoire.'];
+    }
+
+    if (!is_numeric($pourcentageRaw)) {
+        return ['valid' => false, 'message' => 'Le pourcentage doit etre une valeur numerique.'];
+    }
+
+    $pourcentage = (float)$pourcentageRaw;
+    if ($pourcentage < 0 || $pourcentage > 100) {
+        return ['valid' => false, 'message' => 'Le pourcentage doit etre compris entre 0 et 100.'];
+    }
+
+    $description = trim($descriptionRaw);
+    if ($description === '') {
+        return ['valid' => false, 'message' => 'La description de progression est obligatoire.'];
+    }
+
+    if (mb_strlen($description) < 5) {
+        return ['valid' => false, 'message' => 'La description doit contenir au moins 5 caracteres.'];
+    }
+
+    if (mb_strlen($description) > 2000) {
+        return ['valid' => false, 'message' => 'La description ne doit pas depasser 2000 caracteres.'];
+    }
+
+    return [
+        'valid' => true,
+        'pourcentage' => round($pourcentage, 2),
+        'description' => $description,
+    ];
+}
+
 function adminDeleteProject(int $projectId): bool
 {
     $sql = "DELETE FROM projet WHERE id_projet = :projectId";
@@ -196,6 +272,26 @@ function deleteProject(int $projectId, int $userId): bool
     return $stmt->execute(['projectId' => $projectId, 'userId' => $userId]);
 }
 
+function recalcProjectOwnerScore(?int $projectId = null, ?int $ownerId = null): void
+{
+    try {
+        if ($ownerId !== null && $ownerId > 0) {
+            Score::recalculateForUser($ownerId);
+            return;
+        }
+        if ($projectId !== null && $projectId > 0) {
+            $stmt = getConnexion()->prepare("SELECT id_createur FROM projet WHERE id_projet = :id LIMIT 1");
+            $stmt->execute(['id' => $projectId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row && !empty($row['id_createur'])) {
+                Score::recalculateForUser((int)$row['id_createur']);
+            }
+        }
+    } catch (Exception $e) {
+        // Non-blocking for API flow.
+    }
+}
+
 $userId = $_SESSION['user_id'] ?? 1;
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_REQUEST['action'] ?? '';
@@ -211,6 +307,21 @@ if ($method === 'GET') {
         exit;
     }
 
+    if ($action === 'list_recommendations') {
+        $projects = Projet::getRecommendedProjectsForUser($userId);
+        
+        // Calculate fields like available projects
+        foreach ($projects as &$project) {
+            $totalInvested = Investissement::getTotalInvestedForProject($project['id_projet']);
+            $project['total_investi'] = $totalInvested;
+            $project['montant_restant'] = max(0, $project['montant_objectif'] - $totalInvested);
+            $project['progression'] = $project['montant_objectif'] > 0 ? round(($totalInvested / $project['montant_objectif']) * 100, 1) : 0;
+        }
+
+        echo json_encode(['success' => true, 'data' => $projects]);
+        exit;
+    }
+
     if ($action === 'get_project' && !empty($_GET['id'])) {
         $project = getProjectById((int)$_GET['id']);
         if ($project === null) {
@@ -223,6 +334,21 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
+    if ($action === 'admin_recalculate_scores') {
+        $targetUserId = isset($_POST['user_id']) ? (int)$_POST['user_id'] : 0;
+        try {
+            if ($targetUserId > 0) {
+                Score::recalculateForUser($targetUserId);
+            } else {
+                Score::recalculateAllUsers();
+            }
+            echo json_encode(['success' => true, 'message' => 'Scores recalcules.']);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur recalcul scores: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
     if ($action === 'submit_demande' || $action === 'update_project') {
         $titre = trim($_POST['titre'] ?? '');
         $secteur = trim($_POST['secteur'] ?? '');
@@ -262,6 +388,7 @@ if ($method === 'POST') {
             ]);
 
             $project = getProjectById($projectId);
+            recalcProjectOwnerScore($projectId, (int)$userId);
             echo json_encode([
                 'success' => true,
                 'reference' => $project['request_code'] ?? sprintf('REQ-%05d', $projectId),
@@ -282,6 +409,7 @@ if ($method === 'POST') {
                     'taux_rentabilite' => $taux_rentabilite,
                     'temps_retour_brut' => $temps_retour_brut,
                 ])) {
+                    recalcProjectOwnerScore($projectId, $userId);
                     echo json_encode(['success' => true, 'message' => 'Demande mise à jour.']);
                     exit;
                 }
@@ -298,6 +426,7 @@ if ($method === 'POST') {
         $projectId = (int)$_POST['project_id'];
         $newStatus = strtoupper(trim($_POST['new_status']));
         if (changeProjectStatus($projectId, $newStatus)) {
+            recalcProjectOwnerScore($projectId, null);
             echo json_encode(['success' => true, 'message' => 'Statut du projet mis à jour.']);
             exit;
         }
@@ -308,6 +437,7 @@ if ($method === 'POST') {
     if ($action === 'delete_project' && !empty($_POST['project_id'])) {
         $projectId = (int)$_POST['project_id'];
         if (deleteProject($projectId, $userId)) {
+            recalcProjectOwnerScore(null, $userId);
             echo json_encode(['success' => true, 'message' => 'Demande supprimée.']);
             exit;
         }
@@ -347,6 +477,7 @@ if ($method === 'POST') {
                 'temps_retour_brut' => $temps_retour_brut,
             ]);
             $project = getProjectById($projectId);
+            recalcProjectOwnerScore($projectId, (int)$userId);
             echo json_encode(['success' => true, 'message' => 'Projet créé avec succès.', 'data' => $project]);
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => 'Erreur de base de données: ' . $e->getMessage()]);
@@ -385,6 +516,7 @@ if ($method === 'POST') {
                 'temps_retour_brut' => $temps_retour_brut,
             ])) {
                 $project = getProjectById($projectId);
+                recalcProjectOwnerScore($projectId, null);
                 echo json_encode(['success' => true, 'message' => 'Projet mis à jour.', 'data' => $project]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Impossible de mettre à jour le projet.']);
@@ -397,11 +529,74 @@ if ($method === 'POST') {
 
     if ($action === 'admin_delete_project' && !empty($_POST['project_id'])) {
         $projectId = (int)$_POST['project_id'];
+        $ownerIdForScore = null;
+        try {
+            $p = getProjectById($projectId);
+            if ($p && isset($p['id_createur'])) {
+                $ownerIdForScore = (int)$p['id_createur'];
+            }
+        } catch (Exception $e) {}
         try {
             if (adminDeleteProject($projectId)) {
+                recalcProjectOwnerScore(null, $ownerIdForScore);
                 echo json_encode(['success' => true, 'message' => 'Projet supprimé avec succès.']);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Impossible de supprimer le projet.']);
+            }
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur de base de données: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($action === 'admin_get_project_progress' && !empty($_POST['project_id'])) {
+        $projectId = (int)$_POST['project_id'];
+        $project = getProjectById($projectId);
+        if ($project === null) {
+            echo json_encode(['success' => false, 'message' => 'Projet introuvable.']);
+            exit;
+        }
+        $progress = getProjectProgressByProjectId($projectId);
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'projet_id' => (int)$project['id_projet'],
+                'pourcentage' => (float)($progress['pourcentage'] ?? 0),
+                'description' => $progress['description'] ?? '',
+                'date_update' => $progress['date_update'] ?? null,
+            ],
+        ]);
+        exit;
+    }
+
+    if ($action === 'admin_update_project_progress' && !empty($_POST['project_id'])) {
+        $projectId = (int)$_POST['project_id'];
+        $pourcentage = $_POST['pourcentage'] ?? 0;
+        $description = trim($_POST['description'] ?? '');
+
+        if ($projectId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Identifiant de projet invalide.']);
+            exit;
+        }
+
+        $project = getProjectById($projectId);
+        if ($project === null) {
+            echo json_encode(['success' => false, 'message' => 'Projet introuvable.']);
+            exit;
+        }
+
+        $validation = validateProjectProgressInput($pourcentage, $description);
+        if (!$validation['valid']) {
+            echo json_encode(['success' => false, 'message' => $validation['message']]);
+            exit;
+        }
+
+        try {
+            if (upsertProjectProgress($projectId, $validation['pourcentage'], $validation['description'])) {
+                recalcProjectOwnerScore($projectId, null);
+                echo json_encode(['success' => true, 'message' => 'Progression du projet mise à jour.']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Impossible de mettre à jour la progression du projet.']);
             }
         } catch (PDOException $e) {
             echo json_encode(['success' => false, 'message' => 'Erreur de base de données: ' . $e->getMessage()]);

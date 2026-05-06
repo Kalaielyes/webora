@@ -125,6 +125,7 @@
   <div class="content">
     <!-- TABS -->
     <div class="tab-row">
+      <div class="tab-pill" data-tab="ai-recommendations" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%); color: #e879f9; border: 1px solid rgba(168, 85, 247, 0.3);">✨ Recommandé pour vous</div>
       <div class="tab-pill active" data-tab="projets">Projets disponibles</div>
       <div class="tab-pill" data-tab="invest">Mes investissements</div>
     </div>
@@ -147,6 +148,24 @@
       <div class="projects-grid" id="project-list" style="min-height:260px;">
         <div class="project-card featured" style="background:transparent;border:none;box-shadow:none;color:rgba(148,163,184,1);padding:1.3rem;">
           Chargement des projets depuis la base de données...
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB: AI RECOMMENDATIONS ===== -->
+    <div class="tab-panel" id="panel-ai-recommendations">
+      <div class="section-head" style="margin-bottom:.9rem;display:flex;justify-content:space-between;align-items:center;">
+        <div class="section-title" style="display:flex;align-items:center;gap:.5rem;">
+          <span style="font-size:1.4rem;">✨</span> 
+          <span style="background: linear-gradient(90deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Sélectionnés pour vous</span>
+        </div>
+      </div>
+      <div style="background:rgba(139, 92, 246, 0.05);border:1px solid rgba(139, 92, 246, 0.2);padding:1rem;border-radius:12px;color:rgba(167, 139, 250, 0.9);font-size:.85rem;margin-bottom:1.5rem;">
+        Basé sur vos secteurs préférés et les projets les plus rentables du moment.
+      </div>
+      <div class="projects-grid" id="ai-project-list" style="min-height:260px;">
+        <div class="project-card featured" style="background:transparent;border:none;box-shadow:none;color:rgba(148,163,184,1);padding:1.3rem;">
+          Analyse de vos préférences en cours...
         </div>
       </div>
     </div>
@@ -289,6 +308,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const aiProjectList = document.getElementById('ai-project-list');
+  if (aiProjectList) {
+    aiProjectList.addEventListener('click', (event) => {
+      const button = event.target.closest('.btn-invest');
+      if (!button) return;
+      event.stopPropagation();
+      const projectId = button.dataset.projectId || button.closest('.project-card')?.dataset.projectId;
+      console.log('[frontoffice] invest button clicked', projectId);
+      if (projectId) {
+        openInvestmentModal(Number(projectId));
+      }
+    });
+  }
+
   if (investFallbackButton) {
     investFallbackButton.addEventListener('click', (event) => {
       event.preventDefault();
@@ -309,6 +342,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (tabName === 'invest') {
       loadUserInvestments();
+    }
+    if (tabName === 'ai-recommendations') {
+      loadRecommendedProjects();
     }
   };
 
@@ -529,11 +565,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const renderProjects = (projects) => {
-    if (!projectsGrid) return;
-    projectsGrid.innerHTML = '';
+  const renderProjects = (projects, container = projectsGrid) => {
+    if (!container) return;
+    container.innerHTML = '';
     if (projects.length === 0) {
-      projectsGrid.innerHTML = `
+      container.innerHTML = `
         <div class="project-card featured" style="background:transparent;border:none;box-shadow:none;color:rgba(148,163,184,1);padding:1.3rem;">
           Aucun projet disponible actuellement.
         </div>
@@ -573,7 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <button class="btn-invest" type="button" data-project-id="${project.id_projet}">Investir</button>
         </div>
       `;
-      projectsGrid.appendChild(card);
+      container.appendChild(card);
     });
   };
 
@@ -592,6 +628,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (error) {
       projectsGrid.innerHTML = `<div class="project-card featured" style="background:transparent;border:none;box-shadow:none;color:rgba(239,68,68,1);padding:1.3rem;">Erreur de chargement.</div>`;
+    }
+  };
+
+  const loadRecommendedProjects = async () => {
+    const aiGrid = document.getElementById('ai-project-list');
+    if (!aiGrid) return;
+    aiGrid.innerHTML = '<div class="project-card featured" style="background:transparent;border:none;box-shadow:none;color:rgba(148,163,184,1);padding:1.3rem;">Analyse de vos préférences en cours...</div>';
+    try {
+      const response = await fetch(`${controllerUrl}?action=list_recommendations`);
+      const result = await response.json();
+      if (result.success) {
+        // Also update availableProjects to ensure the investment modal works correctly
+        // We merge with existing available projects to avoid duplication issues in select
+        result.data.forEach(rp => {
+          if (!availableProjects.find(ap => ap.id_projet === rp.id_projet)) {
+            availableProjects.push(rp);
+          }
+        });
+        populateInvestmentProjectSelect();
+        renderProjects(result.data, aiGrid);
+      } else {
+        aiGrid.innerHTML = `<div class="project-card featured" style="background:transparent;border:none;box-shadow:none;color:rgba(239,68,68,1);padding:1.3rem;">${result.message}</div>`;
+      }
+    } catch (error) {
+      aiGrid.innerHTML = `<div class="project-card featured" style="background:transparent;border:none;box-shadow:none;color:rgba(239,68,68,1);padding:1.3rem;">Erreur de chargement.</div>`;
     }
   };
 
@@ -635,11 +696,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     investments.forEach(investment => {
+      const progressValue = Number(investment.progress_pourcentage || 0);
+      const progressDescription = investment.progress_description || 'Aucune description de progression.';
+      const progressDate = investment.progress_date_update
+        ? new Date(investment.progress_date_update).toLocaleString('fr-FR')
+        : 'Non renseignée';
       const item = document.createElement('div');
       item.className = 'invest-item';
       item.innerHTML = `
         <div class="invest-icon" style="background:rgba(99,102,241,.12)"><svg width="16" height="16" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20v-6m0 0V4m0 10l-6-6m6 6l6-6"/></svg></div>
-        <div class="invest-info"><div class="invest-title">${investment.projet_titre || 'Projet'} <span class="invest-tag">${investment.status}</span></div><div class="invest-meta">Investi le ${investment.date_investissement}</div></div>
+        <div class="invest-info">
+          <div class="invest-title">${investment.projet_titre || 'Projet'} <span class="invest-tag">${investment.status}</span></div>
+          <div class="invest-meta">Investi le ${investment.date_investissement}</div>
+          <div style="margin-top:.45rem;font-size:.78rem;color:rgba(148,163,184,1);">Progression projet: <strong style="color:#f8fafc;">${progressValue}%</strong></div>
+          <div style="margin-top:.35rem;height:6px;background:rgba(148,163,184,.2);border-radius:999px;overflow:hidden;">
+            <div style="height:100%;width:${Math.min(100, Math.max(0, progressValue))}%;background:linear-gradient(90deg,#22c55e,#16a34a);"></div>
+          </div>
+          <div style="margin-top:.45rem;font-size:.74rem;color:rgba(148,163,184,1);line-height:1.4;">${progressDescription}</div>
+          <div style="margin-top:.25rem;font-size:.72rem;color:rgba(100,116,139,1);">Maj: ${progressDate}</div>
+        </div>
         <div class="invest-right"><div class="invest-amt">${investment.montant_investi} TND</div><div class="invest-status ${investment.status === 'VALIDE' ? 'st-valide' : investment.status === 'REFUSE' ? 'st-refuse' : 'st-attente'}">${investment.status}</div></div>
         <div class="invest-actions" style="display:flex;gap:.5rem;margin-left:1rem;align-items:center;">
           <button type="button" class="btn-ghost btn-edit-investment" data-id="${investment.id_investissement}" style="padding:.55rem .8rem;">Modifier</button>

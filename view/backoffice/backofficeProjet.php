@@ -6,6 +6,7 @@
 <title>BankFlow Admin — Gestion des Actions</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="action.css">
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
 /* ── Project CRUD Modal ───────────────────────────────────── */
 .pm-overlay{
@@ -71,6 +72,33 @@ textarea.pm-input{resize:vertical;min-height:80px;}
   font-family:var(--fb);display:flex;align-items:center;gap:.4rem;transition:background .15s;
 }
 .btn-add-project:hover{background:#1D4ED8;}
+.ppm-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(15,23,42,.7);backdrop-filter:blur(5px);
+  z-index:9200;align-items:center;justify-content:center;padding:1.5rem;
+}
+.ppm-overlay.active{display:flex;}
+.ppm-card{
+  width:min(540px,100%);background:#fff;border-radius:16px;
+  box-shadow:0 25px 70px rgba(15,23,42,.28);overflow:hidden;
+}
+.ppm-head{background:linear-gradient(135deg,#0EA5E9,#2563EB);padding:1rem 1.3rem;display:flex;align-items:center;justify-content:space-between;}
+.ppm-title{font-family:var(--fh);font-size:.98rem;font-weight:700;color:#fff;}
+.ppm-close{background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;}
+.ppm-body{padding:1.1rem 1.3rem;display:flex;flex-direction:column;gap:.8rem;}
+.ppm-field{display:flex;flex-direction:column;gap:.35rem;}
+.ppm-label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.ppm-input{border:1.5px solid var(--border2);border-radius:8px;padding:.5rem .72rem;font-size:.83rem;font-family:var(--fb);color:var(--text);outline:none;}
+.ppm-input:focus{border-color:var(--blue);}
+.ppm-footer{padding:.9rem 1.3rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.6rem;background:var(--bg);}
+.ppm-error{font-size:.75rem;color:var(--rose);padding:.4rem .6rem;background:var(--rose-light);border-radius:6px;display:none;}
+.act-btn.progress-btn{
+  width:auto;
+  padding:.35rem .55rem;
+  gap:.35rem;
+  font-size:.72rem;
+  font-weight:600;
+}
 </style>
 </head>
 <body>
@@ -89,11 +117,23 @@ try {
     $stmt = $pdo->query("
         SELECT p.id_projet, p.titre, p.description, p.montant_objectif, p.secteur,
                p.date_limite, p.date_creation, p.status, p.taux_rentabilite, p.temps_retour_brut,
+               COALESCE(pp.pourcentage, 0) AS progress_value,
+               COALESCE(pp.description, '') AS progress_description,
+               pp.date_update AS progress_updated_at,
                COALESCE(p.request_code, CONCAT('REQ-', p.id_projet)) AS request_code,
                u.nom AS createur_nom,
                COALESCE((SELECT SUM(i.montant_investi) FROM investissement i WHERE i.id_projet = p.id_projet AND i.status = 'VALIDE'), 0) AS total_investi
         FROM projet p
         LEFT JOIN utilisateur u ON p.id_createur = u.id
+        LEFT JOIN (
+          SELECT pp1.projet_id, pp1.pourcentage, pp1.description, pp1.date_update
+          FROM projet_progress pp1
+          INNER JOIN (
+            SELECT projet_id, MAX(id) AS max_id
+            FROM projet_progress
+            GROUP BY projet_id
+          ) latest ON latest.projet_id = pp1.projet_id AND latest.max_id = pp1.id
+        ) pp ON pp.projet_id = p.id_projet
         ORDER BY p.date_creation DESC
     ");
     $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -229,6 +269,14 @@ try {
                   <td><span class="td-mono" style="color:var(--amber)"><?= number_format($remaining, 0, ',', ' ') ?></span></td>
                   <td><div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" style="width:<?= min(100,$progress) ?>%;background:var(--<?= $progress>=100?'green':($progress>50?'blue':'amber') ?>)"></div></div><span class="progress-pct"><?= $progress ?>%</span></div></td>
                   <td><div class="action-group">
+                    <button class="act-btn edit progress-btn" title="Suivi du projet" data-action="progress"
+                      data-id="<?= $project['id_projet'] ?>"
+                      data-progress="<?= htmlspecialchars((string)($project['progress_value'] ?? 0), ENT_QUOTES) ?>"
+                      data-progress-description="<?= htmlspecialchars($project['progress_description'] ?? '', ENT_QUOTES) ?>"
+                      data-updated-at="<?= htmlspecialchars($project['progress_updated_at'] ?? '', ENT_QUOTES) ?>">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                      Suivi
+                    </button>
                     <button class="act-btn edit" title="Modifier" data-action="edit"
                       data-id="<?= $project['id_projet'] ?>"
                       data-titre="<?= htmlspecialchars($project['titre'], ENT_QUOTES) ?>"
@@ -239,6 +287,9 @@ try {
                       data-datesoumis="<?= htmlspecialchars($project['date_creation'] ?? '', ENT_QUOTES) ?>"
                       data-taux="<?= htmlspecialchars((string)($project['taux_rentabilite'] ?? 0), ENT_QUOTES) ?>"
                       data-temps="<?= htmlspecialchars((string)($project['temps_retour_brut'] ?? 0), ENT_QUOTES) ?>"
+                      data-progress="<?= htmlspecialchars((string)($project['progress_value'] ?? 0), ENT_QUOTES) ?>"
+                      data-progress-description="<?= htmlspecialchars($project['progress_description'] ?? '', ENT_QUOTES) ?>"
+                      data-updated-at="<?= htmlspecialchars($project['progress_updated_at'] ?? '', ENT_QUOTES) ?>"
                       data-status="<?= htmlspecialchars($project['status'], ENT_QUOTES) ?>">
                       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
@@ -374,6 +425,36 @@ try {
       <button class="del-btn-confirm" id="del-confirm-btn">Supprimer</button>
     </div>
   </div>
+</div>
+
+<!-- ══════════ PROJECT PROGRESS MODAL ══════════ -->
+<div id="ppm-overlay" class="ppm-overlay" role="dialog" aria-modal="true">
+  <div class="ppm-card">
+    <div class="ppm-head">
+      <div class="ppm-title">Progression du projet</div>
+      <button class="ppm-close" id="ppm-close-btn" aria-label="Fermer">×</button>
+    </div>
+    <div class="ppm-body">
+      <div id="ppm-error" class="ppm-error"></div>
+      <div class="ppm-field">
+        <label class="ppm-label">Progression (%)</label>
+        <input id="ppm-progress" class="ppm-input" type="number" min="0" max="100" step="0.1" placeholder="Ex: 35.5">
+      </div>
+      <div class="ppm-field">
+        <label class="ppm-label">Description de progression</label>
+        <textarea id="ppm-progress-description" class="ppm-input" rows="4" placeholder="Ex: Signature des contrats terminée, démarrage opérationnel imminent."></textarea>
+      </div>
+      <div class="ppm-field">
+        <label class="ppm-label">Dernière mise à jour</label>
+        <input id="ppm-date-update" class="ppm-input" type="text" readonly placeholder="Jamais mis à jour">
+      </div>
+    </div>
+    <div class="ppm-footer">
+      <button class="pm-btn-cancel" id="ppm-cancel-btn">Annuler</button>
+      <button class="pm-btn-save" id="ppm-save-btn">Enregistrer</button>
+    </div>
+  </div>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -610,6 +691,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const errMontant      = document.getElementById('err-montant');
   const errDateLimite   = document.getElementById('err-datelimite');
   const errDesc         = document.getElementById('err-description');
+  const ppmOverlay = document.getElementById('ppm-overlay');
+  const ppmProgress = document.getElementById('ppm-progress');
+  const ppmProgressDescription = document.getElementById('ppm-progress-description');
+  const ppmDateUpdate = document.getElementById('ppm-date-update');
+  const ppmError = document.getElementById('ppm-error');
+  const ppmSaveBtn = document.getElementById('ppm-save-btn');
+  let ppmProjectId = null;
 
   function clearErrors() {
     pmError.style.display = 'none';
@@ -735,6 +823,79 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  function openProgressModal(data = {}) {
+    ppmProjectId = data.id || null;
+    ppmProgress.value = data.progress || 0;
+    ppmProgressDescription.value = data.progressDescription || '';
+    ppmDateUpdate.value = data.updatedAt || 'Jamais mis a jour';
+    ppmError.style.display = 'none';
+    ppmOverlay.classList.add('active');
+    ppmProgress.focus();
+  }
+
+  function closeProgressModal() {
+    ppmOverlay.classList.remove('active');
+  }
+
+  document.querySelectorAll('[data-action="progress"]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const projectId = btn.dataset.id;
+      if (!projectId) return;
+      const payload = new FormData();
+      payload.append('action', 'admin_get_project_progress');
+      payload.append('project_id', projectId);
+      try {
+        const res = await fetch(controllerUrl, { method: 'POST', body: payload });
+        const result = await res.json();
+        if (!result.success) {
+          throw new Error(result.message || 'Impossible de charger la progression du projet.');
+        }
+        openProgressModal({
+          id: projectId,
+          progress: result.data.pourcentage || 0,
+          progressDescription: result.data.description || '',
+          updatedAt: result.data.date_update ? new Date(result.data.date_update).toLocaleString('fr-FR') : 'Jamais mis a jour'
+        });
+      } catch (err) {
+        alert(err.message || 'Erreur réseau.');
+      }
+    });
+  });
+
+  document.getElementById('ppm-close-btn').addEventListener('click', closeProgressModal);
+  document.getElementById('ppm-cancel-btn').addEventListener('click', closeProgressModal);
+  ppmOverlay.addEventListener('click', (e) => { if (e.target === ppmOverlay) closeProgressModal(); });
+
+  ppmSaveBtn.addEventListener('click', async () => {
+    if (!ppmProjectId) return;
+    const progressValue = parseFloat(ppmProgress.value || '0');
+    if (Number.isNaN(progressValue) || progressValue < 0 || progressValue > 100) {
+      ppmError.textContent = 'Le pourcentage doit être compris entre 0 et 100.';
+      ppmError.style.display = 'block';
+      return;
+    }
+
+    const payload = new FormData();
+    payload.append('action', 'admin_update_project_progress');
+    payload.append('project_id', ppmProjectId);
+    payload.append('pourcentage', progressValue.toString());
+    payload.append('description', ppmProgressDescription.value.trim());
+
+    try {
+      const res = await fetch(controllerUrl, { method: 'POST', body: payload });
+      const result = await res.json();
+      if (!result.success) {
+        throw new Error(result.message || 'Erreur de mise à jour.');
+      }
+      closeProgressModal();
+      window.location.reload();
+    } catch (err) {
+      ppmError.textContent = err.message || 'Erreur réseau.';
+      ppmError.style.display = 'block';
+    }
+  });
+
   // Save (create or edit)
   pmSaveBtn.addEventListener('click', async () => {
     if (!validateForm()) return;
@@ -811,94 +972,95 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-export').addEventListener('click', () => {
     const row = document.querySelector('.investment-row.selected');
     if (!row) { alert('Veuillez sélectionner un investissement.'); return; }
+    if (!window.jspdf || !window.jspdf.jsPDF) { alert('Module PDF indisponible.'); return; }
 
     const d = row.dataset;
     const statusMap = {EN_ATTENTE:'En attente',VALIDE:'Validé',REFUSE:'Refusé',ANNULE:'Annulé',EN_COURS:'En cours',TERMINE:'Terminé'};
     const fmt = v => Number(v||0).toLocaleString('fr-FR');
-    const now = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const now = new Date().toLocaleString('fr-FR');
     const prog = parseFloat(d.pProg||0);
-    const progColor = prog>=100?'#16A34A':(prog>50?'#2563EB':'#D97706');
+    const progColor = prog>=100?[22,163,74]:(prog>50?[37,99,235]:[217,119,6]);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 16;
 
-    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/>
-<title>Rapport Investissement #INV-${d.investmentId}</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700&family=DM+Mono:wght@400&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;color:#0F172A;padding:2.5rem;max-width:800px;margin:0 auto;background:#fff}
-.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2563EB;padding-bottom:1.2rem;margin-bottom:1.5rem}
-.logo{font-size:1.4rem;font-weight:700;color:#0F172A}.logo span{color:#2563EB}
-.meta{text-align:right;font-size:.75rem;color:#64748B;line-height:1.6}
-.ref{font-family:'DM Mono',monospace;font-size:.85rem;font-weight:600;color:#2563EB;background:#EFF6FF;padding:3px 10px;border-radius:5px;display:inline-block;margin-bottom:.3rem}
-.section{margin-bottom:1.4rem}
-.section-title{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748B;margin-bottom:.6rem;padding-bottom:.3rem;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;gap:.4rem}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
-.row{display:flex;justify-content:space-between;padding:.5rem .7rem;border-bottom:1px solid #F1F5F9}
-.row:nth-child(odd){background:#F8FAFC}
-.row-key{font-size:.8rem;color:#64748B;font-weight:500}
-.row-val{font-size:.8rem;font-weight:600;text-align:right}
-.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:99px;font-size:.72rem;font-weight:600}
-.b-green{background:#F0FDF4;color:#16A34A}.b-amber{background:#FFFBEB;color:#D97706}.b-rose{background:#FEF2F2;color:#DC2626}
-.progress-bar{width:100%;height:10px;background:#E2E8F0;border-radius:99px;overflow:hidden;margin-top:.3rem}
-.progress-fill{height:100%;border-radius:99px}
-.footer{margin-top:2rem;padding-top:1rem;border-top:2px solid #E2E8F0;display:flex;justify-content:space-between;font-size:.7rem;color:#94A3B8}
-.stamp{text-align:center;margin-top:2rem;padding:1rem;border:2px dashed #CBD5E1;border-radius:8px;color:#94A3B8;font-size:.75rem}
-@media print{body{padding:1.5rem}}
-</style></head><body>
-<div class="header">
-  <div><div class="logo">Legal<span>Fin</span></div><div style="font-size:.72rem;color:#64748B;margin-top:.2rem">Plateforme d'investissement</div></div>
-  <div class="meta"><div class="ref">#INV-${d.investmentId}</div><br>Généré le ${now}<br>Document confidentiel</div>
-</div>
+    const drawSection = (title) => {
+      y += 2;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(12, y - 4, pageW - 24, 8, 'F');
+      doc.setTextColor(30, 64, 175);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text(title, 14, y + 1.5);
+      y += 9;
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+    };
 
-<div class="section">
-  <div class="section-title">◆ Informations Investisseur</div>
-  <div class="row"><span class="row-key">Nom complet</span><span class="row-val">${d.invNom||'N/A'}</span></div>
-  <div class="row"><span class="row-key">Email</span><span class="row-val">${d.invEmail||'N/A'}</span></div>
-  <div class="row"><span class="row-key">Montant investi</span><span class="row-val" style="color:#2563EB;font-size:.9rem">${fmt(d.invMontant)} TND</span></div>
-  <div class="row"><span class="row-key">Date d'investissement</span><span class="row-val">${d.invDate||'N/A'}</span></div>
-  <div class="row"><span class="row-key">Statut</span><span class="row-val"><span class="badge ${d.status==='VALIDE'?'b-green':(d.status==='EN_ATTENTE'?'b-amber':'b-rose')}">${statusMap[d.status]||d.status}</span></span></div>
-  ${d.invCommentaire ? '<div class="row"><span class="row-key">Commentaire</span><span class="row-val" style="max-width:300px;text-align:right">'+d.invCommentaire+'</span></div>' : ''}
-</div>
+    const addRow = (label, value) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${label}:`, 14, y);
+      doc.setFont('helvetica', 'normal');
+      const wrapped = doc.splitTextToSize(String(value ?? '—'), 125);
+      doc.text(wrapped, 62, y);
+      y += Math.max(7, wrapped.length * 5);
+      if (y > 272) {
+        doc.addPage();
+        y = 18;
+      }
+    };
 
-<div class="section">
-  <div class="section-title">◆ Projet Associé</div>
-  <div class="row"><span class="row-key">Titre du projet</span><span class="row-val">${d.pTitre||'N/A'}</span></div>
-  <div class="row"><span class="row-key">Créateur</span><span class="row-val">${d.pCreator||'N/A'}</span></div>
-  <div class="row"><span class="row-key">Secteur</span><span class="row-val">${d.pSector||'—'}</span></div>
-  <div class="row"><span class="row-key">Date de création</span><span class="row-val">${d.pDateCrea||'—'}</span></div>
-  <div class="row"><span class="row-key">Date limite</span><span class="row-val">${d.pDateLim||'—'}</span></div>
-</div>
+    // Professional header
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageW, 30, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('LegalFin', 14, 13);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Rapport d'investissement", 14, 20);
+    doc.text(`Ref: INV-${d.investmentId || 'N/A'}`, pageW - 64, 13);
+    doc.text(`Genere le ${now}`, pageW - 64, 20);
 
-<div class="section">
-  <div class="section-title">◆ Suivi Financier du Projet</div>
-  <div class="row"><span class="row-key">Objectif de collecte</span><span class="row-val">${fmt(d.pObj)} TND</span></div>
-  <div class="row"><span class="row-key">Montant collecté</span><span class="row-val" style="color:#16A34A">${fmt(d.pCol)} TND</span></div>
-  <div class="row"><span class="row-key">Montant restant</span><span class="row-val" style="color:#D97706">${fmt(d.pRest)} TND</span></div>
-  <div class="row"><span class="row-key">Progression</span><span class="row-val" style="color:${progColor}">${prog}%</span></div>
-  <div style="padding:.5rem .7rem">
-    <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,prog)}%;background:${progColor}"></div></div>
-  </div>
-</div>
+    y = 40;
+    drawSection('Informations investisseur');
+    addRow('Nom complet', d.invNom || 'N/A');
+    addRow('Email', d.invEmail || 'N/A');
+    addRow('Montant investi', `${fmt(d.invMontant)} TND`);
+    addRow("Date d'investissement", d.invDate || 'N/A');
+    addRow('Statut', statusMap[d.status] || d.status || 'N/A');
+    if (d.invCommentaire) addRow('Commentaire', d.invCommentaire);
 
-<div class="stamp">Ce document est généré automatiquement par LegalFin.<br>Il ne constitue pas un engagement contractuel.</div>
+    drawSection('Projet associe');
+    addRow('Titre', d.pTitre || 'N/A');
+    addRow('Createur', d.pCreator || 'N/A');
+    addRow('Secteur', d.pSector || '—');
+    addRow('Date creation', d.pDateCrea || '—');
+    addRow('Date limite', d.pDateLim || '—');
+    addRow('Objectif collecte', `${fmt(d.pObj)} TND`);
+    addRow('Collecte actuelle', `${fmt(d.pCol)} TND`);
+    addRow('Montant restant', `${fmt(d.pRest)} TND`);
 
-<div class="footer">
-  <span>LegalFin Admin — Rapport d'investissement</span>
-  <span>Page 1/1</span>
-</div>
+    drawSection('Synthese financiere');
+    addRow('Progression', `${prog}%`);
+    const barX = 14, barY = y, barW = pageW - 28, barH = 6;
+    doc.setFillColor(226, 232, 240);
+    doc.roundedRect(barX, barY, barW, barH, 2, 2, 'F');
+    doc.setFillColor(...progColor);
+    doc.roundedRect(barX, barY, Math.max(0, Math.min(barW, (barW * prog) / 100)), barH, 2, 2, 'F');
+    y += 12;
 
-</body></html>`;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, 282, pageW - 14, 282);
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(8.5);
+    doc.text("Document genere automatiquement par LegalFin Admin.", 14, 287);
+    doc.text('Page 1/1', pageW - 24, 287);
 
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Rapport_Investissement_INV-${d.investmentId}.html`;
-    document.body.appendChild(a);
-    a.click();
-    
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    doc.save(`Rapport_Investissement_INV-${d.investmentId || 'N_A'}.pdf`);
   });
 
 });
