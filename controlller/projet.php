@@ -4,6 +4,7 @@ require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/projet.php';
 require_once __DIR__ . '/../model/investissement.php';
 require_once __DIR__ . '/../model/score.php';
+require_once __DIR__ . '/../model/meeting.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -292,6 +293,212 @@ function recalcProjectOwnerScore(?int $projectId = null, ?int $ownerId = null): 
     }
 }
 
+function parseMeetingInviteEmails(string $rawEmails): array
+{
+    $parts = preg_split('/[,;]+/', $rawEmails) ?: [];
+    $emails = [];
+    foreach ($parts as $part) {
+        $email = trim($part);
+        if ($email === '') {
+            continue;
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException("Invalid invited email: {$email}");
+        }
+        $emails[] = mb_strtolower($email);
+    }
+    $emails = array_values(array_unique($emails));
+    if (count($emails) === 0) {
+        throw new InvalidArgumentException('At least one invited email is required.');
+    }
+    return $emails;
+}
+
+function createJitsiMeetingLink(string $roomName): string
+{
+    $settings = Config::getMeetingSettings();
+    $base = rtrim($settings['jitsi_base_url'], '/');
+    return $base . '/' . rawurlencode($roomName);
+}
+
+function getZoomAccessToken(): ?string
+{
+    $settings = Config::getMeetingSettings();
+    $accountId = $settings['zoom_account_id'];
+    $clientId = $settings['zoom_client_id'];
+    $clientSecret = $settings['zoom_client_secret'];
+    if ($accountId === '' || $clientId === '' || $clientSecret === '') {
+        return null;
+    }
+
+    $tokenUrl = 'https://zoom.us/oauth/token?grant_type=account_credentials&account_id=' . rawurlencode($accountId);
+    $ch = curl_init($tokenUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Basic ' . base64_encode($clientId . ':' . $clientSecret),
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($response === false || $httpCode < 200 || $httpCode >= 300) {
+        return null;
+    }
+
+    $data = json_decode($response, true);
+    if (!is_array($data) || empty($data['access_token'])) {
+        return null;
+    }
+
+    return (string)$data['access_token'];
+}
+
+function createZoomMeetingLink(string $startAtIso): ?string
+{
+    $token = getZoomAccessToken();
+    if ($token === null) {
+        return null;
+    }
+
+    $settings = Config::getMeetingSettings();
+    $user = $settings['zoom_user_id'];
+    $payload = json_encode([
+        'topic' => 'Scheduled Video Meeting',
+        'type' => 2,
+        'start_time' => $startAtIso,
+        'duration' => 45,
+        'timezone' => 'UTC',
+        'settings' => [
+            'join_before_host' => false,
+            'waiting_room' => true,
+        ],
+    ]);
+
+    $ch = curl_init('https://api.zoom.us/v2/users/' . rawurlencode($user) . '/meetings');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . $token,
+        'Content-Type: application/json',
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($response === false || $httpCode < 200 || $httpCode >= 300) {
+        return null;
+    }
+
+    $data = json_decode($response, true);
+    if (!is_array($data) || empty($data['join_url'])) {
+        return null;
+    }
+
+    return (string)$data['join_url'];
+}
+
+function sendMeetingEmails(array $emails, array $meetingData): array
+{
+    $settings = Config::getMeetingSettings();
+    $brevoKey = $settings['brevo_api_key'];
+    if ($brevoKey !== '') {
+        $body = "A video meeting has been scheduled.\n\n"
+            . "Date: {$meetingData['date']}\n"
+            . "Time: {$meetingData['time']}\n"
+            . "Meeting link: {$meetingData['meeting_link']}\n";
+
+        if ($meetingData['message'] !== '') {
+            $body .= "Message: {$meetingData['message']}\n";
+        }
+
+        $payload = json_encode([
+            'sender' => [
+                'name' => $settings['sender_name'],
+                'email' => $settings['sender_email'],
+            ],
+            'to' => array_map(static fn($email) => ['email' => $email], $emails),
+            'subject' => 'Meeting confirmation',
+            'textContent' => $body,
+        ]);
+
+        $ch = curl_init('https://api.brevo.com/v3/smtp/email');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'api-key: ' . $brevoKey,
+            'accept: application/json',
+            'content-type: application/json',
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($response === false || $httpCode < 200 || $httpCode >= 300) {
+            return [
+                'sent' => false,
+                'provider' => 'brevo',
+                'message' => 'Brevo email API failed. Check BREVO_API_KEY and sender email.',
+            ];
+        }
+        return [
+            'sent' => true,
+            'provider' => 'brevo',
+            'message' => 'Emails sent via Brevo API.',
+        ];
+    }
+
+    $subject = 'Meeting confirmation';
+    $body = "Date: {$meetingData['date']}\n"
+        . "Time: {$meetingData['time']}\n"
+        . "Meeting link: {$meetingData['meeting_link']}\n";
+    if ($meetingData['message'] !== '') {
+        $body .= "Message: {$meetingData['message']}\n";
+    }
+
+    $headers = 'From: ' . $settings['sender_email'];
+    $sentAtLeastOne = false;
+    foreach ($emails as $email) {
+        $ok = @mail($email, $subject, $body, $headers);
+        if ($ok) {
+            $sentAtLeastOne = true;
+        }
+    }
+
+    if ($sentAtLeastOne) {
+        return [
+            'sent' => true,
+            'provider' => 'php_mail',
+            'message' => 'Emails sent via PHP mail().',
+        ];
+    }
+
+    return [
+        'sent' => false,
+        'provider' => 'php_mail',
+        'message' => 'PHP mail() failed. Configure BREVO_API_KEY for reliable delivery.',
+    ];
+}
+
+function getLatestMeetingByInviteEmail(string $email): ?array
+{
+    $normalized = mb_strtolower(trim($email));
+    if ($normalized === '') {
+        return null;
+    }
+
+    $sql = "SELECT id_meeting, meeting_date, meeting_time, meeting_link, provider
+            FROM meeting_schedule
+            WHERE CONCAT(',', LOWER(invited_emails), ',') LIKE :needle
+            ORDER BY id_meeting DESC
+            LIMIT 1";
+    $stmt = getConnexion()->prepare($sql);
+    $stmt->execute(['needle' => '%,' . $normalized . ',%']);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
+}
+
 $userId = $_SESSION['user_id'] ?? 1;
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_REQUEST['action'] ?? '';
@@ -334,6 +541,137 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
+    if ($action === 'create_meeting_instant') {
+        try {
+            $invitedEmailsRaw = trim((string)($_POST['invited_emails'] ?? ''));
+            $message = trim((string)($_POST['message'] ?? 'Quick meeting invitation'));
+            $date = gmdate('Y-m-d');
+            $time = gmdate('H:i');
+
+            $invitedEmails = parseMeetingInviteEmails($invitedEmailsRaw);
+            $existingMeeting = getLatestMeetingByInviteEmail($invitedEmails[0]);
+            if ($existingMeeting !== null) {
+                $meetingId = (int)$existingMeeting['id_meeting'];
+                $meetingLink = (string)$existingMeeting['meeting_link'];
+                $provider = (string)($existingMeeting['provider'] ?? 'jitsi');
+                $date = (string)($existingMeeting['meeting_date'] ?? $date);
+                $time = substr((string)($existingMeeting['meeting_time'] ?? ($time . ':00')), 0, 5);
+            } else {
+                $startAt = new DateTime('now', new DateTimeZone('UTC'));
+                $startAtIso = $startAt->format('Y-m-d\TH:i:s\Z');
+
+                $roomName = 'webora-now-' . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+                $zoomLink = createZoomMeetingLink($startAtIso);
+                $meetingLink = $zoomLink ?: createJitsiMeetingLink($roomName);
+                $provider = $zoomLink ? 'zoom' : 'jitsi';
+
+                $meetingId = Meeting::create([
+                    'organiser_id' => (int)$userId,
+                    'invited_emails' => implode(',', $invitedEmails),
+                    'meeting_date' => $date,
+                    'meeting_time' => $time . ':00',
+                    'message' => $message,
+                    'meeting_link' => $meetingLink,
+                    'provider' => $provider,
+                ]);
+            }
+
+            $emailStatus = sendMeetingEmails($invitedEmails, [
+                'date' => $date,
+                'time' => $time,
+                'message' => $message,
+                'meeting_link' => $meetingLink,
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'meeting_id' => $meetingId,
+                    'meeting_link' => $meetingLink,
+                    'provider' => $provider,
+                    'date' => $date,
+                    'time' => $time,
+                    'email_sent' => (bool)$emailStatus['sent'],
+                    'email_provider' => $emailStatus['provider'],
+                    'email_message' => $emailStatus['message'],
+                ],
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]);
+        }
+        exit;
+    }
+
+    if ($action === 'create_meeting') {
+        try {
+            $date = trim((string)($_POST['date'] ?? ''));
+            $time = trim((string)($_POST['time'] ?? ''));
+            $message = trim((string)($_POST['message'] ?? ''));
+            $invitedEmailsRaw = trim((string)($_POST['invited_emails'] ?? ''));
+
+            if ($date === '' || $time === '') {
+                throw new InvalidArgumentException('Date and time are required.');
+            }
+
+            $meetingDate = DateTime::createFromFormat('Y-m-d', $date);
+            $meetingTime = DateTime::createFromFormat('H:i', $time);
+            if (!$meetingDate || !$meetingTime) {
+                throw new InvalidArgumentException('Invalid date/time format.');
+            }
+
+            $invitedEmails = parseMeetingInviteEmails($invitedEmailsRaw);
+            $startAt = new DateTime($date . ' ' . $time, new DateTimeZone('UTC'));
+            $startAtIso = $startAt->format('Y-m-d\TH:i:s\Z');
+
+            $roomName = 'webora-' . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+            $zoomLink = createZoomMeetingLink($startAtIso);
+            $meetingLink = $zoomLink ?: createJitsiMeetingLink($roomName);
+            $provider = $zoomLink ? 'zoom' : 'jitsi';
+
+            $meetingId = Meeting::create([
+                'organiser_id' => (int)$userId,
+                'invited_emails' => implode(',', $invitedEmails),
+                'meeting_date' => $date,
+                'meeting_time' => $time . ':00',
+                'message' => $message,
+                'meeting_link' => $meetingLink,
+                'provider' => $provider,
+            ]);
+
+            $emailStatus = sendMeetingEmails($invitedEmails, [
+                'date' => $date,
+                'time' => $time,
+                'message' => $message,
+                'meeting_link' => $meetingLink,
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'meeting_id' => $meetingId,
+                    'meeting_link' => $meetingLink,
+                    'provider' => $provider,
+                    'date' => $date,
+                    'time' => $time,
+                    'email_sent' => (bool)$emailStatus['sent'],
+                    'email_provider' => $emailStatus['provider'],
+                    'email_message' => $emailStatus['message'],
+                ],
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]);
+        }
+        exit;
+    }
+
     if ($action === 'admin_recalculate_scores') {
         $targetUserId = isset($_POST['user_id']) ? (int)$_POST['user_id'] : 0;
         try {

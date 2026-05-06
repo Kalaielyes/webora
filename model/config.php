@@ -68,6 +68,23 @@ class Config
                 } catch (PDOException $me) {
                     // Table already exists or another compatible condition is already met
                 }
+                try {
+                    self::$pdo->exec("CREATE TABLE IF NOT EXISTS meeting_schedule (
+                        id_meeting INT AUTO_INCREMENT PRIMARY KEY,
+                        organiser_id INT NOT NULL,
+                        invited_emails TEXT NOT NULL,
+                        meeting_date DATE NOT NULL,
+                        meeting_time TIME NOT NULL,
+                        message TEXT NULL,
+                        meeting_link VARCHAR(500) NOT NULL,
+                        provider VARCHAR(50) NOT NULL DEFAULT 'jitsi',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_organiser (organiser_id),
+                        INDEX idx_meeting_date (meeting_date)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                } catch (PDOException $me) {
+                    // Table already exists or another compatible condition is already met
+                }
             } catch (PDOException $e) {
                 error_log('[NexaBank] DB Connection failed: ' . $e->getMessage());
                 die(json_encode(['error' => 'Database unavailable. Please try later.']));
@@ -76,5 +93,26 @@ class Config
         return self::$pdo;
     }
 
- 
+    public static function getMeetingSettings(): array
+    {
+        return [
+            'jitsi_base_url' => self::getEnv('JITSI_BASE_URL', 'https://meet.jit.si'),
+            'zoom_account_id' => self::getEnv('ZOOM_ACCOUNT_ID', ''),
+            'zoom_client_id' => self::getEnv('ZOOM_CLIENT_ID', ''),
+            'zoom_client_secret' => self::getEnv('ZOOM_CLIENT_SECRET', ''),
+            'zoom_user_id' => self::getEnv('ZOOM_USER_ID', 'me'),
+            'brevo_api_key' => self::getEnv('BREVO_API_KEY', ''),
+            'sender_name' => self::getEnv('MEETING_SENDER_NAME', 'Webora'),
+            'sender_email' => self::getEnv('MEETING_SENDER_EMAIL', 'noreply@example.com'),
+        ];
+    }
+
+    private static function getEnv(string $key, string $default = ''): string
+    {
+        $value = getenv($key);
+        if ($value === false || $value === null || $value === '') {
+            return $default;
+        }
+        return (string)$value;
+    }
 }

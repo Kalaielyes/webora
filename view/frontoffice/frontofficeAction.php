@@ -81,6 +81,20 @@
     margin-top: 0.5rem;
     display: none;
   }
+  .meeting-success-box {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 10px;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    background: rgba(34, 197, 94, 0.08);
+    display: none;
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+  .meeting-success-box a {
+    color: #93c5fd;
+    word-break: break-all;
+  }
 </style>
 </head>
 <body>

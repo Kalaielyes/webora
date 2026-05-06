@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/recommendation_ai.php';
 
 class Projet
 {
@@ -148,38 +149,47 @@ class Projet
         $stmtSectors->execute(['userId' => $userId]);
         $sectors = $stmtSectors->fetchAll(PDO::FETCH_COLUMN);
 
+        // 2. Load candidate projects then let AI rank them.
         $sqlProjects = "SELECT p.*, u.nom AS createur_nom
                         FROM projet p
                         LEFT JOIN utilisateur u ON p.id_createur = u.id
-                        WHERE p.status = 'VALIDE'";
-                        
-        $params = [];
-
-        // 2. If user has favorite sectors, prioritize them
-        if (!empty($sectors)) {
-            $inClause = implode(',', array_fill(0, count($sectors), '?'));
-            $sqlProjects .= " AND p.secteur IN ($inClause)";
-            $params = $sectors;
-        }
-
-        // 3. Order by profitability and fast return
-        $sqlProjects .= " ORDER BY p.taux_rentabilite DESC, p.temps_retour_brut ASC LIMIT 10";
+                        WHERE p.status = 'VALIDE'
+                        ORDER BY p.taux_rentabilite DESC, p.temps_retour_brut ASC
+                        LIMIT 20";
 
         $stmt = $conn->prepare($sqlProjects);
-        $stmt->execute($params);
+        $stmt->execute();
         $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // If no projects found in preferred sectors, fallback to globally top projects
-        if (empty($projects) && !empty($sectors)) {
-            $sqlFallback = "SELECT p.*, u.nom AS createur_nom
-                            FROM projet p
-                            LEFT JOIN utilisateur u ON p.id_createur = u.id
-                            WHERE p.status = 'VALIDE'
-                            ORDER BY p.taux_rentabilite DESC, p.temps_retour_brut ASC LIMIT 10";
-            $stmtFallback = $conn->query($sqlFallback);
-            $projects = $stmtFallback->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($projects)) {
+            return [];
         }
 
-        return $projects;
+        // Prepare a compact profile for the AI ranker.
+        $sqlUserInvest = "SELECT COUNT(*) AS total_count,
+                                 COALESCE(SUM(montant_investi), 0) AS total_amount,
+                                 COALESCE(AVG(montant_investi), 0) AS avg_amount
+                          FROM investissement
+                          WHERE id_investisseur = :userId";
+        $stmtUserInvest = $conn->prepare($sqlUserInvest);
+        $stmtUserInvest->execute(['userId' => $userId]);
+        $investStats = $stmtUserInvest->fetch(PDO::FETCH_ASSOC) ?: [
+            'total_count' => 0,
+            'total_amount' => 0,
+            'avg_amount' => 0,
+        ];
+
+        $userProfile = [
+            'user_id' => $userId,
+            'preferred_sectors' => array_values(array_filter($sectors, static fn($s) => is_string($s) && $s !== '')),
+            'investment_count' => (int)($investStats['total_count'] ?? 0),
+            'total_invested' => (float)($investStats['total_amount'] ?? 0),
+            'average_ticket' => (float)($investStats['avg_amount'] ?? 0),
+        ];
+
+        $rankedProjects = RecommendationAI::rankProjectsForUser($userProfile, $projects);
+
+        // Keep response size reasonable for frontend cards.
+        return array_slice($rankedProjects, 0, 10);
     }
 }

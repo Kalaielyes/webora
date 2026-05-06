@@ -6,6 +6,77 @@
 <title>BankFlow Admin — Gestion des Investissements</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="action.css">
+<style>
+  .meeting-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 15000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .meeting-modal-overlay.active { display: flex; }
+  .meeting-modal {
+    width: min(520px, 100%);
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 25px 70px rgba(15, 23, 42, 0.25);
+    padding: 1rem;
+  }
+  .meeting-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .8rem;
+  }
+  .meeting-modal-title {
+    font-family: var(--fh);
+    font-size: .95rem;
+    font-weight: 700;
+  }
+  .meeting-grid {
+    display: grid;
+    gap: .75rem;
+  }
+  .meeting-row label {
+    display: block;
+    font-size: .72rem;
+    color: var(--muted);
+    margin-bottom: .3rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .meeting-row input,
+  .meeting-row textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .55rem .7rem;
+    font-family: var(--fb);
+    font-size: .82rem;
+    outline: none;
+  }
+  .meeting-row input:focus,
+  .meeting-row textarea:focus {
+    border-color: var(--blue);
+  }
+  .meeting-actions {
+    margin-top: .9rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: .5rem;
+  }
+  .meeting-msg {
+    margin-top: .55rem;
+    font-size: .76rem;
+    display: none;
+  }
+  .meeting-msg.error { color: var(--rose); }
+  .meeting-msg.success { color: var(--green); }
+</style>
 </head>
 <body>
 <?php
@@ -218,6 +289,8 @@ try {
         <div class="dp-actions">
           <button class="dp-action-btn da-approve" id="btn-approve"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Valider</button>
           <button class="dp-action-btn da-danger" id="btn-refuse"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Refuser</button>
+          <button class="dp-action-btn da-warning" id="btn-meeting"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>Planifier une reunion</button>
+          <button class="dp-action-btn da-neutral" id="btn-join-now"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>Rejoindre maintenant</button>
           <button class="dp-action-btn da-neutral" id="btn-export">Exporter le rapport</button>
         </div>
       </div>
@@ -225,9 +298,45 @@ try {
   </div>
 </div>
 
+<div id="meeting-modal-overlay" class="meeting-modal-overlay" aria-hidden="true">
+  <div class="meeting-modal">
+    <div class="meeting-modal-head">
+      <div class="meeting-modal-title">Planifier une reunion video</div>
+      <button type="button" class="act-btn" id="meeting-close-btn">×</button>
+    </div>
+    <form id="meeting-form">
+      <div class="meeting-grid">
+        <div class="meeting-row">
+          <label for="meeting-investor-email">Email investisseur</label>
+          <input id="meeting-investor-email" name="invited_emails" type="email" required />
+        </div>
+        <div class="meeting-row">
+          <label for="meeting-date">Date</label>
+          <input id="meeting-date" name="date" type="date" required />
+        </div>
+        <div class="meeting-row">
+          <label for="meeting-time">Heure</label>
+          <input id="meeting-time" name="time" type="time" required />
+        </div>
+        <div class="meeting-row">
+          <label for="meeting-message">Message (optionnel)</label>
+          <textarea id="meeting-message" name="message" rows="3" placeholder="Details du rendez-vous"></textarea>
+        </div>
+      </div>
+      <div class="meeting-actions">
+        <button type="button" class="filter-btn" id="meeting-cancel-btn">Annuler</button>
+        <button type="submit" class="btn-primary">Envoyer l'invitation</button>
+      </div>
+      <div id="meeting-error" class="meeting-msg error"></div>
+      <div id="meeting-success" class="meeting-msg success"></div>
+    </form>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const invControllerUrl = new URL('../../controlller/investissement.php', window.location.href).href;
+  const projectControllerUrl = new URL('../../controlller/projet.php', window.location.href).href;
   const dp = {
     title: document.getElementById('dp-title'),
     id: document.getElementById('dp-id'),
@@ -247,9 +356,21 @@ document.addEventListener('DOMContentLoaded', () => {
     progressPct: document.getElementById('dp-progress-pct'),
     approve: document.getElementById('btn-approve'),
     refuse: document.getElementById('btn-refuse'),
+    meeting: document.getElementById('btn-meeting'),
+    joinNow: document.getElementById('btn-join-now'),
   };
 
-  const selected = { id: null, status: null };
+  const selected = { id: null, status: null, email: '' };
+  const meetingModal = document.getElementById('meeting-modal-overlay');
+  const meetingForm = document.getElementById('meeting-form');
+  const meetingEmailInput = document.getElementById('meeting-investor-email');
+  const meetingDateInput = document.getElementById('meeting-date');
+  const meetingTimeInput = document.getElementById('meeting-time');
+  const meetingMessageInput = document.getElementById('meeting-message');
+  const meetingError = document.getElementById('meeting-error');
+  const meetingSuccess = document.getElementById('meeting-success');
+  const meetingCloseBtn = document.getElementById('meeting-close-btn');
+  const meetingCancelBtn = document.getElementById('meeting-cancel-btn');
 
   const selectRow = (row) => {
     document.querySelectorAll('.investment-row.selected').forEach(el => el.classList.remove('selected'));
@@ -258,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     selected.id = row.dataset.investmentId;
     selected.status = row.dataset.status;
+    selected.email = row.dataset.invEmail || '';
 
     dp.title.textContent = row.dataset.invNom || 'Investisseur';
     dp.id.textContent = '#INV-' + selected.id;
@@ -287,6 +409,38 @@ document.addEventListener('DOMContentLoaded', () => {
     dp.status.className = 'badge ' + s.class;
     dp.statusDot.style.background = `var(--${s.color})`;
     dp.statusText.textContent = s.label;
+  };
+
+  const openMeetingModal = () => {
+    if (!selected.id) {
+      alert('Sélectionnez d\'abord un investissement.');
+      return;
+    }
+    if (!meetingModal) return;
+    meetingModal.classList.add('active');
+    meetingModal.setAttribute('aria-hidden', 'false');
+    if (meetingEmailInput) meetingEmailInput.value = selected.email || '';
+    if (meetingDateInput && !meetingDateInput.value) {
+      const d = new Date();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      meetingDateInput.value = `${d.getFullYear()}-${month}-${day}`;
+    }
+    if (meetingTimeInput && !meetingTimeInput.value) meetingTimeInput.value = '10:00';
+    if (meetingMessageInput) {
+      const investorName = document.getElementById('dp-title')?.textContent || 'Investisseur';
+      const projectName = document.querySelector('.investment-row.selected')?.dataset.pTitre || 'Projet';
+      meetingMessageInput.value = `Bonjour ${investorName},\nVotre reunion de suivi pour le projet "${projectName}" est planifiee.`;
+    }
+    if (meetingError) { meetingError.style.display = 'none'; meetingError.textContent = ''; }
+    if (meetingSuccess) { meetingSuccess.style.display = 'none'; meetingSuccess.textContent = ''; }
+  };
+
+  const closeMeetingModal = () => {
+    if (!meetingModal) return;
+    meetingModal.classList.remove('active');
+    meetingModal.setAttribute('aria-hidden', 'true');
+    if (meetingForm) meetingForm.reset();
   };
 
   document.querySelectorAll('.investment-row').forEach(row => {
@@ -330,6 +484,71 @@ document.addEventListener('DOMContentLoaded', () => {
 
   dp.approve.addEventListener('click', () => changeStatus('VALIDE'));
   dp.refuse.addEventListener('click', () => changeStatus('REFUSE'));
+  if (dp.meeting) dp.meeting.addEventListener('click', openMeetingModal);
+  if (meetingCloseBtn) meetingCloseBtn.addEventListener('click', closeMeetingModal);
+  if (meetingCancelBtn) meetingCancelBtn.addEventListener('click', closeMeetingModal);
+  if (meetingModal) {
+    meetingModal.addEventListener('click', (event) => {
+      if (event.target === meetingModal) closeMeetingModal();
+    });
+  }
+
+  if (meetingForm) {
+    meetingForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (meetingError) { meetingError.style.display = 'none'; meetingError.textContent = ''; }
+      if (meetingSuccess) { meetingSuccess.style.display = 'none'; meetingSuccess.textContent = ''; }
+
+      const formData = new FormData(meetingForm);
+      formData.append('action', 'create_meeting');
+
+      try {
+        const response = await fetch(projectControllerUrl, { method: 'POST', body: formData });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message || 'Impossible de planifier la reunion.');
+        const link = result.data?.meeting_link || '';
+        const emailMessage = result.data?.email_message || '';
+        if (meetingSuccess) {
+          meetingSuccess.textContent = `Invitation envoyee. Lien: ${link}${emailMessage ? ' | Email: ' + emailMessage : ''}`;
+          meetingSuccess.style.display = 'block';
+        }
+        
+      } catch (error) {
+        if (meetingError) {
+          meetingError.textContent = error.message || 'Erreur reseau.';
+          meetingError.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  if (dp.joinNow) {
+    dp.joinNow.addEventListener('click', async () => {
+      if (!selected.id || !selected.email) {
+        alert('Selectionnez un investissement avec un email investisseur valide.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('action', 'create_meeting_instant');
+      formData.append('invited_emails', selected.email);
+      formData.append('message', 'Invitation a une reunion immediate.');
+
+      try {
+        const response = await fetch(projectControllerUrl, { method: 'POST', body: formData });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message || 'Impossible de creer une reunion immediate.');
+        const link = result.data?.meeting_link || '';
+        if (!link) throw new Error('Lien de reunion manquant.');
+        window.open(link, '_blank', 'noopener,noreferrer');
+        if (result.data?.email_message) {
+          alert('Reunion ouverte. Statut email: ' + result.data.email_message);
+        }
+      } catch (error) {
+        alert(error.message || 'Erreur reseau.');
+      }
+    });
+  }
 
   const searchInput = document.getElementById('input-search-investments');
   searchInput.addEventListener('input', (e) => {
