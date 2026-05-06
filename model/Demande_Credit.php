@@ -46,8 +46,9 @@ class DemandeCredit
     {
         $stmt = $this->pdo->prepare("
             INSERT INTO DemandeCredit
-                (montant, duree_mois, taux_interet, statut, resultat, motif_resultat, date_demande, client_id, compte_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (montant, duree_mois, taux_interet, statut, resultat, motif_resultat, 
+     date_demande, client_id, compte_id, country_code, ip_client)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         return $stmt->execute([
             $data['montant'],
@@ -59,6 +60,8 @@ class DemandeCredit
             $data['date_demande'],
             $data['client_id'],
             $data['compte_id'],
+            $data['country_code'] ?? 'TN',
+            $data['ip_client'] ?? null,
         ]);
     }
 

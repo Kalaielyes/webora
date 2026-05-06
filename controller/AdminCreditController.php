@@ -5,6 +5,7 @@ require_once __DIR__ . '/../model/Garantie.php';
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/mailcredit.php';
 require_once __DIR__ . '/../model/ai_scoring.php';
+require_once __DIR__ . '/../model/ClientGeolocation.php';
 class AdminCreditController
 {
 
@@ -43,16 +44,45 @@ class AdminCreditController
     private function createDemande(): void
     {
         $data = $this->collectDemandePost();
-        $errors = array_values($this->demandeModel->validate($data));
-        if ($errors) {
+
+        // 🌍 GÉOLOCALISATION: Détecter automatiquement le pays et la devise du client
+        $location = ClientGeolocation::getClientLocation();
+        $data['country_code'] = $location['country_code'];
+        $data['currency'] = $location['currency'];
+        $data['ip_client'] = $location['ip'];
+        
+        // Valider le montant selon les règles régionales
+        $rules = ClientGeolocation::getRegionalRules($location['country_code']);
+        if (!ClientGeolocation::isMontantValid((float)$data['montant'], $location['country_code'])) {
+            $errors = [
+                'montant' => sprintf(
+                    'Montant invalide pour %s (%s). Min: %s | Max: %s',
+                    $location['country_name'],
+                    $location['currency'],
+                    number_format($rules['min_montant'], 0, ',', ' '),
+                    number_format($rules['max_montant'], 0, ',', ' ')
+                )
+            ];
+            $_SESSION['client_location'] = $location;
             $this->renderView(errors: $errors);
             return;
         }
+
+        $errors = array_values($this->demandeModel->validate($data));
+        if ($errors) {
+            $_SESSION['client_location'] = $location;
+            $this->renderView(errors: $errors);
+            return;
+        }
+
+        // 💾 Stocker la géolocalisation en session
+        $_SESSION['client_location'] = $location;
+
         // ── Scoring IA ──────────────────────────────────────────────────────
-$scoring = analyserSolvabilite($data);
-$data['resultat']       = $scoring['recommendation'];
-$data['motif_resultat'] = '[Score IA: ' . $scoring['score'] . '/100 | Risque: ' . $scoring['risque'] . '] ' . $scoring['motif'];
-// ────────────────────────────────────────────────────────────────────
+        $scoring = analyserSolvabilite($data);
+        $data['resultat']       = $scoring['recommendation'];
+        $data['motif_resultat'] = '[Score IA: ' . $scoring['score'] . '/100 | Risque: ' . $scoring['risque'] . '] ' . $scoring['motif'];
+        // ────────────────────────────────────────────────────────────────────
         try {
             $result = $this->demandeModel->create($data);
             if (!$result) {

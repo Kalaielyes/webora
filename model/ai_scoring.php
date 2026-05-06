@@ -1,10 +1,10 @@
 <?php
 function analyserSolvabilite(array $data): array
 {
-    $apiKey = 'AIzaSyDXclfGfwzDhRM007zLy3LRxD_DO1ANFU0';
-    $model  = 'gemini-2.5-flash';
+    $apiKey = 'zid el api';
+    $model  = 'openrouter/free';
 
-    $prompt = "Tu es un analyste bancaire expert. Analyse cette demande de crédit et retourne UNIQUEMENT un JSON valide, rien d'autre.
+    $prompt = "Tu es un analyste bancaire expert. Analyse cette demande de crédit et retourne UNIQUEMENT un JSON valide, rien d'autre. Pas de markdown, pas de backticks.
 
 Données de la demande :
 - Montant demandé : {$data['montant']} TND
@@ -12,7 +12,7 @@ Données de la demande :
 - Taux d'intérêt : {$data['taux_interet']}%
 - Mensualité estimée : " . round($data['montant'] / $data['duree_mois'], 2) . " TND
 
-Retourne exactement ce JSON (sans markdown, sans backticks) :
+Retourne exactement ce JSON :
 {
   \"score\": <nombre entre 0 et 100>,
   \"recommendation\": \"approuvee\" ou \"refusee\" ou \"en_attente\",
@@ -21,19 +21,23 @@ Retourne exactement ce JSON (sans markdown, sans backticks) :
 }";
 
     $payload = json_encode([
-        'contents' => [
-            ['parts' => [['text' => $prompt]]]
+        'model'    => $model,
+        'messages' => [
+            ['role' => 'user', 'content' => $prompt]
         ]
     ]);
 
     $ch = curl_init();
     curl_setopt_array($ch, [
-        CURLOPT_URL            => "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey",
+        CURLOPT_URL            => 'https://openrouter.ai/api/v1/chat/completions',
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => $payload,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $apiKey,
+        ],
+        CURLOPT_TIMEOUT        => 20,
         CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_SSL_VERIFYHOST => false,
     ]);
@@ -52,7 +56,7 @@ Retourne exactement ce JSON (sans markdown, sans backticks) :
     }
 
     $body   = json_decode($response, true);
-    $text   = $body['candidates'][0]['content']['parts'][0]['text'] ?? '';
+    $text   = $body['choices'][0]['message']['content'] ?? '';
     $text   = preg_replace('/```json|```/i', '', $text);
     $text   = trim($text);
     $result = json_decode($text, true);

@@ -5,6 +5,8 @@ require_once __DIR__ . '/../model/Garantie.php';
 require_once __DIR__ . '/../model/config.php';
 require_once __DIR__ . '/../model/mailcredit.php';
 require_once __DIR__ . '/../model/ai_scoring.php';
+require_once __DIR__ . '/../model/ClientGeolocation.php';
+require_once __DIR__ . '/../model/GeolocHelper.php';
 
 class CreditController
 {
@@ -35,6 +37,8 @@ class CreditController
             'update_garantie' => $this->updateGarantie(),
             'delete_garantie' => $this->deleteGarantie(),
             'update_garantie_status' => $this->updateGarantieStatus(),
+            'get_client_location'    => $this->getClientLocation(),    // ← ADD THIS
+    'get_loan_simulation'    => $this->getLoanSimulation(),
             default => $this->renderView(),
         };
     }
@@ -44,11 +48,38 @@ class CreditController
 {
     $data = $this->collectDemandePost();
 
-    $errors = array_values($this->demandeModel->validate($data));
-    if ($errors) {
+    // 🌍 GÉOLOCALISATION: Détecter automatiquement le pays et la devise du client
+    $location = ClientGeolocation::getClientLocation();
+    $data['country_code'] = $location['country_code'];
+    $data['currency'] = $location['currency'];
+    $data['ip_client'] = $location['ip'];
+    
+    // Valider le montant selon les règles régionales
+    $rules = ClientGeolocation::getRegionalRules($location['country_code']);
+    if (!ClientGeolocation::isMontantValid((float)$data['montant'], $location['country_code'])) {
+        $errors = [
+            'montant' => sprintf(
+                'Montant invalide pour %s (%s). Min: %s | Max: %s',
+                $location['country_name'],
+                $location['currency'],
+                number_format($rules['min_montant'], 0, ',', ' '),
+                number_format($rules['max_montant'], 0, ',', ' ')
+            )
+        ];
+        $_SESSION['client_location'] = $location;
         $this->renderView(errors: $errors);
         return;
     }
+
+    $errors = array_values($this->demandeModel->validate($data));
+    if ($errors) {
+        $_SESSION['client_location'] = $location;
+        $this->renderView(errors: $errors);
+        return;
+    }
+
+    // 💾 Stocker la géolocalisation en session
+    $_SESSION['client_location'] = $location;
 
     // ── Scoring IA ──────────────────────────────────────────────────────
     $scoring = analyserSolvabilite($data);
@@ -285,6 +316,52 @@ class CreditController
         }
     }
 
+    // ── Geolocation AJAX ──────────────────────────────────────────────────────────
+private function getClientLocation(): void
+{
+    $location = ClientGeolocation::getClientLocation();
+    $rules    = ClientGeolocation::getRegionalRules($location['country_code']);
+    $_SESSION['client_geolocation'] = $location;
+    $_SESSION['regional_rules']     = $rules;
+
+    header('Content-Type: application/json');
+    echo json_encode(['location' => $location, 'rules' => $rules]);
+    exit;
+}
+
+private function getLoanSimulation(): void
+{
+    $location = $_SESSION['client_geolocation'] ?? ClientGeolocation::getClientLocation();
+    $montant  = (float)($_POST['montant'] ?? 0);
+
+    $offer = GeolocHelper::createCompleteLoanOffer(
+        requestedAmount: $montant,
+        clientIp: $location['ip'],
+        riskProfile: 'medium',
+        preferredMonths: 36
+    );
+
+    header('Content-Type: application/json');
+    if (!$offer['success']) {
+        echo json_encode(['error' => $offer['error']]);
+        exit;
+    }
+
+    $o = $offer['offer'];
+    $l = $offer['location'];
+    echo json_encode([
+        'montant'             => $o['amount_requested'],
+        'currency'            => $l['currency'],
+        'currency_symbol'     => $l['currency_symbol'],
+        'taux_annuel'         => $o['annual_rate'],
+        'duree_mois'          => $o['duration_months'],
+        'mensualite'          => $o['monthly_payment'],
+        'total_avec_interets' => $o['total_with_interest'],
+        'frais_interets'      => $o['interest_cost'],
+        'date_fin_prevue'     => date('Y-m-d', strtotime('+' . $o['duration_months'] . ' months')),
+    ]);
+    exit;
+}
     // ── Render ────────────────────────────────────────────────────────────────
     private function renderView(
         array $errors = [],

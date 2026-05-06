@@ -32,6 +32,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
     href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=Cabinet+Grotesk:wght@300;400;500;700&display=swap"
     rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/view/frontCredit/geolocation-form.js"></script>
 </head>
 
 <body>
@@ -221,6 +222,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                   <tr>
                     <th style="width:35px"><input type="checkbox" id="check-all" onchange="toggleAllCheckboxes(this)"></th>
                     <th>#</th>
+                    <th>Pays</th>
                     <th>Montant</th>
                     <th>Durée</th>
                     <th>Taux</th>
@@ -234,7 +236,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                 <tbody>
                   <?php if (empty($demandes)): ?>
                     <tr>
-                      <td colspan="10" style="text-align:center;padding:2rem;color:var(--muted);font-size:.8rem">Aucun
+                      <td colspan="11" style="text-align:center;padding:2rem;color:var(--muted);font-size:.8rem">Aucun
                         dossier</td>
                     </tr>
                   <?php else: foreach ($demandes as $d): ?>
@@ -244,6 +246,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                           <?= (int) $d['id'] ?>
                         </td>
                         <td><strong>
+                          <td style="text-align:center;font-size:1.3rem" title="<?= htmlspecialchars($d['country_code'] ?? 'TN') ?>">
                             <?= number_format($d['montant'], 0, ',', ' ') ?> TND
                           </strong></td>
                         <td>
