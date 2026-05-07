@@ -6,9 +6,35 @@ require_once __DIR__ . '/../../models/config.php';
 require_once __DIR__ . '/../../controllers/CompteController.php';
 require_once __DIR__ . '/../../controllers/CarteController.php';
 require_once __DIR__ . '/../../controllers/ObjectifController.php';
+require_once __DIR__ . '/../../models/Utilisateur.php';
 
-Config::autoLogin();
-$userId   = (int)$_SESSION['user']['id'];
+require_once __DIR__ . '/../../models/Session.php';
+require_once __DIR__ . '/../../models/Security.php';
+Session::requireLogin('login.php');
+$userId   = (int)Session::get('user_id');
+
+// Self-healing: if user data is missing but user_id is set, reload it
+if (!isset($_SESSION['user']) || empty($_SESSION['user'])) {
+    $tempM = new Utilisateur();
+    $userData = $tempM->findById($userId);
+    if ($userData) {
+        $_SESSION['user'] = [
+            'id'                => $userData['id'],
+            'nom'               => $userData['nom'],
+            'prenom'            => $userData['prenom'],
+            'email'             => $userData['email'],
+            'role'              => $userData['role'],
+            'status'            => $userData['status'],
+            'status_kyc'        => $userData['status_kyc'],
+            'status_aml'        => $userData['status_aml'],
+            'cin'               => $userData['cin'],
+            'date_inscription'  => $userData['date_inscription'],
+            'derniere_connexion'=> $userData['derniere_connexion'] ?? null,
+            'id_file_path'      => $userData['id_file_path'] ?? ''
+        ];
+    }
+}
+
 $user     = $_SESSION['user'];
 $initials = strtoupper(substr($user['prenom']??'',0,1).substr($user['nom']??'',0,1));
 $comptes  = CompteController::findByUtilisateur($userId);
@@ -36,6 +62,7 @@ $showCarteForm  = (!empty($_GET['form']) && $_GET['form']==='carte' && $isKycVer
 $showAttente    = (!empty($_GET['tab'])  && $_GET['tab']==='attente');
 $showVirementForm = (!empty($_GET['form']) && $_GET['form']==='virement' && $isKycVerifie);
 $showObjectifs  = (!empty($_GET['tab'])  && $_GET['tab']==='objectifs');
+$showStats      = (!empty($_GET['tab'])  && $_GET['tab']==='stats');
 $showHistorique = (!empty($_GET['tab'])  && $_GET['tab']==='historique');
 
 function cvClass(string $style, string $statut=''): string {
@@ -73,6 +100,52 @@ function badgeCarte(string $s): string {
 }
 $pendingCount = count($pendingComptes)+count($pendingCartes);
 
+// -- STATS CALCULATION (Incomes/Expenses from SheetDB) --
+$allTransactions = [];
+try {
+    $apiUrl = "https://sheetdb.io/api/v1/2eyctn6m5yzmz/search?id_utilisateur=" . $userId;
+    $ch = curl_init($apiUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    $resp = curl_exec($ch);
+    curl_close($ch);
+    $allTransactions = json_decode($resp, true) ?? [];
+} catch (Exception $e) { $allTransactions = []; }
+
+$totalSolde = 0;
+$rates = ['TND'=>1, 'EUR'=>3.03, 'USD'=>3.12, 'GBP'=>3.85];
+foreach ($comptes as $c) { 
+    $dev = strtoupper($c->getDevise() ?? 'TND');
+    $rate = $rates[$dev] ?? 1.0;
+    $totalSolde += (float)$c->getSolde() * $rate; 
+}
+
+$thisMonth = date('m');
+$thisYear  = date('Y');
+$totalIn   = 0;
+$totalOut  = 0;
+
+foreach ($allTransactions as $t) {
+    $txDate = $t['date'] ?? '';
+    if (!$txDate) continue;
+    $m = date('m', strtotime($txDate));
+    $y = date('Y', strtotime($txDate));
+    
+    if ($m === $thisMonth && $y === $thisYear) {
+        $amount = (float)($t['montant'] ?? 0);
+        $type   = strtolower($t['type'] ?? '');
+        
+        // Logic: if source is one of my IBANs, it's an OUT. 
+        // If destination is one of my IBANs, it's an IN.
+        $myIbans = array_map(fn($c)=>$c->getIban(), $comptes);
+        $src = $t['source'] ?? '';
+        $dst = $t['destination'] ?? '';
+        
+        if (in_array($src, $myIbans)) $totalOut += $amount;
+        if (in_array($dst, $myIbans)) $totalIn  += $amount;
+    }
+}
+
 // -- ERROR & DATA HANDLING FROM PHP POST --
 $formErrors = $_SESSION['form_errors'] ?? [];
 $formData   = $_SESSION['form_data'] ?? [];
@@ -109,87 +182,8 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
 </div>
 
 
-<div class="sidebar">
-  <div class="sb-logo">
-    <div class="sb-logo-name">Legal<span>Fin</span></div>
-    <div class="sb-logo-tag">Espace client</div>
-  </div>
-  <div class="sb-user">
-    <div class="sb-av"><?= $initials ?></div>
-    <div>
-      <div class="sb-uname"><?= htmlspecialchars(($user['prenom']??'').' '.($user['nom']??'')) ?></div>
-      <div class="sb-uemail"><?= htmlspecialchars($user['email']??'') ?></div>
-    </div>
-  </div>
-  <?php
-    $isCompteSection = (!$showCompteForm && !$showCarteForm && !$showAttente && !$showVirementForm && !$showObjectifs && !$showHistorique) || $showCompteForm || $showCarteForm;
-    $isOperationSection = $showVirementForm || $showObjectifs || $showHistorique;
-  ?>
-  <nav class="sb-nav">
-    <!-- ══ COMPTE DROPDOWN ══ -->
-    <div class="nav-dropdown <?= $isCompteSection ? 'open' : '' ?>" id="dropdown-compte">
-      <button class="nav-dropdown-toggle" onclick="toggleDropdown('dropdown-compte')">
-        <div class="nav-dropdown-toggle-left">
-          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
-          <span>Compte</span>
-        </div>
-        <svg class="nav-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-      <div class="nav-dropdown-menu">
-        <a class="nav-sub-item <?= (!$showCompteForm&&!$showCarteForm&&!$showAttente&&!$showVirementForm&&!$showObjectifs)?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php">
-          <span class="nav-sub-dot"></span>Mes comptes
-        </a>
-        <a class="nav-sub-item <?= $showCompteForm?'active':'' ?>" <?= $isKycVerifie ? 'href="'.APP_URL.'/views/frontoffice/frontoffice_compte.php?form=compte"' : 'style="opacity:0.5;cursor:not-allowed;" title="Vérification KYC requise" onclick="alert(\'Votre compte doit être vérifié (KYC) pour ouvrir un compte.\'); return false;"' ?>>
-          <span class="nav-sub-dot"></span>Ouvrir un compte <?= !$isKycVerifie ? '🔒' : '' ?>
-        </a>
-        <a class="nav-sub-item <?= $showCarteForm?'active':'' ?>" <?= $isKycVerifie ? 'href="'.APP_URL.'/views/frontoffice/frontoffice_compte.php?form=carte'.($selected?'&id_compte='.$selected->getIdCompte():'').'"' : 'style="opacity:0.5;cursor:not-allowed;" title="Vérification KYC requise" onclick="alert(\'Votre compte doit être vérifié (KYC) pour demander une carte.\'); return false;"' ?>>
-          <span class="nav-sub-dot"></span>Demander une carte <?= !$isKycVerifie ? '🔒' : '' ?>
-        </a>
-      </div>
-    </div>
+<?php include __DIR__ . '/partials/sidebar.php'; ?>
 
-    <!-- ══ OPÉRATIONS DROPDOWN ══ -->
-    <div class="nav-dropdown <?= $isOperationSection ? 'open' : '' ?>" id="dropdown-operations">
-      <button class="nav-dropdown-toggle" onclick="toggleDropdown('dropdown-operations')">
-        <div class="nav-dropdown-toggle-left">
-          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-          <span>Opérations</span>
-        </div>
-        <svg class="nav-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-      <div class="nav-dropdown-menu">
-        <a class="nav-sub-item <?= $showVirementForm?'active':'' ?>" <?= $isKycVerifie ? 'href="'.APP_URL.'/views/frontoffice/frontoffice_compte.php?form=virement"' : 'style="opacity:0.5;cursor:not-allowed;" title="Vérification KYC requise" onclick="alert(\'Votre compte doit être vérifié (KYC) pour effectuer un virement.\'); return false;"' ?>>
-          <span class="nav-sub-dot"></span>Virement <?= !$isKycVerifie ? '🔒' : '' ?>
-        </a>
-        <a class="nav-sub-item <?= $showHistorique?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?tab=historique">
-          <span class="nav-sub-dot"></span>Historique & Export
-        </a>
-        <a class="nav-sub-item <?= $showObjectifs?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?tab=objectifs">
-          <span class="nav-sub-dot"></span>Objectifs
-        </a>
-      </div>
-    </div>
-
-    <?php if ($pendingCount>0): ?>
-    <div class="nav-section" style="margin-top:.4rem">Suivi</div>
-    <a class="nav-item <?= $showAttente?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?tab=attente">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
-      En attente
-      <span style="margin-left:auto;background:rgba(245,158,11,.2);color:var(--amber);border-radius:99px;padding:1px 7px;font-size:.62rem;font-weight:600"><?= $pendingCount ?></span>
-    </a>
-    <?php endif; ?>
-    <a class="nav-item" href="../backoffice/backoffice_compte.php">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>backoffice
-    </a>
-  </nav>
-  <div class="sb-footer">
-    <?php if (($user['status_kyc']??'')==='VERIFIE'): ?>
-      <div class="badge-kyc"><span class="dot-pulse"></span>Identité vérifiée</div>
-    <?php else: ?>
-      <div class="badge-kyc" style="background:rgba(245,158,11,.1);color:var(--amber)">KYC en cours</div>
-    <?php endif; ?>
-  </div>
-</div>
 
 <div class="main">
   <div class="topbar">
@@ -225,31 +219,26 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
       </div>
     </div>
 
-
   <?php if ($showCompteForm): ?>
   <?php include __DIR__ . '/partialscomptes/form_compte.php'; ?>
   <?php elseif ($showCarteForm): ?>
-  
   <?php include __DIR__ . '/partialscomptes/form_carte.php'; ?>
-
   <?php elseif ($showVirementForm): ?>
   <?php include __DIR__ . '/partialscomptes/virement.php'; ?>
-
   <?php elseif ($showObjectifs): ?>
   <?php include __DIR__ . '/partialscomptes/objectifs.php'; ?>
-
   <?php elseif ($showAttente): ?>
   <?php include __DIR__ . '/partialscomptes/en_attente.php'; ?>
-
   <?php elseif ($showHistorique): ?>
   <?php include __DIR__ . '/partialscomptes/historique.php'; ?>
+  <?php elseif ($showStats): ?>
+  <?php include __DIR__ . '/partialscomptes/stats.php'; ?>
 
   <?php elseif (empty($comptes)): ?>
   <?php include __DIR__ . '/partialscomptes/no_comptes.php'; ?>
   <?php else: ?>
   <!-- ══ MAIN ACCOUNT VIEW ══════════════════════════════ -->
   <?php include __DIR__ . '/partialscomptes/mes_comptes.php'; ?>
-
   <?php endif; // main view ?>
   </div>
 </div>

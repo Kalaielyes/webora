@@ -3,14 +3,25 @@
 require_once __DIR__ . '/../../../controllers/ObjectifController.php';
 require_once __DIR__ . '/../../../controllers/CompteController.php';
 if (!isset($userId) || !isset($comptes)) { 
-    Config::autoLogin(); 
+    require_once __DIR__ . "/../../../models/Session.php"; Session::start();
     $userId = $_SESSION['user']['id'] ?? 0; 
     $comptes = CompteController::findByUtilisateur($userId);
 }
 ?>
 
-<!-- ── face-api.js ── -->
-<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<!-- Face verification using server-side FaceVerificationService -->
+<style>
+.face-frame-container { position:relative; width:220px; height:220px; margin:0 auto 1.5rem; }
+.face-circle-wrap { width:100%; height:100%; border-radius:50%; overflow:hidden; border:4px solid var(--border); position:relative; background:#0f172a; box-shadow:0 0 0 10px rgba(37,99,235,0.05); }
+.face-circle-wrap.active { border-color:var(--primary); box-shadow:0 0 30px rgba(37,99,235,0.3); }
+.face-circle-wrap.verified { border-color:var(--green); box-shadow:0 0 30px rgba(34,197,94,0.3); }
+.scan-line { position:absolute; left:0; width:100%; height:2px; background:linear-gradient(to right, transparent, var(--primary), transparent); top:0; display:none; animation:scanMove 2s linear infinite; z-index:5; box-shadow:0 0 8px var(--primary); }
+@keyframes scanMove { 0% { top:0%; } 50% { top:100%; } 100% { top:0%; } }
+.loader-tiny { width:24px; height:24px; border:3px solid rgba(255,255,255,0.1); border-top-color:#fff; border-radius:50%; animation:spin 0.8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.scanning-text { animation: pulseText 1.5s infinite; color: var(--primary); font-weight: 700; }
+@keyframes pulseText { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+</style>
 
 <div class="virement-container" style="max-width:550px; margin:0 auto; padding:1.5rem; background:var(--bg2); border-radius:24px; border:1px solid var(--border); box-shadow:0 15px 40px rgba(0,0,0,0.1); position:relative; overflow:hidden;">
   <div style="position:absolute; top:-80px; right:-80px; width:200px; height:200px; background:radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%); z-index:0; pointer-events:none;"></div>
@@ -151,6 +162,7 @@ if (!isset($userId) || !isset($comptes)) {
         <div class="face-frame-container">
           <div class="face-circle-wrap" id="face-wrap">
             <video id="virement-video" autoplay muted playsinline style="width:100%; height:100%; object-fit:cover; transform:scaleX(-1);"></video>
+            <canvas id="virement-canvas" style="display:none;"></canvas>
             <div class="scan-line" id="virement-scan-line"></div>
             <div id="face-loading" style="position:absolute; inset:0; background:rgba(15,23,42,0.9); display:flex; align-items:center; justify-content:center; z-index:10;">
                 <div class="loader-tiny"></div>
@@ -410,9 +422,14 @@ async function initCamera() {
     const faceWrap = document.getElementById('face-wrap');
     const loader = document.getElementById('face-loading');
     
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        status.innerHTML = '<span style="color:var(--rose)">HTTPS requis pour la caméra.</span>';
+        return;
+    }
+    
     status.textContent = 'Initialisation caméra...';
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 400, height: 400 } });
         video.srcObject = stream;
         video.onloadedmetadata = () => {
             cameraReady = true;
@@ -425,24 +442,8 @@ async function initCamera() {
     }
 }
 
-async function loadFaceModels() {
-    if (modelsLoaded) return checkAndStartScan();
-    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-    try {
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
-        modelsLoaded = true;
-        checkAndStartScan();
-    } catch (e) {
-        console.error("Models failed:", e);
-        document.getElementById('virement-face-status').textContent = 'Erreur chargement IA.';
-    }
-}
-
-function checkAndStartScan() {
-    if (modelsLoaded && cameraReady) {
+async function checkAndStartScan() {
+    if (cameraReady) {
         startFaceScan();
     }
 }
@@ -450,68 +451,72 @@ function checkAndStartScan() {
 async function startFaceScan() {
     if (faceInterval) return;
     const video = document.getElementById('virement-video');
+    const canvas = document.getElementById('virement-canvas');
     const status = document.getElementById('virement-face-status');
     const scanLine = document.getElementById('virement-scan-line');
     const faceWrap = document.getElementById('face-wrap');
     
+    faceInterval = true; // Flag to prevent multiple loops
     scanLine.style.display = 'block';
     faceWrap.classList.add('active');
-    status.textContent = 'Analysez en cours... SOURIEZ !';
+    status.textContent = 'Analyse en cours...';
 
-    try {
-        // Get stored profile
-        const res = await fetch('<?= APP_URL ?>/controllers/BiometricOtpController.php', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ action: 'get_face' })
-        });
-        const data = await res.json();
-        if(!data.descriptor) {
-            status.textContent = 'Profil biométrique manquant.';
-            return;
-        }
-        const storedDescriptor = new Float32Array(JSON.parse(data.descriptor));
+    async function performScan() {
+        if (!faceInterval || !cameraReady) return;
 
-        faceInterval = setInterval(async () => {
-            if (!cameraReady || !modelsLoaded) return;
+        // Capture frame
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
 
-            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
-                .withFaceLandmarks(true)
-                .withFaceExpressions()
-                .withFaceDescriptor();
+        // Calculate amount in TND to decide on OTP
+        const amount = parseFloat(document.getElementById('montant-input').value) || 0;
+        const inputCur = document.getElementById('input-currency').value;
+        const amountInTnd = amount * (exchangeRates[inputCur]['TND'] || 1);
 
-            if (detection) {
-                // Smoothly update UI based on detection
-                faceWrap.style.borderColor = 'var(--sec-color)';
-                
-                const isSmiling = detection.expressions.happy > 0.5;
-                if (!isSmiling) {
-                    status.innerHTML = '<span style="color:var(--amber)">😊 Veuillez SOURIRE pour valider.</span>';
-                    return;
-                }
-
-                const distance = faceapi.euclideanDistance(detection.descriptor, storedDescriptor);
-                // Lower distance = better match. 0.6 is standard, 0.55 is stricter.
-                if (distance < 0.6) {
-                    clearInterval(faceInterval);
-                    faceInterval = null;
-                    status.innerHTML = '<span style="color:var(--green)">✅ Identité confirmée !</span>';
-                    
-                    // Stop tracks immediately for performance
-                    if(video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-                    
-                    setTimeout(() => handleFaceSuccess(), 400); // Faster transition
-                } else {
-                    status.innerHTML = '<span style="color:var(--rose)">❌ Visage non reconnu.</span>';
-                }
-            } else {
-                faceWrap.style.borderColor = 'var(--border)';
-                status.textContent = '🔍 Recherche de visage...';
+        try {
+            status.innerHTML = '<span class="scanning-text">Analyse du visage...</span>';
+            const res = await fetch('<?= APP_URL ?>/controllers/BiometricOtpController.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    action: 'verify_face_image',
+                    image: imageData,
+                    amountTnd: amountInTnd
+                })
+            });
+            
+            const text = await res.text();
+            let data;
+            try { 
+                data = JSON.parse(text); 
+            } catch(e) {
+                console.error("Malformed JSON:", text);
+                status.innerHTML = '<span style="color:var(--rose)">Erreur serveur (JSON)</span>';
+                setTimeout(performScan, 4000);
+                return;
             }
-        }, 250); // Faster interval for smoother feel (was 800ms)
-    } catch (e) {
-        status.textContent = 'Erreur technique scan.';
+
+            if (data.success) {
+                faceInterval = false;
+                status.innerHTML = `<span style="color:var(--green)">✅ ${data.message || 'Identité confirmée !'}</span>`;
+                if(video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+                setTimeout(() => handleFaceSuccess(), 1000);
+            } else {
+                status.innerHTML = `<span style="color:var(--rose)">${data.message || 'Visage non reconnu'}</span>`;
+                // Wait 3 seconds before next attempt to avoid API spam
+                setTimeout(performScan, 3000);
+            }
+        } catch (e) {
+            console.error("Verification failed:", e);
+            status.textContent = 'Erreur technique verification.';
+            setTimeout(performScan, 5000);
+        }
     }
+
+    performScan();
 }
 
 function handleFaceSuccess() {
@@ -636,13 +641,11 @@ function goToStep2(e) {
   pendingFormData = new FormData(form);
   setStep(2);
   initCamera();
-  loadFaceModels();
 }
 
 function goBackToStep1() {
-  if (faceInterval) clearInterval(faceInterval);
+  faceInterval = false; // Stop recursive loop
   if (otpTimer) clearInterval(otpTimer);
-  faceInterval = null;
   const video = document.getElementById('virement-video');
   if(video && video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
   cameraReady = false;
@@ -761,9 +764,5 @@ function executeVirement() {
 
 document.addEventListener('DOMContentLoaded', () => {
   onSourceChange();
-  // Pre-load models in background for smoother UX
-  if (typeof faceapi !== 'undefined') {
-    loadFaceModels();
-  }
 });
 </script>

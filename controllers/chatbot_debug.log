@@ -1,14 +1,14 @@
-[2026-05-04 21:35:15] Gemini HTTP:200 cURL:ok resp:{
+[2026-05-07 16:44:04] Gemini HTTP:200 cURL:ok resp:{
   "candidates": [
     {
       "content": {
         "parts": [
           {
-            "text": "Bonjour Monsieur Kalai Elyes. Voici la liste de vos cartes bancaires actives chez LegalFin :\n\n• **Carte Visa Débit** (se terminant par **25 9**) : Statut **Active**\n• **Carte Visa Débit** (se te
-[2026-05-04 21:35:27] Gemini HTTP:200 cURL:ok resp:{
+            "text": "Bonjour **M. Kalai Elyes**,\n\nAprès consultation de vos données en temps réel, aucune carte bancaire n'est actuellement associée à votre compte **LegalFin**.\n\nSi vous souhaitez obtenir une carte,
+[2026-05-07 16:44:29] Gemini HTTP:200 cURL:ok resp:{
   "candidates": [
     {
       "content": {
         "parts": [
           {
-            "text": "Bonjour Monsieur Kalai Elyes. Comment puis-je vous aider aujourd'hui ?\n\nEn tant qu'assistant expert de la banque **LegalFin**, je suis à votre disposition pour toute question concernant :\n\n• La ge
+            "text": "Bonjour Monsieur **Kalai Elyes**,\n\nD'après les informations de votre dossier, voici l'IBAN associé à votre compte :\n\n• **TN59 4596 6703 4004 1807**\n\nSouhaitez-vous obtenir d'autres information

@@ -18,9 +18,20 @@ if (!defined('APP_URL')) {
 
 // ── GEMINI API KEY ───────────────────────────────────────────────────────────
 if (!defined('GEMINI_API_KEY')) {
-    define('GEMINI_API_KEY', 'AIzaSyDAKNFDIZNtjdGk94nL0xDUodkZGKioBdk');
+    define('GEMINI_API_KEY', 'AIzaSyBsOs75Aq5Dc69ZrbbJBqTvWNTVrP2Ewi4');
 }
+if (!defined('BASE_URL')) {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host     = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $docRoot  = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']), '/');
+    $modelDir = rtrim(str_replace('\\', '/', __DIR__), '/');
+    $appRoot  = dirname($modelDir);          
+    $webPath  = '/' . trim(str_replace($docRoot, '', $appRoot), '/');
+    define('BASE_URL',  $protocol . '://' . $host . $webPath);
+    define('VIEW_URL',  BASE_URL . '/views');
+    define('MODEL_URL', BASE_URL . '/models');
 
+}
 class Config
 {
     private static ?PDO $pdo = null;
@@ -62,8 +73,14 @@ class Config
      */
     public static function autoLogin(): void
     {
-        Security::startSession();
+        require_once __DIR__ . '/Session.php';
+        Session::start();
         
+        // If already logged in via the new system, don't overwrite
+        if (isset($_SESSION['user_id']) || isset($_SESSION['user'])) {
+            return;
+        }
+
         // Security Headers
         header("X-Frame-Options: DENY");
         header("X-Content-Type-Options: nosniff");
@@ -74,18 +91,20 @@ class Config
         $row  = $stmt->fetch();
 
         if (!$row) {
-            die('Aucun utilisateur trouvé dans la base de données.');
+            return; // No user to auto-login
         }
 
-        // Force ADMIN and always refresh session data so manual DB changes reflect immediately
         $_SESSION['user'] = [
             'id'         => $row['id'],
             'nom'        => $row['nom']        ?? '',
             'prenom'     => $row['prenom']     ?? '',
-            'email'          => $row['email']          ?? '',
-            'role'           => 'ADMIN',
-            'status_kyc'     => $row['status_kyc']     ?? '',
-            'face_descriptor' => $row['face_descriptor'] ?? null,
+            'email'      => $row['email']       ?? '',
+            'role'       => $row['role']        ?? 'CLIENT',
+            'status_kyc' => $row['status_kyc']  ?? '',
         ];
+        
+        // Also set new system keys for compatibility
+        $_SESSION['user_id'] = $row['id'];
+        $_SESSION['role']    = $row['role'] ?? 'CLIENT';
     }
 }

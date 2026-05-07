@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../models/config.php';
 require_once __DIR__ . '/../models/CompteBancaire.php';
 require_once __DIR__ . '/../models/CarteBancaire.php'; 
+require_once __DIR__ . '/../models/Security.php';
 require_once __DIR__ . '/../models/mailer.php';
 require_once __DIR__ . '/ObjectifController.php';
 
@@ -320,7 +321,8 @@ class CompteController
     public static function handleRequest(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
-        Config::autoLogin();
+        require_once __DIR__ . '/../models/Session.php';
+        Session::start();
 
         // ── CSRF CHECK ───────────────────────────────────────
         $token = $_POST['csrf_token'] ?? '';
@@ -334,7 +336,7 @@ class CompteController
 
         switch ($action) {
             case 'add': {
-                $idUser  = (int)($_SESSION['user']['id'] ?? 0);
+                $idUser  = (int)Session::get('user_id');
                 $kyc     = trim($_SESSION['user']['status_kyc'] ?? '');
 
                 if ($kyc !== 'VERIFIE') {
@@ -364,7 +366,7 @@ class CompteController
             }
 
             case 'virement': {
-                $idUser     = (int)($_SESSION['user']['id'] ?? 0);
+                $idUser     = (int)Session::get('user_id');
                 $idSource   = (int)($_POST['id_compte_source'] ?? 0);
                 $destType   = trim($_POST['dest_type'] ?? 'interne');
                 $montant    = (float)($_POST['montant'] ?? 0);

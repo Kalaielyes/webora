@@ -5,6 +5,7 @@
 require_once __DIR__ . '/../models/config.php';
 require_once __DIR__ . '/../models/mailer.php';
 require_once __DIR__ . '/../models/whatsapp.php';
+require_once __DIR__ . '/../models/FaceVerificationService.php';
 
 class BiometricOtpController
 {
@@ -79,7 +80,8 @@ class BiometricOtpController
     public static function handleAjax(): void
     {
         header('Content-Type: application/json');
-        Config::autoLogin();
+        require_once __DIR__ . '/../models/Session.php';
+        Session::start();
         $userId = (int)($_SESSION['user']['id'] ?? 0);
         if (!$userId) { echo json_encode(['success' => false, 'message' => 'Unauthorized']); exit; }
 
@@ -155,6 +157,80 @@ class BiometricOtpController
                 $stmt = $db->prepare("UPDATE utilisateur SET face_verified_at = 0 WHERE id = ?");
                 $stmt->execute([$userId]);
                 echo json_encode(['success' => true]);
+                break;
+
+            case 'verify_face_image':
+                $imgData = $input['image'] ?? '';
+                if (!$imgData) { echo json_encode(['success' => false, 'message' => 'Pas d\'image reçue']); exit; }
+
+                // 1. Decode image data
+                $imgData = str_replace('data:image/jpeg;base64,', '', $imgData);
+                $imgData = str_replace(' ', '+', $imgData);
+                $data = base64_decode($imgData);
+
+                $uploadDir = __DIR__ . '/../models/uploads/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+
+                $db = Config::getConnexion();
+                $stmt = $db->prepare("SELECT face_descriptor FROM utilisateur WHERE id = ?");
+                $stmt->execute([$userId]);
+                $storedPath = $stmt->fetchColumn();
+
+                if (empty($storedPath)) {
+                    // FIRST TIME: Store the image permanently and save path in DB
+                    $idName = "id_{$userId}_" . time() . ".jpg";
+                    $idPath = "models/uploads/" . $idName;
+                    file_put_contents(__DIR__ . '/../' . $idPath, $data);
+                    
+                    $stmt = $db->prepare("UPDATE utilisateur SET face_descriptor = ? WHERE id = ?");
+                    $stmt->execute([$idPath, $userId]);
+                    
+                    // Since it's the first time, we consider it verified
+                    $stmt = $db->prepare("UPDATE utilisateur SET face_verified_at = 1 WHERE id = ?");
+                    $stmt->execute([$userId]);
+                    
+                    // Send OTP ONLY if amount > 100 TND
+                    $amountTnd = (float)($input['amountTnd'] ?? 0);
+                    if ($amountTnd > 100) {
+                        self::sendOTP($userId);
+                    }
+                    
+                    echo json_encode(['success' => true, 'message' => 'Profil biométrique enregistré (100%)']);
+                    exit;
+                }
+
+                // SUBSEQUENT TIMES: Use a temporary file for the current selfie
+                $tempSelfieName = "temp_selfie_{$userId}.jpg";
+                $tempSelfiePath = "models/uploads/" . $tempSelfieName;
+                file_put_contents(__DIR__ . '/../' . $tempSelfiePath, $data);
+
+                // Call the service (storedPath is the reference ID)
+                $service = new FaceVerificationService();
+                $result = $service->compareFaces($storedPath, $tempSelfiePath);
+
+                // Clean up the temporary selfie
+                if (file_exists(__DIR__ . '/../' . $tempSelfiePath)) {
+                    unlink(__DIR__ . '/../' . $tempSelfiePath);
+                }
+
+                if ($result['success'] && $result['score'] > 55) {
+                    // Send OTP ONLY if amount > 100 TND
+                    $amountTnd = (float)($input['amountTnd'] ?? 0);
+                    if ($amountTnd > 100) {
+                        self::sendOTP($userId);
+                    }
+                    echo json_encode([
+                        'success' => true, 
+                        'score' => $result['score'],
+                        'message' => 'Visage reconnu à ' . $result['score'] . '%'
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => false, 
+                        'message' => ($result['error'] ?? 'Échec de reconnaissance') . ' (' . ($result['score'] ?? 0) . '%)',
+                        'score' => $result['score'] ?? 0
+                    ]);
+                }
                 break;
 
             default:

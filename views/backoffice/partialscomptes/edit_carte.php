@@ -66,8 +66,8 @@
             </select>
           </div>
           <div class="form-field">
-            <label style="font-weight:600; font-size:.78rem; color:var(--muted2); text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:.5rem;">Date d'expiration (YYYY-MM)</label>
-            <input type="text" name="date_expiration" value="<?= htmlspecialchars(substr($formData['date_expiration'] ?? $carteEdit->getDateExpiration(), 0, 7)) ?>" style="background:var(--surface); border:1px solid var(--border2); border-radius:8px; padding:.75rem; width:100%; font-family:var(--fm);">
+            <label style="font-weight:600; font-size:.78rem; color:var(--muted2); text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:.5rem;">Date d'expiration</label>
+            <input type="month" name="date_expiration" value="<?= htmlspecialchars(substr($formData['date_expiration'] ?? $carteEdit->getDateExpiration(), 0, 7)) ?>" style="background:var(--surface); border:1px solid var(--border2); border-radius:8px; padding:.75rem; width:100%; font-family:var(--fm);">
           </div>
           <div class="form-field">
             <label style="font-weight:600; font-size:.78rem; color:var(--muted2); text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:.5rem;">Motif blocage</label>

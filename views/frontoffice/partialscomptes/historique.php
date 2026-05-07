@@ -1,14 +1,48 @@
 <?php
 $userId = $_SESSION['user']['id'] ?? 0;
 
-// Fetch transactions from SheetDB
-$apiUrl = "https://sheetdb.io/api/v1/2eyctn6m5yzmz/search?id_utilisateur=" . $userId;
+// Get user's IBANs for filtering received transactions
+$userIbans = [];
+if (isset($comptes)) {
+    foreach ($comptes as $c) {
+        if (is_array($c)) $userIbans[] = $c['iban'] ?? '';
+        else if (method_exists($c, 'getIban')) $userIbans[] = $c->getIban();
+    }
+}
+
+// Fetch ALL transactions to filter by both sender AND receiver in PHP
+$apiUrl = "https://sheetdb.io/api/v1/2eyctn6m5yzmz";
 $ch = curl_init($apiUrl);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_TIMEOUT, 6);
 $response = curl_exec($ch);
 curl_close($ch);
 $allTransactions = json_decode($response, true) ?? [];
+
+// Helper function to handle Excel Serial Dates
+function excelToUnix($excelDate) {
+    if (!$excelDate || !is_numeric(str_replace(',', '.', $excelDate))) return 0;
+    $val = (float)str_replace(',', '.', $excelDate);
+    if ($val > 1000000) return (int)$val; // Already unix
+    return ($val - 25569) * 86400;
+}
+
+// FORCE filtering in PHP for security and "sent/received" logic
+$userIdStr = (string)$userId;
+$allTransactions = array_filter($allTransactions, function($t) use ($userIdStr, $userIbans) {
+    $isSender = ($t['id_utilisateur'] ?? '') == $userIdStr;
+    $isSource = in_array($t['source'] ?? '', $userIbans);
+    $isDest   = in_array($t['destination'] ?? '', $userIbans);
+    return $isSender || $isSource || $isDest;
+});
+
+// PRE-PROCESS transactions to fix dates
+foreach ($allTransactions as &$t) {
+    if (isset($t['date'])) {
+        $t['date'] = excelToUnix($t['date']);
+    }
+}
+unset($t);
 
 $selectedIban = $_GET['iban_filter'] ?? '';
 $transactions = $allTransactions;
@@ -26,8 +60,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'excel') {
     $out = fopen('php://output', 'w');
     fputcsv($out, ['Date', 'Libelle', 'Type', 'Source', 'Destination', 'Montant', 'Devise']);
     foreach ($transactions as $t) {
+        $txTimestamp = is_numeric($t['date']) ? $t['date'] : 0;
         fputcsv($out, [
-            $t['date'] ?? '', $t['libelle'] ?? '', $t['type'] ?? '',
+            $txTimestamp ? date('Y-m-d H:i:s', $txTimestamp) : '', 
+            $t['libelle'] ?? '', $t['type'] ?? '',
             $t['source'] ?? '', $t['destination'] ?? '',
             $t['montant'] ?? 0, $t['devise'] ?? 'TND'
         ]);
@@ -277,7 +313,7 @@ $ibanDisplay = $selectedIban ?: 'Global — Tous les comptes';
                         $dst = $t['destination'] ?? '';
                     ?>
                     <tr>
-                        <td class="tx-date"><?= date('d M Y, H:i', strtotime($t['date'] ?? 'now')) ?></td>
+                        <td class="tx-date"><?= $t['date'] ? date('d M Y, H:i', (int)$t['date']) : '—' ?></td>
                         <td>
                             <div class="tx-label"><?= htmlspecialchars($t['libelle'] ?? 'Virement') ?></div>
                             <div class="tx-type"><?= htmlspecialchars(strtoupper($t['type'] ?? 'INTERNE')) ?></div>
@@ -406,7 +442,7 @@ function downloadPDF() {
             var dst   = t.destination ? (t.destination.substring(0,6) + '···' + t.destination.slice(-4)) : '—';
             var bg    = i % 2 === 0 ? '#ffffff' : '#f8fafc';
             var borderLeft = isOut ? '3px solid #dc2626' : '3px solid #16a34a';
-            var dateStr = t.date ? new Date(t.date).toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+            var dateStr = t.date ? new Date(t.date * 1000).toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
             var amount = parseFloat(t.montant || 0).toFixed(2);
             tbody.innerHTML += `
                 <tr style="background:${bg}; border-left:${borderLeft};">

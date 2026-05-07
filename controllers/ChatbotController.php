@@ -12,7 +12,8 @@ try {
     require_once __DIR__ . '/CompteController.php';
     require_once __DIR__ . '/CarteController.php';
 
-    Config::autoLogin();
+    require_once __DIR__ . '/../models/Session.php';
+    Session::start();
     $userId = (int)($_SESSION['user']['id'] ?? 0);
     $user   = $_SESSION['user'] ?? [];
 

@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../models/config.php';
 require_once __DIR__ . '/../models/CarteBancaire.php';
+require_once __DIR__ . '/../models/Security.php';
 require_once __DIR__ . '/../models/mailer.php';
 require_once __DIR__ . '/CompteController.php';
 
@@ -83,13 +84,16 @@ class CarteController
                  :date_expiration, :cvv_hash, :plafond_paiement_jour,
                  :plafond_retrait_jour, :statut, :style, :date_emission, :cvv_display)
         ");
+        $dateExp = $carte->getDateExpiration();
+        error_log("[CarteController] Saving card. Expiration: " . $dateExp);
+        
         $stmt->execute([
             'id_compte'             => $carte->getIdCompte(),
             'numero_carte'          => $carte->getNumeroCarte(),
             'type_carte'            => $carte->getTypeCarte(),
             'titulaire_nom'         => $carte->getTitulaireNom(),
             'reseau'                => $carte->getReseau(),
-            'date_expiration'       => $carte->getDateExpiration(),
+            'date_expiration'       => $dateExp ?: date('Y-m-t', strtotime('+4 years')),
             'cvv_hash'              => $carte->getCvvHash(),
             'plafond_paiement_jour' => $carte->getPlafondPaiementJour(),
             'plafond_retrait_jour'  => $carte->getPlafondRetraitJour(),
@@ -181,7 +185,7 @@ class CarteController
             $type,
             $titulaire,
             $reseau,
-            $dateExp ?: date('Y-m-t', strtotime('+4 years')),
+            $dateExp ? date('Y-m-t', strtotime($dateExp . '-01')) : date('Y-m-t', strtotime('+4 years')),
             self::hashCvv($cvv),
             $plafondPay,
             $plafondRet,
@@ -291,7 +295,8 @@ class CarteController
     public static function handleRequest(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
-        Config::autoLogin();
+        require_once __DIR__ . '/../models/Session.php';
+        Session::start();
 
         // ── CSRF CHECK ───────────────────────────────────────
         $token = $_POST['csrf_token'] ?? '';
@@ -432,7 +437,13 @@ class CarteController
                     if (isset($_POST['type_carte']))             $carte->setTypeCarte(trim($_POST['type_carte']));
                     if (isset($_POST['titulaire_nom']))          $carte->setTitulaireNom(trim($_POST['titulaire_nom']));
                     if (isset($_POST['reseau']))                 $carte->setReseau(trim($_POST['reseau']));
-                    if (isset($_POST['date_expiration']))        $carte->setDateExpiration(trim($_POST['date_expiration']));
+                    if (isset($_POST['date_expiration'])) {
+                        $rawDate = trim($_POST['date_expiration']);
+                        if (strlen($rawDate) === 7) { // YYYY-MM
+                             $rawDate = date('Y-m-t', strtotime($rawDate . '-01'));
+                        }
+                        $carte->setDateExpiration($rawDate);
+                    }
                     if (isset($_POST['statut']))                 $carte->setStatut(trim($_POST['statut']));
                     if (isset($_POST['motif_blocage']))          $carte->setMotifBlocage(trim($_POST['motif_blocage']));
                     if (isset($_POST['style']))                  $carte->setStyle(trim($_POST['style']));

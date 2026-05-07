@@ -205,7 +205,8 @@ class ObjectifController {
 
     public static function handleRequest(): void {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
-        Config::autoLogin();
+        require_once __DIR__ . '/../models/Session.php';
+        Session::start();
 
         // ── CSRF CHECK ───────────────────────────────────────
         $token = $_POST['csrf_token'] ?? '';
@@ -214,7 +215,7 @@ class ObjectifController {
             die('Access denied: Invalid CSRF token.');
         }
 
-        $userId = (int)($_SESSION['user']['id'] ?? 0);
+        $userId = (int)Session::get('user_id');
         $action = trim($_POST['action'] ?? '');
 
         if ($action === 'add_objectif') {

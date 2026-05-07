@@ -9,7 +9,8 @@ require_once __DIR__ . '/../../models/config.php';
 require_once __DIR__ . '/../../controllers/CompteController.php';
 require_once __DIR__ . '/../../controllers/CarteController.php';
 
-Config::autoLogin();
+require_once __DIR__ . '/../../models/Session.php';
+Session::requireAdmin("../frontoffice/login.php");
 
 $comptes     = CompteController::findAll();
 $kpi_actifs  = CompteController::countByStatut('actif');
@@ -101,60 +102,7 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
 <body>
 
 <!-- TOP NAVBAR -->
-<div class="sidebar">
-  <div class="sb-logo">
-    <div class="sb-logo-name">Legal<span>Fin</span></div>
-    <div class="sb-logo-env">BACK OFFICE</div>
-  </div>
-  <div class="sb-user">
-    <div class="sb-av"><?= $adminInitials ?></div>
-    <div>
-      <div class="sb-uname"><?= $adminNom ?></div>
-      <div class="sb-uemail">Agent bancaire</div>
-    </div>
-  </div>
-  <div class="sb-status" style="margin: 0 1.4rem 1rem; padding: 4px 10px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 99px; display: inline-flex; align-items: center; gap: 6px; font-size: 0.65rem; color: #22C55E;">
-    <span class="status-dot" style="width: 6px; height: 6px; background: #22C55E; border-radius: 50%; display: inline-block;"></span>
-    Opérationnel
-  </div>
-  <?php
-    $isCompteSection = in_array($tab, ['comptes', 'attente', 'stats']);
-  ?>
-  <nav class="sb-nav">
-    <div class="nav-dropdown <?= $isCompteSection ? 'open' : '' ?>" id="dropdown-compte">
-      <button class="nav-dropdown-toggle" onclick="toggleDropdown('dropdown-compte')">
-        <div class="nav-dropdown-toggle-left">
-          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
-          <span>Comptes & Cartes</span>
-        </div>
-        <svg class="nav-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-      <div class="nav-dropdown-menu">
-        <a class="nav-sub-item <?= $tab==='comptes'?'active':'' ?>" href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=comptes">
-          <span class="nav-sub-dot"></span>Liste
-        </a>
-        <a class="nav-sub-item <?= $tab==='attente'?'active':'' ?>" href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=attente">
-          <span class="nav-sub-dot"></span>En attente
-          <?php if ($pendingTotal>0): ?>
-          <span style="margin-left:auto;background:rgba(245,158,11,.2);color:var(--amber);border-radius:99px;padding:1px 7px;font-size:.62rem;font-weight:600"><?= $pendingTotal ?></span>
-          <?php endif; ?>
-        </a>
-        <a class="nav-sub-item <?= $tab==='stats'?'active':'' ?>" href="<?= APP_URL ?>/views/backoffice/backoffice_compte.php?tab=stats">
-          <span class="nav-sub-dot"></span>Statistiques
-        </a>
-      </div>
-    </div>
-    <a class="nav-item" href="../frontoffice/frontoffice_compte.php">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-      Frontoffice
-    </a>
-  </nav>
-  <div class="sb-footer">
-    <div class="badge-kyc" style="background:rgba(79, 142, 247, .1); color:var(--blue); border-color:rgba(79, 142, 247, .25);">
-      <span class="dot-pulse" style="background:var(--blue);"></span>Session Admin
-    </div>
-  </div>
-</div>
+<?php include __DIR__ . '/partials/sidebar.php'; ?>
 
 <!-- MAIN -->
 <div class="main">
