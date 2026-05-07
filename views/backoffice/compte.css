@@ -2067,3 +2067,21 @@ tr:hover td {
   overflow-wrap: anywhere;
   white-space: normal;
 }
+
+/* UNIVERSAL SCROLLBAR FIX */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.7); }
+.sidebar::-webkit-scrollbar { width: 0px !important; display: none !important; }
+.sidebar { scrollbar-width: none; -ms-overflow-style: none; }
+
+
+/* UNIVERSAL SCROLLBAR FIX V2 */
+html, body, .content { scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.4) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.7); }
+.sidebar::-webkit-scrollbar { width: 0px !important; display: none !important; }
+.sidebar { scrollbar-width: none !important; -ms-overflow-style: none !important; }

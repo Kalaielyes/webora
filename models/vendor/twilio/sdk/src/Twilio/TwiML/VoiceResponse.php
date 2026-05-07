@@ -219,8 +219,4 @@ class VoiceResponse extends TwiML {
     public function refer($attributes = []): Voice\Refer {
         return $this->nest(new Voice\Refer($attributes));
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

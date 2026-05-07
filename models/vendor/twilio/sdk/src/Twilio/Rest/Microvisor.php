@@ -39,8 +39,4 @@ class Microvisor extends MicrovisorBase {
         echo "devices(\$sid) is deprecated. Use v1->devices(\$sid) instead.";
         return $this->v1->devices($sid);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

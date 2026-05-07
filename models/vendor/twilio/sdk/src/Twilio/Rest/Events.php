@@ -73,8 +73,4 @@ class Events extends EventsBase {
         echo "subscriptions(\$sid) is deprecated. Use v1->subscriptions(\$sid) instead.";
         return $this->v1->subscriptions($sid);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

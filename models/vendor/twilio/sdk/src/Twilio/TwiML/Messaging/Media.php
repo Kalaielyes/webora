@@ -20,8 +20,4 @@ class Media extends TwiML {
     public function __construct($url) {
         parent::__construct('Media', $url);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

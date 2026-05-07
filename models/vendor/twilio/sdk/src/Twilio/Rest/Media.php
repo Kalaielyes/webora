@@ -56,8 +56,4 @@ class Media extends MediaBase {
         echo "playerStreamer(\$sid) is deprecated. Use v1->playerStreamer(\$sid) instead.";
         return $this->v1->playerStreamer($sid);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

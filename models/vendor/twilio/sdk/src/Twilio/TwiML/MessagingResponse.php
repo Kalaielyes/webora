@@ -38,8 +38,4 @@ class MessagingResponse extends TwiML {
     public function redirect($url, $attributes = []): Messaging\Redirect {
         return $this->nest(new Messaging\Redirect($url, $attributes));
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

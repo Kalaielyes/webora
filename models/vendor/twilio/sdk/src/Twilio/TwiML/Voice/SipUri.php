@@ -57,8 +57,4 @@ class SipUri extends TwiML {
     public function setPassword($password): self {
         return $this->setAttribute('password', $password);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

@@ -31,8 +31,4 @@ class SsmlSub extends TwiML {
     public function setAlias($alias): self {
         return $this->setAttribute('alias', $alias);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

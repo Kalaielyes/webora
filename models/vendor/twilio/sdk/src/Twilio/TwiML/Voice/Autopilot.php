@@ -20,8 +20,4 @@ class Autopilot extends TwiML {
     public function __construct($name) {
         parent::__construct('Autopilot', $name);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

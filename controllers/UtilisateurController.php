@@ -11,11 +11,7 @@ function setErrors(array $errors, string $oldKey, array $old): void {
     Session::set($oldKey, $old);
 }
 if ($action === 'update_profil') {
-<<<<<<< HEAD
-    Session::requireLogin('../views/frontoffice/login.php');
-=======
     Session::requireLogin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int) Session::get('user_id');
     $nom     = trim($_POST['nom']     ?? '');
     $prenom  = trim($_POST['prenom']  ?? '');
@@ -54,11 +50,7 @@ if ($action === 'update_profil') {
         Session::set('profil_errors', $errors);
         Session::set('old_profil', $old);
         Session::setFlash('error', 'Veuillez corriger les erreurs ci-dessous.');
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/frontoffice_utilisateur.php'); 
-=======
         header('Location: ../views/FrontOffice/frontoffice_utilisateur.php'); 
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     try {
@@ -74,19 +66,11 @@ if ($action === 'update_profil') {
         Session::set('old_profil', $old);
         Session::setFlash('error', 'Erreur lors de la mise à jour.');
     }
-<<<<<<< HEAD
-    header('Location: ../views/frontoffice/frontoffice_utilisateur.php'); 
-    exit;
-}
-if ($action === 'update_password') {
-    Session::requireLogin('../views/frontoffice/login.php');
-=======
     header('Location: ../views/FrontOffice/frontoffice_utilisateur.php'); 
     exit;
 }
 if ($action === 'update_password') {
     Session::requireLogin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id          = (int) Session::get('user_id');
     $ancien_mdp  = $_POST['ancien_mdp']  ?? '';
     $nouveau_mdp = $_POST['nouveau_mdp'] ?? '';
@@ -115,11 +99,7 @@ if ($action === 'update_password') {
         Session::set('pwd_errors', $errors);
         Session::setFlash('error', 'Veuillez corriger les erreurs ci-dessous.');
         Session::set('pwd_error', true);
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/frontoffice_utilisateur.php'); 
-=======
         header('Location: ../views/FrontOffice/frontoffice_utilisateur.php'); 
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     try {
@@ -132,48 +112,28 @@ if ($action === 'update_password') {
         Session::setFlash('error', $e->getMessage());
         Session::set('pwd_error', true);
     }
-<<<<<<< HEAD
-    header('Location: ../views/frontoffice/frontoffice_utilisateur.php'); 
-    exit;
-}
-if ($action === 'upload_file') {
-    Session::requireLogin('../views/frontoffice/login.php');
-=======
     header('Location: ../views/FrontOffice/frontoffice_utilisateur.php'); 
     exit;
 }
 if ($action === 'upload_file') {
     Session::requireLogin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int) Session::get('user_id');
     $user = $m->findById($id);
     if (!empty($user['id_file_path'])) {
         Session::setFlash('error', 'Vous avez déjà déposé un fichier ID. Contactez l\'administration pour modifications.');
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/frontoffice_utilisateur.php');
-=======
         header('Location: ../views/FrontOffice/frontoffice_utilisateur.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     // --- Validate ID document ---
     if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
         Session::setFlash('error', 'Le document ID est requis.');
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/frontoffice_utilisateur.php');
-=======
         header('Location: ../views/FrontOffice/frontoffice_utilisateur.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     // --- Validate selfie ---
     if (!isset($_FILES['selfie']) || $_FILES['selfie']['error'] !== UPLOAD_ERR_OK) {
         Session::setFlash('error', 'Le selfie est requis pour la vérification d\'identité.');
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/frontoffice_utilisateur.php');
-=======
         header('Location: ../views/FrontOffice/frontoffice_utilisateur.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     $file   = $_FILES['file'];
@@ -183,21 +143,6 @@ if ($action === 'upload_file') {
     $maxSize = 5 * 1024 * 1024;
     if (!in_array($file['type'], $allowedTypes)) {
         Session::setFlash('error', 'Type de fichier ID non autorisé. Seuls JPEG, PNG, GIF et PDF sont acceptés.');
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/frontoffice_utilisateur.php'); exit;
-    }
-    if ($file['size'] > $maxSize) {
-        Session::setFlash('error', 'L\'ID est trop volumineux. Taille maximale : 5MB.');
-        header('Location: ../views/frontoffice/frontoffice_utilisateur.php'); exit;
-    }
-    if (!in_array($selfie['type'], $allowedSelfieTypes)) {
-        Session::setFlash('error', 'Le selfie doit être au format JPEG ou PNG.');
-        header('Location: ../views/frontoffice/frontoffice_utilisateur.php'); exit;
-    }
-    if ($selfie['size'] > $maxSize) {
-        Session::setFlash('error', 'Le selfie est trop volumineux. Taille maximale : 5MB.');
-        header('Location: ../views/frontoffice/frontoffice_utilisateur.php'); exit;
-=======
         header('Location: ../views/FrontOffice/frontoffice_utilisateur.php'); exit;
     }
     if ($file['size'] > $maxSize) {
@@ -211,27 +156,18 @@ if ($action === 'upload_file') {
     if ($selfie['size'] > $maxSize) {
         Session::setFlash('error', 'Le selfie est trop volumineux. Taille maximale : 5MB.');
         header('Location: ../views/FrontOffice/frontoffice_utilisateur.php'); exit;
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     }
     $uploadDir = __DIR__ . '/../models/uploads/';
     // Save ID document
     $cleanName    = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', basename($file['name']));
     $fileName     = uniqid() . '_' . $cleanName;
     $filePath     = $uploadDir . $fileName;
-<<<<<<< HEAD
     $relativePath = 'models/uploads/' . $fileName;
-=======
-    $relativePath = 'model/uploads/' . $fileName;
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     // Save selfie
     $selfieClean    = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', basename($selfie['name']));
     $selfieFileName = 'selfie_' . uniqid() . '_' . $selfieClean;
     $selfieFullPath = $uploadDir . $selfieFileName;
-<<<<<<< HEAD
     $selfieRelative = 'models/uploads/' . $selfieFileName;
-=======
-    $selfieRelative = 'model/uploads/' . $selfieFileName;
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
 
     if (move_uploaded_file($file['tmp_name'], $filePath) && move_uploaded_file($selfie['tmp_name'], $selfieFullPath)) {
         try {
@@ -277,20 +213,12 @@ if ($action === 'upload_file') {
     } else {
         Session::setFlash('error', 'Erreur lors de la sauvegarde des fichiers.');
     }
-<<<<<<< HEAD
-    header('Location: ../views/frontoffice/frontoffice_utilisateur.php');
-=======
     header('Location: ../views/FrontOffice/frontoffice_utilisateur.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     exit;
 }
 
 if ($action === 'admin_add') {
-<<<<<<< HEAD
-    Session::requireAdmin('../views/frontoffice/login.php');
-=======
     Session::requireAdmin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $nom            = trim($_POST['nom']            ?? '');
     $prenom         = trim($_POST['prenom']         ?? '');
     $email          = trim($_POST['email']          ?? '');
@@ -370,24 +298,17 @@ if ($action === 'admin_add') {
     header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
 }
 if ($action === 'admin_edit') {
-<<<<<<< HEAD
-    Session::requireAdmin('../views/frontoffice/login.php');
-=======
     Session::requireAdmin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int)($_POST['id'] ?? 0);
     if ($id <= 0) {
         Session::setFlash('error', 'ID invalide.');
         header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
     }
-<<<<<<< HEAD
-=======
     $existingUser = $m->findById($id);
     if (!$existingUser) {
         Session::setFlash('error', 'Utilisateur non trouvé.');
         header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
     }
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $role = $existingUser['role']; 
     $nom        = trim($_POST['nom']     ?? '');
     $prenom     = trim($_POST['prenom']  ?? '');
@@ -447,11 +368,7 @@ if ($action === 'admin_edit') {
     header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
 }
 if ($action === 'admin_reset_pwd') {
-<<<<<<< HEAD
-    Session::requireAdmin('../views/frontoffice/login.php');
-=======
     Session::requireAdmin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id     = (int)($_POST['id'] ?? 0);
     $newMdp = trim($_POST['new_mdp'] ?? '');
     $errors = [];
@@ -477,34 +394,23 @@ if ($action === 'admin_reset_pwd') {
     header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
 }
 if ($action === 'admin_delete') {
-<<<<<<< HEAD
-    Session::requireAdmin('../views/frontoffice/login.php');
-=======
     Session::requireAdmin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
     if ($id <= 0) {
         Session::setFlash('error', 'ID invalide.');
         header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
     }
-<<<<<<< HEAD
-=======
     if ($id === (int)Session::get('user_id')) {
         Session::setFlash('error', 'Vous ne pouvez pas supprimer votre propre compte.');
         header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
     }
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $m->delete($id);
     AuditLog::log((int)Session::get('user_id'), "Suppression d'utilisateur", $id);
     Session::setFlash('success', 'Utilisateur supprime.');
     header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
 }
 if ($action === 'valider_kyc') {
-<<<<<<< HEAD
-    Session::requireAdmin('../views/frontoffice/login.php');
-=======
     Session::requireAdmin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int)($_POST['id'] ?? 0);
     if ($id <= 0) {
         Session::setFlash('error', 'ID invalide.');
@@ -516,34 +422,23 @@ if ($action === 'valider_kyc') {
     header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
 }
 if ($action === 'bloquer') {
-<<<<<<< HEAD
-    Session::requireAdmin('../views/frontoffice/login.php');
-=======
     Session::requireAdmin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int)($_POST['id'] ?? 0);
     if ($id <= 0) {
         Session::setFlash('error', 'ID invalide.');
         header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
     }
-<<<<<<< HEAD
-=======
     if ($id === (int)Session::get('user_id')) {
         Session::setFlash('error', 'Vous ne pouvez pas bloquer votre propre compte.');
         header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
     }
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $m->updateStatuts($id, 'SUSPENDU', $_POST['kyc'] ?? 'EN_ATTENTE', $_POST['aml'] ?? 'EN_ATTENTE', $_POST['role'] ?? 'CLIENT');
     AuditLog::log((int)Session::get('user_id'), "Blocage / Suspension de compte", $id);
     Session::setFlash('success', 'Compte bloque.');
     header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
 }
 if ($action === 'admin_set_association') {
-<<<<<<< HEAD
-    Session::requireAdmin('../views/frontoffice/login.php');
-=======
     Session::requireAdmin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int)($_POST['id'] ?? 0);
     $assoc = isset($_POST['association']) && $_POST['association'] === '1';
     if ($id <= 0) {
@@ -560,11 +455,7 @@ if ($action === 'admin_set_association') {
     header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
 }
 if ($action === 'admin_delete_file') {
-<<<<<<< HEAD
-    Session::requireAdmin('../views/frontoffice/login.php');
-=======
     Session::requireAdmin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int)($_POST['id'] ?? 0);
     if ($id <= 0) {
         Session::setFlash('error', 'ID invalide.');
@@ -593,24 +484,17 @@ if ($action === 'admin_delete_file') {
     header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
 }
 if ($action === 'scan_aml') {
-<<<<<<< HEAD
-    Session::requireAdmin('../views/frontoffice/login.php');
-=======
     Session::requireAdmin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int)($_POST['id'] ?? 0);
     if ($id <= 0) {
         Session::setFlash('error', 'ID invalide.');
         header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
     }
-<<<<<<< HEAD
-=======
     $user = $m->findById($id);
     if (!$user) {
         Session::setFlash('error', 'Utilisateur non trouvé.');
         header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
     }
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     require_once __DIR__ . '/../models/AmlApiService.php';
     $amlService = new AmlApiService();
     $userData = [
@@ -639,16 +523,10 @@ if ($action === 'scan_aml') {
     header('Location: ../views/backoffice/backoffice_utilisateur.php?page=utilisateurs&detail=' . $id); exit;
 }
 if ($action === 'scan_ocr') {
-<<<<<<< HEAD
-    Session::requireAdmin('../views/frontoffice/login.php');
-    $id = (int)($_POST['id'] ?? 0);
-    if ($id <= 0) {
-=======
     Session::requireAdmin('../views/FrontOffice/login.php');
     $id = (int)($_POST['id'] ?? 0);
     if ($id <= 0) {
         Session::setFlash('error', 'ID invalide.');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         header('Location: ../views/backoffice/backoffice_utilisateur.php'); exit;
     }
     $user = $m->findById($id);
@@ -670,11 +548,7 @@ if ($action === 'scan_ocr') {
 }
 
 if ($action === 'enable_2fa') {
-<<<<<<< HEAD
-    Session::requireLogin('../views/frontoffice/login.php');
-=======
     Session::requireLogin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int) Session::get('user_id');
     $code = trim($_POST['code'] ?? '');
     $secret = trim($_POST['secret'] ?? '');
@@ -684,38 +558,22 @@ if ($action === 'enable_2fa') {
 
     if (empty($code) || empty($secret)) {
         Session::setFlash('error', 'Code invalide.');
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/2fa_setup.php'); exit;
-=======
         header('Location: ../views/FrontOffice/2fa_setup.php'); exit;
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     }
 
     if ($ga->verifyCode($secret, $code, 2)) {
         $m->update2FA($id, $secret, 1);
         Session::setFlash('success', 'Authentification à deux facteurs activée avec succès.');
-<<<<<<< HEAD
-        $redirect = (Session::isAdmin()) ? '../views/backoffice/backoffice_utilisateur.php?page=profil' : '../views/frontoffice/frontoffice_utilisateur.php';
-        header("Location: $redirect"); exit;
-    } else {
-        Session::setFlash('error', 'Code incorrect. Veuillez réessayer.');
-        header('Location: ../views/frontoffice/2fa_setup.php'); exit;
-=======
         $redirect = (Session::isAdmin()) ? '../views/backoffice/backoffice_utilisateur.php?page=profil' : '../views/FrontOffice/frontoffice_utilisateur.php';
         header("Location: $redirect"); exit;
     } else {
         Session::setFlash('error', 'Code incorrect. Veuillez réessayer.');
         header('Location: ../views/FrontOffice/2fa_setup.php'); exit;
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     }
 }
 
 if ($action === 'setup_face_id_biometric' || $action === 'setup_face_id_admin') {
-<<<<<<< HEAD
-    Session::requireLogin('../views/frontoffice/login.php');
-=======
     Session::requireLogin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int) Session::get('user_id');
     $imageData = $_POST['image'] ?? '';
     
@@ -730,11 +588,7 @@ if ($action === 'setup_face_id_biometric' || $action === 'setup_face_id_admin') 
     $fileName = 'selfie_' . $id . '_' . uniqid() . '.jpg';
     $path = __DIR__ . '/../models/uploads/' . $fileName;
     file_put_contents($path, $data);
-<<<<<<< HEAD
     $relative = 'models/uploads/' . $fileName;
-=======
-    $relative = 'model/uploads/' . $fileName;
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
 
     try {
         $m->updateSelfie($id, $relative, 100); 
@@ -747,11 +601,7 @@ if ($action === 'setup_face_id_biometric' || $action === 'setup_face_id_admin') 
 }
 
 if ($action === 'delete_selfie_admin' || $action === 'delete_selfie_client') {
-<<<<<<< HEAD
-    Session::requireLogin('../views/frontoffice/login.php');
-=======
     Session::requireLogin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int) Session::get('user_id');
     $user = $m->findById($id);
     if (!empty($user['selfie_path'])) {
@@ -761,29 +611,17 @@ if ($action === 'delete_selfie_admin' || $action === 'delete_selfie_client') {
         AuditLog::log($id, "Suppression Face ID", $id);
         Session::setFlash('success', 'Face ID supprimé.');
     }
-<<<<<<< HEAD
-    $redirect = (in_array($user['role'], ['ADMIN','SUPER_ADMIN'])) ? '../views/backoffice/backoffice_utilisateur.php?page=profil' : '../views/frontoffice/frontoffice_utilisateur.php';
-=======
     $redirect = (in_array($user['role'], ['ADMIN','SUPER_ADMIN'])) ? '../views/backoffice/backoffice_utilisateur.php?page=profil' : '../views/FrontOffice/frontoffice_utilisateur.php';
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     header('Location: ' . $redirect); exit;
 }
 
 if ($action === 'disable_2fa') {
-<<<<<<< HEAD
-    Session::requireLogin('../views/frontoffice/login.php');
-=======
     Session::requireLogin('../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     $id = (int) Session::get('user_id');
     $mdp = $_POST['mdp'] ?? '';
     
     $user = $m->findById($id);
-<<<<<<< HEAD
-    $redirect = (Session::isAdmin()) ? '../views/backoffice/backoffice_utilisateur.php?page=profil' : '../views/frontoffice/frontoffice_utilisateur.php';
-=======
     $redirect = (Session::isAdmin()) ? '../views/backoffice/backoffice_utilisateur.php?page=profil' : '../views/FrontOffice/frontoffice_utilisateur.php';
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
 
     if (!$m->verifyPassword($mdp, $user['mdp'])) {
         Session::setFlash('error', 'Mot de passe incorrect.');
@@ -795,8 +633,4 @@ if ($action === 'disable_2fa') {
     header("Location: $redirect"); exit;
 }
 
-<<<<<<< HEAD
-header('Location: ../views/frontoffice/login.php'); exit;
-=======
 header('Location: ../views/FrontOffice/login.php'); exit;
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

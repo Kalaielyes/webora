@@ -129,8 +129,4 @@ class Record extends TwiML {
     public function setTranscribeCallback($transcribeCallback): self {
         return $this->setAttribute('transcribeCallback', $transcribeCallback);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

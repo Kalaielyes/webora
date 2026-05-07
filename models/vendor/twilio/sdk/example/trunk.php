@@ -14,8 +14,4 @@ $trunk = $client->trunking->v1->trunks->create(
         "secure" => false
     ]
 );
-<<<<<<< HEAD
 print("\n".$trunk."\n");
-=======
-print("\n".$trunk."\n");
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

@@ -203,8 +203,4 @@ class Conference extends TwiML {
     public function setParticipantLabel($participantLabel): self {
         return $this->setAttribute('participantLabel', $participantLabel);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

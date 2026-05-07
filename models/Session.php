@@ -28,22 +28,14 @@ class Session {
         return isset($_SESSION['role']) &&
                in_array($_SESSION['role'], ['ADMIN', 'SUPER_ADMIN']);
     }
-<<<<<<< HEAD
-    public static function requireLogin(string $redirect = '../views/frontoffice/login.php') : void {
-=======
     public static function requireLogin(string $redirect = '../views/FrontOffice/login.php') : void {
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         self::start();
         if (!self::isLoggedIn()) {
             header('Location: ' . $redirect);
             exit;
         }
     }
-<<<<<<< HEAD
-    public static function requireAdmin(string $redirect = '../views/frontoffice/login.php') : void {
-=======
     public static function requireAdmin(string $redirect = '../views/FrontOffice/login.php') : void {
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         self::start();
         if (!self::isAdmin()) {
             header('Location: ' . $redirect);
@@ -61,8 +53,4 @@ class Session {
         }
         return null;
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

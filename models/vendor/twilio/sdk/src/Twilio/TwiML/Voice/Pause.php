@@ -29,8 +29,4 @@ class Pause extends TwiML {
     public function setLength($length): self {
         return $this->setAttribute('length', $length);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

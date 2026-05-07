@@ -31,8 +31,4 @@ class Room extends TwiML {
     public function setParticipantIdentity($participantIdentity): self {
         return $this->setAttribute('participantIdentity', $participantIdentity);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

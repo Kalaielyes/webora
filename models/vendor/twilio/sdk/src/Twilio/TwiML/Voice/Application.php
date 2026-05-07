@@ -105,8 +105,4 @@ class Application extends TwiML {
     public function setCopyParentTo($copyParentTo): self {
         return $this->setAttribute('copyParentTo', $copyParentTo);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

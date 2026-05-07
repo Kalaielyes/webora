@@ -98,8 +98,4 @@ class Voice extends VoiceBase {
         echo "sourceIpMappings(\$sid) is deprecated. Use v1->sourceIpMappings(\$sid) instead.";
         return $this->v1->sourceIpMappings($sid);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

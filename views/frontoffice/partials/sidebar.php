@@ -20,7 +20,21 @@ $showHistorique = $showHistorique ?? (!empty($_GET['tab'])  && $_GET['tab']==='h
 
 $isCompteSection = $isCompteSection ?? ((!$showCompteForm && !$showCarteForm && !$showAttente && !$showVirementForm && !$showObjectifs && !$showHistorique) || $showCompteForm || $showCarteForm);
 $isOperationSection = $isOperationSection ?? ($showVirementForm || $showObjectifs || $showHistorique);
-$pendingCount = $pendingCount ?? 0; // Should be passed from view if possible
+$pendingCount = $pendingCount ?? 0;
+if ($pendingCount === 0 && isset($_SESSION['user_id'])) {
+    $uid = (int)$_SESSION['user_id'];
+    require_once __DIR__ . '/../../../controllers/CompteController.php';
+    require_once __DIR__ . '/../../../controllers/CarteController.php';
+    $pts = CompteController::findByUtilisateur($uid);
+    $pCount = 0;
+    foreach ($pts as $c) {
+        if (in_array($c->getStatut(), ['en_attente','demande_cloture','demande_suppression','demande_activation_courant'])) $pCount++;
+        foreach (CarteController::findByCompte($c->getIdCompte()) as $carte) {
+            if (in_array($carte->getStatut(), ['inactive','demande_cloture','demande_suppression','demande_reactivation'])) $pCount++;
+        }
+    }
+    $pendingCount = $pCount;
+}
 ?>
 
 <div class="sidebar">
@@ -46,13 +60,13 @@ $pendingCount = $pendingCount ?? 0; // Should be passed from view if possible
     <?php if ($isKycVerifie): ?>
       <!-- ══ COMPTE DROPDOWN ══ -->
       <div class="nav-dropdown <?= $isCompteSection ? 'open' : '' ?>" id="dropdown-compte">
-        <button class="nav-dropdown-toggle" onclick="toggleDropdown('dropdown-compte')">
+        <div class="nav-item nav-dropdown-toggle" onclick="toggleDropdown('dropdown-compte')" style="cursor:pointer; user-select:none;">
           <div class="nav-dropdown-toggle-left">
             <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
             <span>Compte</span>
           </div>
-          <svg class="nav-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
+          <svg class="nav-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-left:auto"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
         <div class="nav-dropdown-menu">
           <a class="nav-sub-item <?= ($currentFile === 'frontoffice_compte.php' && !$showCompteForm&&!$showCarteForm&&!$showAttente&&!$showVirementForm&&!$showObjectifs)?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php">
             <span class="nav-sub-dot"></span>Mes comptes
@@ -63,19 +77,18 @@ $pendingCount = $pendingCount ?? 0; // Should be passed from view if possible
           <a class="nav-sub-item <?= $showCarteForm?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=carte">
             <span class="nav-sub-dot"></span>Demander une carte
           </a>
-          
         </div>
       </div>
 
       <!-- ══ OPÉRATIONS DROPDOWN ══ -->
       <div class="nav-dropdown <?= $isOperationSection ? 'open' : '' ?>" id="dropdown-operations">
-        <button class="nav-dropdown-toggle" onclick="toggleDropdown('dropdown-operations')">
+        <div class="nav-item nav-dropdown-toggle" onclick="toggleDropdown('dropdown-operations')" style="cursor:pointer; user-select:none;">
           <div class="nav-dropdown-toggle-left">
             <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             <span>Opérations</span>
           </div>
-          <svg class="nav-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
+          <svg class="nav-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-left:auto"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
         <div class="nav-dropdown-menu">
           <a class="nav-sub-item <?= $showVirementForm?'active':'' ?>" href="<?= APP_URL ?>/views/frontoffice/frontoffice_compte.php?form=virement">
             <span class="nav-sub-dot"></span>Virement
@@ -99,13 +112,15 @@ $pendingCount = $pendingCount ?? 0; // Should be passed from view if possible
       <?php endif; ?>
     <?php endif; ?>
 
-    <?php if (Session::get('role') === 'ADMIN'): ?>
-    <a class="nav-item" href="../backoffice/backoffice_compte.php">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Backoffice Admin
+    <?php if (in_array(Session::get('role'), ['ADMIN', 'SUPER_ADMIN'])): ?>
+    <div class="nav-section" style="margin-top:.4rem">Administration</div>
+    <a class="nav-item" href="<?= APP_URL ?>/views/backoffice/backoffice_utilisateur.php">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Backoffice Admin
     </a>
     <?php endif; ?>
 
-    <a class="nav-item" href="../../controllers/AuthController.php?action=logout" style="margin-top:auto; color:var(--rose);">
+    <a class="nav-item" href="../../controllers/AuthController.php?action=logout" style="margin-top:auto; color:var(--rose); text-decoration:none;">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
       Déconnexion
     </a>
@@ -121,8 +136,10 @@ $pendingCount = $pendingCount ?? 0; // Should be passed from view if possible
 </div>
 
 <script>
-function toggleDropdown(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.toggle('open');
+if(typeof toggleDropdown !== 'function') {
+  function toggleDropdown(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
 }
 </script>

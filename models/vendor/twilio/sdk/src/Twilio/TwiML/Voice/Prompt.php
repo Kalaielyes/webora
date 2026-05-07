@@ -98,8 +98,4 @@ class Prompt extends TwiML {
     public function setRequireMatchingInputs($requireMatchingInputs): self {
         return $this->setAttribute('requireMatchingInputs', $requireMatchingInputs);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

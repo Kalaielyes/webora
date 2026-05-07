@@ -169,8 +169,4 @@ class Transcription extends TwiML {
     public function setIntelligenceService($intelligenceService): self {
         return $this->setAttribute('intelligenceService', $intelligenceService);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

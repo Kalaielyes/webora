@@ -28,8 +28,4 @@ class Headers extends TwiML {
     public function header($attributes = []): Header {
         return $this->nest(new Header($attributes));
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

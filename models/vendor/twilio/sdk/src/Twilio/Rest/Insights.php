@@ -80,8 +80,4 @@ class Insights extends InsightsBase {
         echo "rooms(\$roomSid) is deprecated. Use v1->rooms(\$roomSid) instead.";
         return $this->v1->rooms($roomSid);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

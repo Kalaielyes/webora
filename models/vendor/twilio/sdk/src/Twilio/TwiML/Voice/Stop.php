@@ -48,8 +48,4 @@ class Stop extends TwiML {
     public function transcription($attributes = []): Transcription {
         return $this->nest(new Transcription($attributes));
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

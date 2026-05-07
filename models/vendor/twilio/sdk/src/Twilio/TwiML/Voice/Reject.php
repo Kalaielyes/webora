@@ -39,8 +39,4 @@ class Reject extends TwiML {
     public function setReason($reason): self {
         return $this->setAttribute('reason', $reason);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

@@ -39,8 +39,4 @@ class SsmlPhoneme extends TwiML {
     public function setPh($ph): self {
         return $this->setAttribute('ph', $ph);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

@@ -96,8 +96,4 @@ class Verify extends VerifyBase {
         echo "templates is deprecated. Use v2->templates instead.";
         return $this->v2->templates;
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

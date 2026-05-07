@@ -51,7 +51,9 @@ class FaceVerificationService {
         curl_close($ch);
 
         if ($httpCode !== 200) {
-            return ['success' => false, 'score' => 0, 'error' => "Erreur API Face++ (HTTP $httpCode)"];
+            $errDetails = json_decode($response, true);
+            $errMsg = $errDetails['error_message'] ?? "Erreur API Face++ (HTTP $httpCode)";
+            return ['success' => false, 'score' => 0, 'error' => $errMsg];
         }
 
         $json = json_decode($response, true);
@@ -83,8 +85,4 @@ class FaceVerificationService {
             'simulated' => true,
         ];
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

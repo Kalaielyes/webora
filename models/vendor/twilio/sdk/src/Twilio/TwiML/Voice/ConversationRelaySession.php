@@ -42,8 +42,4 @@ class ConversationRelaySession extends TwiML {
     public function setSessionConfiguration($sessionConfiguration): self {
         return $this->setAttribute('sessionConfiguration', $sessionConfiguration);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

@@ -76,8 +76,4 @@ class Recording extends TwiML {
     public function setChannels($channels): self {
         return $this->setAttribute('channels', $channels);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

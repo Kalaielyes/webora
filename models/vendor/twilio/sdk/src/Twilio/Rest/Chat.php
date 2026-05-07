@@ -57,8 +57,4 @@ class Chat extends ChatBase {
         echo "channels(\$serviceSid, \$sid) is deprecated. Use v3->channels(\$serviceSid, \$sid) instead.";
         return $this->v3->channels($serviceSid, $sid);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

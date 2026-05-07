@@ -26,8 +26,4 @@ function buyNumber(): ?Twilio\Rest\Api\V2010\Account\IncomingPhoneNumberInstance
 
 // Get a number
 $number = buyNumber();
-<<<<<<< HEAD
 print("Twilio purchased phoneNumber: ".$number->phoneNumber."\n");
-=======
-print("Twilio purchased phoneNumber: ".$number->phoneNumber."\n");
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

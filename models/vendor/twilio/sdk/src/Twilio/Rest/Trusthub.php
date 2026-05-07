@@ -125,8 +125,4 @@ class Trusthub extends TrusthubBase {
         echo "trustProducts(\$sid) is deprecated. Use v1->trustProducts(\$sid) instead.";
         return $this->v1->trustProducts($sid);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

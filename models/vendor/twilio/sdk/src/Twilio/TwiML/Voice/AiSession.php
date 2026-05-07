@@ -41,8 +41,4 @@ class AiSession extends TwiML {
     public function setAiSessionConfiguration($aiSessionConfiguration): self {
         return $this->setAttribute('aiSessionConfiguration', $aiSessionConfiguration);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

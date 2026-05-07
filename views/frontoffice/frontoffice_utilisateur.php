@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../models/Session.php';
+require_once __DIR__ . '/../../models/config.php';
 require_once __DIR__ . '/../../models/Utilisateur.php';
 Session::requireLogin('login.php');
 $m    = new Utilisateur();
@@ -58,37 +59,7 @@ function oldProfil(string $key, array $old, array $user): string {
 </style>
 </head>
 <body>
-<aside class="sidebar">
-  <div class="sb-logo">
-    <div class="sb-logo-name">LegalFin<span>Bank</span></div>
-    <div class="sb-logo-tag">Espace Client</div>
-  </div>
-  <div class="sb-user">
-    <div class="sb-av"><?= $initials ?></div>
-    <div>
-      <div class="sb-uname"><?= htmlspecialchars($user['nom'].' '.$user['prenom']) ?></div>
-      <div class="sb-uemail"><?= htmlspecialchars($user['email']) ?></div>
-    </div>
-  </div>
-  <nav class="sb-nav">
-    <div class="nav-section">Compte</div>
-    <a class="nav-item active" href="frontoffice_utilisateur.php">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Mon profil
-    </a>
-    <?php if(Session::isAdmin()): ?>
-    <div class="nav-section" style="margin-top:.4rem">Administration</div>
-    <a class="nav-item" href="../backoffice/backoffice_utilisateur.php">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-      Back Office
-    </a>
-    <?php endif; ?>
-  </nav>
-  <div class="sb-footer" style="display:flex;flex-direction:column;gap:.5rem">
-    <span class="badge-kyc"><span class="dot-pulse"></span> KYC <?= $user['status_kyc'] ?></span>
-    <a href="../../controllers/AuthController.php?action=logout" style="font-size:.7rem;color:var(--rose);text-decoration:none">Déconnexion</a>
-  </div>
-</aside>
+<?php include __DIR__ . '/partials/sidebar.php'; ?>
 <div class="main">
   <header class="topbar">
     <div class="topbar-title">Mon Profil</div>

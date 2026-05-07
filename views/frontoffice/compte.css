@@ -134,6 +134,7 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  flex-shrink: 0;
 }
 
 .sb-logo {
@@ -526,7 +527,7 @@ body {
 .content {
   padding: 1.8rem 2rem;
   flex: 1;
-  overflow-y: auto;
+  overflow-y: scroll;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -2308,3 +2309,22 @@ body {
 .cb-file-card:active {
   transform: scale(0.98);
 }
+
+
+/* UNIVERSAL SCROLLBAR FIX */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.7); }
+.sidebar::-webkit-scrollbar { width: 0px !important; display: none !important; }
+.sidebar { scrollbar-width: none; -ms-overflow-style: none; }
+
+
+/* UNIVERSAL SCROLLBAR FIX V2 */
+html, body, .content { scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.4) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.7); }
+.sidebar::-webkit-scrollbar { width: 0px !important; display: none !important; }
+.sidebar { scrollbar-width: none !important; -ms-overflow-style: none !important; }

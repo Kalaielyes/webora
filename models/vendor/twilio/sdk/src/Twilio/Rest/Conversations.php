@@ -134,8 +134,4 @@ class Conversations extends ConversationsBase {
         echo "users(\$sid) is deprecated. Use v1->users(\$sid) instead.";
         return $this->v1->users($sid);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

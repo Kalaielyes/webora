@@ -21,8 +21,4 @@ class Trunking extends TrunkingBase {
         echo "trunks(\$sid) is deprecated. Use v1->trunks(\$sid) instead.";
         return $this->v1->trunks($sid);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

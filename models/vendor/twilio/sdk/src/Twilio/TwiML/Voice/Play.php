@@ -39,8 +39,4 @@ class Play extends TwiML {
     public function setDigits($digits): self {
         return $this->setAttribute('digits', $digits);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

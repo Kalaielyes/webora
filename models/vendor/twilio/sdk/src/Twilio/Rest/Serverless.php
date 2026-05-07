@@ -21,8 +21,4 @@ class Serverless extends ServerlessBase {
         echo "services(\$sid) is deprecated. Use v1->services(\$sid) instead.";
         return $this->v1->services($sid);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

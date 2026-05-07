@@ -29,8 +29,4 @@ class Autopilot extends AutopilotBase {
         echo "restoreAssistant is deprecated. Use v1->restoreAssistant instead.";
         return $this->v1->restoreAssistant;
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

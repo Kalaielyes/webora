@@ -28,11 +28,7 @@ if ($action === 'forgot_password') {
     if (!empty($errors)) {
         Session::set('forgot_errors', $errors);
         Session::set('old_forgot', ['email' => $email]);
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/forgot_password.php');
-=======
         header('Location: ../views/FrontOffice/forgot_password.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     $m    = new Utilisateur();
@@ -42,19 +38,11 @@ if ($action === 'forgot_password') {
     if ($user) {
         if (empty($user['numTel'])) {
             Session::setFlash('success', $successMsg);
-<<<<<<< HEAD
-            header('Location: ../views/frontoffice/forgot_password.php');
-            exit;
-        }
-        $rawToken = $pr->createToken((int) $user['id']);
-        $resetUrl = BASE_URL . '/views/frontoffice/reset_password.php?token=' . urlencode($rawToken);
-=======
             header('Location: ../views/FrontOffice/forgot_password.php');
             exit;
         }
         $rawToken = $pr->createToken((int) $user['id']);
         $resetUrl = BASE_URL . '/views/FrontOffice/reset_password.php?token=' . urlencode($rawToken);
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         $nom     = $user['nom'] . ' ' . $user['prenom'];
        $message = "Bonjour {$nom} 👋\n\n"
          . "Vous avez demande la reinitialisation de votre mot de passe LegalFin.\n\n"
@@ -70,11 +58,7 @@ if ($action === 'forgot_password') {
         }
     }
     Session::setFlash('success', $successMsg);
-<<<<<<< HEAD
-    header('Location: ../views/frontoffice/forgot_password.php');
-=======
     header('Location: ../views/FrontOffice/forgot_password.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
     exit;
 }
 if ($action === 'reset_password') {
@@ -86,11 +70,7 @@ if ($action === 'reset_password') {
     $userId = $pr->validateToken($rawToken);
     if (!$userId) {
         Session::setFlash('error', 'Ce lien est invalide ou a expiré. Faites une nouvelle demande.');
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/forgot_password.php');
-=======
         header('Location: ../views/FrontOffice/forgot_password.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     if (empty($mdp)) {
@@ -109,11 +89,7 @@ if ($action === 'reset_password') {
     }
     if (!empty($errors)) {
         Session::set('reset_errors', $errors);
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/reset_password.php?token=' . urlencode($rawToken));
-=======
         header('Location: ../views/FrontOffice/reset_password.php?token=' . urlencode($rawToken));
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
         exit;
     }
     $m = new Utilisateur();
@@ -121,17 +97,6 @@ if ($action === 'reset_password') {
         $m->resetPassword($userId, $mdp);
         $pr->markAsUsed($rawToken);
         Session::setFlash('success', 'Mot de passe modifié avec succès. Connectez-vous.');
-<<<<<<< HEAD
-        header('Location: ../views/frontoffice/login.php');
-    } catch (Exception $e) {
-        error_log('[NexaBank] Reset password error: ' . $e->getMessage());
-        Session::setFlash('error', 'Une erreur est survenue. Réessayez.');
-        header('Location: ../views/frontoffice/reset_password.php?token=' . urlencode($rawToken));
-    }
-    exit;
-}
-header('Location: ../../views/frontoffice/login.php');
-=======
         header('Location: ../views/FrontOffice/login.php');
     } catch (Exception $e) {
         error_log('[NexaBank] Reset password error: ' . $e->getMessage());
@@ -141,7 +106,6 @@ header('Location: ../../views/frontoffice/login.php');
     exit;
 }
 header('Location: ../../views/FrontOffice/login.php');
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
 exit;
 function formatPhoneForWhatsApp(string $phone): string {
     $clean = preg_replace('/[^0-9]/', '', $phone);
@@ -171,8 +135,4 @@ function sendWhatsAppTwilio(string $phone, string $message): bool {
         error_log('[LegalFin] Twilio error: ' . $e->getMessage());
         return false;
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)

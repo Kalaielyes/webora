@@ -3,11 +3,7 @@
 class AmlApiService {
     
     // URL relative to localhost (assuming XAMPP standard setup)
-<<<<<<< HEAD
-    private string $apiUrl = 'http://localhost/web/controller/api/mock_aml_api.php';
-=======
     private string $apiUrl = 'http://localhost/web/controllers/api/mock_aml_api.php';
->>>>>>> b0fb1e9 (Harmonisation de la structure (pluriel) pour alignement avec branche compte)
 
     /**
      * Envoyer les données utilisateur à l'API AML pour scoring.

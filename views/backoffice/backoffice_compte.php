@@ -90,6 +90,7 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>LegalFin Admin — Comptes</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="Utilisateur.css">
 <link rel="stylesheet" href="<?= APP_URL ?>/views/frontoffice/compte.css">
 <link rel="stylesheet" href="<?= APP_URL ?>/views/backoffice/compte.css">
 <script>
@@ -102,7 +103,7 @@ unset($_SESSION['form_errors'], $_SESSION['form_data']);
 <body>
 
 <!-- TOP NAVBAR -->
-<?php include __DIR__ . '/partials/sidebar.php'; ?>
+<?php include __DIR__ . '/partials/sidebar_unified.php'; ?>
 
 <!-- MAIN -->
 <div class="main">
