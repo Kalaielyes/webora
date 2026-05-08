@@ -1074,6 +1074,9 @@ $current_view = $_GET['view'] ?? 'dashboard';
 <script src="cheque.js?v=<?= time() ?>"></script>
 <script src="demandechequier.js?v=<?= time() ?>"></script>
 <script src="saisiecheque.js?v=<?= time() ?>"></script>
+<!-- face-api OBLIGATOIRE avant verify_cheque_modal -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="verify_cheque_modal.js?v=<?= time() ?>"></script>
 <script>
 /* ── Modales de base ── */
 function openModal() {

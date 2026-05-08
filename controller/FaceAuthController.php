@@ -73,6 +73,19 @@ class FaceAuthController {
         $success = $this->model->savePin((int)$data['admin_id'], $data['pin']);
         echo json_encode(['success' => $success]);
     }
+        public function verifyCheque(): void {
+        ob_end_clean();
+        header('Content-Type: application/json');
+        $data     = json_decode(file_get_contents('php://input'), true);
+        $admin_id = (int)($data['admin_id'] ?? 0);
+ 
+        $_SESSION['cheque_face_verified']    = true;
+        $_SESSION['cheque_face_verified_at'] = time();
+        if ($admin_id) $_SESSION['admin_id'] = $admin_id;
+ 
+        echo json_encode(['success' => true]);
+    }
+ 
 
     // Vérifier le PIN
     public function verifyPin(): void {
