@@ -1,10 +1,6 @@
 <?php
 session_start();
 
-if (!isset($_SESSION['face_verified']) || $_SESSION['face_verified'] !== true) {
-    header('Location: camera.php');
-    exit;
-}
 require_once __DIR__ . '/../../model/config.php';
 require_once '../../controller/demandechequiercontroller.php';
 require_once '../../controller/chequiercontroller.php';
@@ -214,7 +210,6 @@ $current_view = $_GET['view'] ?? 'backoffice';
             $expDate = new DateTime($chq['date_expiration']);
         ?>
         <div class="chq-card-bo" data-name="<?= htmlspecialchars($chq['nom et prenom'] ?? 'Inconnu') ?>" data-num="<?= htmlspecialchars($chq['numero_chequier']) ?>" style="background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; transition:transform 0.2s, box-shadow 0.2s; cursor:default;">
-           <!-- Card Visual Top -->
            <div class="bo-chq-visual" style="height:140px; background:linear-gradient(135deg, <?= $isActif ? '#0f172a, #1e293b' : '#450a0a, #7f1d1d' ?>); padding:1.2rem; color:white; position:relative; overflow:hidden;">
               <div style="font-family:var(--fm); font-size:0.75rem; opacity:0.6; letter-spacing:0.1em;"><?= htmlspecialchars($chq['numero_chequier']) ?></div>
               <div style="position:absolute; bottom:1.2rem; left:1.2rem;">
@@ -225,10 +220,8 @@ $current_view = $_GET['view'] ?? 'backoffice';
                   <div style="font-size:1.2rem; font-weight:800; opacity:0.9;"><?= htmlspecialchars($chq['nombre_feuilles']) ?></div>
                   <div style="font-size:0.55rem; text-transform:uppercase; opacity:0.5;">Feuilles</div>
               </div>
-              <!-- Decorative elements -->
               <div style="position:absolute; top:-20px; right:-20px; width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,0.03);"></div>
            </div>
-           <!-- Card Details Body -->
            <div style="padding:1.2rem; flex:1; display:flex; flex-direction:column; gap:1rem;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
                   <span style="font-size:0.85rem; font-weight:700; color:var(--text);">Chéquier N° <?= htmlspecialchars($chq['numero_chequier']) ?></span>
@@ -248,10 +241,8 @@ $current_view = $_GET['view'] ?? 'backoffice';
                       <div style="font-size:0.72rem; font-family:var(--fm); color:var(--navy3);"><?= htmlspecialchars($chq['iban'] ?? 'N/A') ?></div>
                   </div>
               </div>
-              <!-- Actions -->
               <div style="margin-top:auto; padding-top:1rem; border-top:1px solid var(--border); display:flex; gap:0.6rem;">
                   <?php 
-                  // Mock demand object for the modal
                   $mockDem = [
                       'id' => $chq['id_demande'],
                       'idCompte' => $chq['id_Compte'],
@@ -402,7 +393,6 @@ $current_view = $_GET['view'] ?? 'backoffice';
         </div>
       </div>
 
-
       <div class="detail-panel">
         <div class="dp-header">
           <div class="dp-av">MN</div>
@@ -433,7 +423,6 @@ $current_view = $_GET['view'] ?? 'backoffice';
           <div class="dp-row"><span class="dp-key">Compte lié</span><span class="dp-val-mono" id="dpIban">—</span></div>
         </div>
 
-        <!-- PANEL CHEQUIER (PRÉ-REMPLI / SAISIE) -->
         <div id="panelChequier" style="display:none">
           <div class="dp-section">Saisie du Chéquier</div>
           
@@ -442,7 +431,6 @@ $current_view = $_GET['view'] ?? 'backoffice';
             <input type="hidden" name="id_Compte" id="hidden_id_compte">
             <input type="hidden" name="creer_chequier" value="1">
 
-            <!-- VISUAL PREVIEW -->
             <div class="chq-mini chq-visual-premium">
               <div class="chq-mini-num" id="prev_numero">CHQ-2026-XXXXX</div>
               <div class="chq-mini-bottom">
@@ -457,7 +445,6 @@ $current_view = $_GET['view'] ?? 'backoffice';
               </div>
             </div>
 
-            <!-- AUTO FIELDS -->
             <div class="panel-section-title">Attributs Automatiques <span>AUTO</span></div>
             <div class="attribute-group">
               <div class="attribute-field">
@@ -476,7 +463,6 @@ $current_view = $_GET['view'] ?? 'backoffice';
               </div>
             </div>
 
-            <!-- MANUAL FIELDS -->
             <div class="panel-section-title" style="margin-top:0.8rem;">Paramètres à Configurer <span>MANUEL</span></div>
             <div class="attribute-group">
               <div class="attribute-field">
@@ -525,10 +511,8 @@ $current_view = $_GET['view'] ?? 'backoffice';
 function switchTab(btn, tabId) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  
   const tabDemandes = document.getElementById('tabDemandes');
   const tabChequier = document.getElementById('tabChequier');
-  
   if(tabId === 'demandes') {
     tabDemandes.style.display = 'block';
     tabChequier.style.display = 'none';
@@ -555,76 +539,44 @@ function updateSearch() {
 
 function filterByStatus(status) {
   currentStatusFilter = status;
-  
-  // Update UI for filter buttons
   document.querySelectorAll('.filter-btn').forEach(btn => {
     const btnText = btn.textContent.toLowerCase();
     const statusText = status.replace('-', ' ').toLowerCase();
-    
     if (btnText.includes(statusText) || (status === 'tous' && btnText === 'tous')) {
       btn.classList.add('active');
     } else {
       btn.classList.remove('active');
     }
   });
-
   applyFilters();
 }
 
 function applyFilters() {
   const searchInput = document.getElementById('searchInput');
   if (!searchInput) return;
-  
   const query = searchInput.value.toLowerCase().trim();
-  
-  // 1. Filter Table Rows (Backoffice View)
   const tableBody = document.getElementById('demandesTableBody');
   if (tableBody) {
     const rows = tableBody.querySelectorAll('tr');
     rows.forEach(row => {
       const rowStatus = row.getAttribute('data-status') || '';
       const statusMatch = (currentStatusFilter === 'tous' || rowStatus === currentStatusFilter);
-      
       const name = (row.getAttribute('data-name') || '').toLowerCase();
       const id = (row.getAttribute('data-id') || '').toLowerCase();
       const iban = (row.getAttribute('data-iban') || '').toLowerCase();
-      
-      // Also check text content as fallback
       const textContent = row.textContent.toLowerCase();
-      
-      const searchMatch = !query || 
-                          name.includes(query) || 
-                          id.includes(query) || 
-                          iban.includes(query) || 
-                          ("dem-" + id).includes(query) ||
-                          textContent.includes(query);
-      
-      if (statusMatch && searchMatch) {
-        row.style.display = '';
-      } else {
-        row.style.display = 'none';
-      }
+      const searchMatch = !query || name.includes(query) || id.includes(query) || iban.includes(query) || ("dem-" + id).includes(query) || textContent.includes(query);
+      row.style.display = (statusMatch && searchMatch) ? '' : 'none';
     });
   }
-
-  // 2. Filter Cards (Mes Chéquiers View)
   const cards = document.querySelectorAll('.chq-card-bo');
   if (cards.length > 0) {
     cards.forEach(card => {
       const name = (card.getAttribute('data-name') || '').toLowerCase();
       const num = (card.getAttribute('data-num') || '').toLowerCase();
       const textContent = card.textContent.toLowerCase();
-      
-      const searchMatch = !query || 
-                          name.includes(query) || 
-                          num.includes(query) ||
-                          textContent.includes(query);
-      
-      if (searchMatch) {
-        card.style.display = '';
-      } else {
-        card.style.display = 'none';
-      }
+      const searchMatch = !query || name.includes(query) || num.includes(query) || textContent.includes(query);
+      card.style.display = searchMatch ? '' : 'none';
     });
   }
 }
@@ -633,8 +585,6 @@ function showDetail(row) {
   document.querySelectorAll('#demandesTableBody tr').forEach(r => r.classList.remove('row-selected'));
   row.classList.add('row-selected');
   const d = row.dataset;
-  
-  // Basic Detail Tab
   document.querySelector('.dp-name').textContent = d.name;
   document.getElementById('dpDate').textContent = d.date;
   document.getElementById('dpNb').textContent = d.nb;
@@ -645,41 +595,26 @@ function showDetail(row) {
   document.getElementById('dpEmail').textContent = d.email;
   document.getElementById('dpMotif').textContent = d.motif;
   document.getElementById('dpIban').textContent = d.iban;
-  
-  // Statut Badge in Detail
   const st = d.statut || 'En attente';
   let bClass = 'b-attente';
   let dot = 'var(--amber)';
   if(st === 'Acceptée') { bClass = 'b-acceptee'; dot = 'var(--green)'; }
   if(st === 'Refusée') { bClass = 'b-refusee'; dot = 'var(--rose)'; }
   document.getElementById('dpStatutBadge').innerHTML = `<span class="badge ${bClass}"><span class="badge-dot" style="background:${dot}"></span>${st}</span>`;
-
-  // Type Badge in Detail
   const ty = d.type || 'Standard';
   const tyClass = (ty === 'Urgent') ? 'b-urgent' : 'b-standard';
   document.getElementById('dpTypeBadge').innerHTML = `<span class="badge ${tyClass}">${ty}</span>`;
-  
-  // Prep Chequier Tab (Saisie)
   document.getElementById('hidden_id_demande').value = d.id;
   document.getElementById('hidden_id_compte').value = d.idCompte;
-  
-  // Generate Number
   const num = 'CHQ-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 99999) + 1).padStart(5, '0');
   document.getElementById('input_numero').value = num;
   document.getElementById('disp_numero').textContent = num;
   document.getElementById('prev_numero').textContent = num;
   document.getElementById('prev_name').textContent = d.name;
   document.getElementById('disp_iban').textContent = d.iban;
-  
-  // Reset fields
   document.getElementById('input_feuilles').value = "25";
   document.getElementById('prev_feuilles').textContent = "25";
-
-  // Actions
-  document.getElementById('btnAccepter').onclick = () => {
-    openPremiumModal(d);
-  };
-  
+  document.getElementById('btnAccepter').onclick = () => { openPremiumModal(d); };
   document.getElementById('btnRefuser').onclick = () => { 
     if(confirm('Souhaitez-vous vraiment refuser cette demande ?')) {
       window.location.href='?action=refuser&id='+d.id;
@@ -691,24 +626,15 @@ function openPremiumModal(d) {
     const modal = document.getElementById('premiumChequeModal');
     modal.classList.remove('hidden');
     modal.classList.add('active');
-    
-    // Rechercher si un chéquier existe déjà pour cette demande
     const chq = existingChequiers.find(c => parseInt(c.id_demande) === parseInt(d.id));
     const isEdit = !!chq;
-
-    // Remplissage des données cachées
     document.getElementById('hidden_id_demande_modal').value = d.id;
     document.getElementById('hidden_id_compte_modal').value = d.idCompte;
     document.getElementById('hidden_id_chequier_modal').value = isEdit ? chq.id_chequier : "";
-
-    // Boutons visibilité
     const btnE = document.getElementById('btnEmettreModal');
     const btnM = document.getElementById('btnModifierModal');
     const btnS = document.getElementById('btnSupprimerModal');
-
-    // On affiche toujours l'ajout
     btnE.style.display = 'inline-flex';
-
     if (isEdit) {
         btnM.style.display = 'inline-flex';
         btnS.style.display = 'inline-flex';
@@ -717,12 +643,9 @@ function openPremiumModal(d) {
         btnM.style.display = 'none';
         btnS.style.display = 'none';
     }
-
-    // Informations Client
     document.getElementById('preview_signature').textContent = d.name;
     document.getElementById('preview_iban').textContent = d.iban;
     document.getElementById('disp_id_demande_modal').textContent = 'DEM-' + d.id;
-    
     if (isEdit) {
         document.getElementById('input_numero_chequier').value = chq.numero_chequier;
         document.getElementById('disp_chequier_num_preview').textContent = chq.numero_chequier;
@@ -730,20 +653,16 @@ function openPremiumModal(d) {
         document.getElementById('modal_date_exp').value = chq.date_expiration;
         document.getElementById('modal_statut').value = chq.statut.toLowerCase().replace('é', 'e');
     } else {
-        // Mode Création : Génération automatique
         const num = 'CHQ-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 99999) + 1).padStart(5, '0');
         document.getElementById('input_numero_chequier').value = num;
         document.getElementById('disp_chequier_num_preview').textContent = num;
-        
         document.getElementById('modal_nb_feuilles').value = "25";
         document.getElementById('modal_date_exp').value = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0];
         document.getElementById('modal_statut').value = "actif";
     }
-    
     updatePremiumPreview();
 }
 
-// Injections des données PHP dans JS
 const existingChequiers = <?= json_encode($chequiers_db) ?>;
 
 function closePremiumModal() {
@@ -752,25 +671,19 @@ function closePremiumModal() {
     modal.classList.add('hidden');
 }
 
-// Initialisation des écouteurs de fermeture
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('premiumChequeModal');
     const closeBtn = document.getElementById('premiumModalCloseBtn');
-    
     if(closeBtn) {
         closeBtn.addEventListener('click', (e) => {
             e.preventDefault();
             closePremiumModal();
         });
     }
-    
     if(modal) {
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                closePremiumModal();
-            }
+            if (e.target === modal) closePremiumModal();
         });
-        // Sécurité : Forcer le masquage au chargement
         modal.classList.add('hidden');
     }
 });
@@ -780,12 +693,9 @@ function updatePremiumPreview() {
     const sheets = document.getElementById('modal_nb_feuilles').value || '25';
     const expDate = document.getElementById('modal_date_exp').value || '—';
     const createDate = document.getElementById('modal_date_creation').value || '—';
-
     document.getElementById('disp_chequier_num_preview').textContent = num;
     document.getElementById('preview_nb_feuilles').textContent = sheets;
     document.getElementById('preview_exp_date').textContent = expDate;
-    
-    // Format date for preview
     if(createDate !== '—') {
         const d = new Date(createDate);
         document.getElementById('preview_create_date').textContent = d.toLocaleDateString('fr-FR');
@@ -799,9 +709,7 @@ function closeToast() {
 
 document.addEventListener('DOMContentLoaded', () => {
   const t = document.getElementById('successToast');
-  if(t) {
-    setTimeout(closeToast, 5000);
-  }
+  if(t) setTimeout(closeToast, 5000);
 });
 
 document.querySelectorAll('#demandesTableBody tr').forEach(row => {
@@ -822,7 +730,6 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
             </button>
         </div>
 
-        <!-- VISUAL CHECKBOOK PREVIEW -->
         <div class="visual-check" style="height:220px; background:linear-gradient(135deg, #1e3a8a, #0f172a);">
             <div class="check-banner"></div>
             <div class="check-top">
@@ -839,7 +746,6 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
                     <div>EXPIRATION : <span id="preview_exp_date" style="color:#fff;">—</span></div>
                 </div>
             </div>
-
             <div style="margin-top:2rem; display:flex; justify-content:space-between; align-items:flex-end;">
                 <div>
                     <div style="font-size:0.6rem; text-transform:uppercase; color:rgba(255,255,255,0.5); letter-spacing:0.1em;">Titulaire du compte</div>
@@ -853,21 +759,15 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
             </div>
         </div>
 
-        <!-- FORM SECTION -->
         <div class="premium-form-body">
             <div class="form-section-title">Informations du chéquier</div>
-            
             <form method="POST" action="" onsubmit="return validerSaisieChequier()">
                 <input type="hidden" name="id_demande" id="hidden_id_demande_modal">
                 <input type="hidden" name="id_Compte" id="hidden_id_compte_modal">
                 <input type="hidden" name="id_chequier" id="hidden_id_chequier_modal">
-
                 <div class="form-grid">
-                    <!-- N° CHÉQUIER -->
                     <div class="form-group">
-                        <div class="label-row">
-                            <label>N° Chéquier (Référence officielle)</label>
-                        </div>
+                        <div class="label-row"><label>N° Chéquier (Référence officielle)</label></div>
                         <div class="input-wrapper">
                             <i class="fa-solid fa-hashtag input-icon"></i>
                             <input type="text" name="numero_chequier" id="input_numero_chequier" class="premium-input" placeholder="CHQ-2026-XXXXX">
@@ -875,12 +775,8 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
                         <div id="errModalNum" class="error-msg" style="color:var(--rose); font-size:0.75rem; margin-top:4px; display:none;"></div>
                         <div class="input-hint" style="color:var(--blue)">• Vous pouvez utiliser le numéro généré ou le saisir manuellement.</div>
                     </div>
-
-                    <!-- DATE CRÉATION -->
                     <div class="form-group">
-                        <div class="label-row">
-                            <label>Date de création <span class="required-star">*</span></label>
-                        </div>
+                        <div class="label-row"><label>Date de création <span class="required-star">*</span></label></div>
                         <div class="input-wrapper">
                             <i class="fa-solid fa-calendar-plus input-icon"></i>
                             <input type="date" name="date_creation" id="modal_date_creation" class="premium-input" value="<?= date('Y-m-d') ?>" oninput="updatePremiumPreview()" required>
@@ -888,12 +784,8 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
                         <div id="errModalDateCreate" class="error-msg" style="color:var(--rose); font-size:0.75rem; margin-top:4px; display:none;"></div>
                         <div class="input-hint" style="color:#94a3b8">• Date d'émission officielle</div>
                     </div>
-
-                    <!-- NB FEUILLES -->
                     <div class="form-group">
-                        <div class="label-row">
-                            <label>Nombre de feuilles <span class="required-star">*</span></label>
-                        </div>
+                        <div class="label-row"><label>Nombre de feuilles <span class="required-star">*</span></label></div>
                         <div class="input-wrapper">
                             <i class="fa-solid fa-layer-group input-icon"></i>
                             <select name="nombre_feuilles" id="modal_nb_feuilles" class="premium-input" onchange="updatePremiumPreview()">
@@ -904,24 +796,16 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
                         </div>
                         <div id="errModalSheets" class="error-msg" style="color:var(--rose); font-size:0.75rem; margin-top:4px; display:none;"></div>
                     </div>
-
-                    <!-- DATE EXPIRATION -->
                     <div class="form-group">
-                        <div class="label-row">
-                            <label>Date d'expiration <span class="required-star">*</span></label>
-                        </div>
+                        <div class="label-row"><label>Date d'expiration <span class="required-star">*</span></label></div>
                         <div class="input-wrapper">
                             <i class="fa-solid fa-calendar-xmark input-icon"></i>
                             <input type="date" name="date_expiration" id="modal_date_exp" class="premium-input" value="<?= date('Y-m-d', strtotime('+1 year')) ?>" oninput="updatePremiumPreview()" required>
                         </div>
                         <div id="errModalDateExp" class="error-msg" style="color:var(--rose); font-size:0.75rem; margin-top:4px; display:none;"></div>
                     </div>
-
-                    <!-- STATUT -->
                     <div class="form-group full">
-                        <div class="label-row">
-                            <label>Statut Initial <span class="required-star">*</span></label>
-                        </div>
+                        <div class="label-row"><label>Statut Initial <span class="required-star">*</span></label></div>
                         <div class="input-wrapper">
                             <i class="fa-solid fa-shield-halved input-icon"></i>
                             <select name="statut_chequier" id="modal_statut" class="premium-input">
@@ -932,30 +816,20 @@ document.querySelectorAll('#demandesTableBody tr').forEach(row => {
                         </div>
                     </div>
                 </div>
-
                 <div class="form-actions" style="display:flex; justify-content:flex-end; gap:0.8rem; flex-wrap:wrap;">
                     <button type="button" class="btn-secondary" id="premiumModalCancelBtn" onclick="closePremiumModal()">Annuler</button>
-                    
                     <button type="submit" name="modifier_chequier" id="btnModifierModal" class="btn-submit" style="background:linear-gradient(135deg, #3b82f6, #2563eb); color:white; border:none; display:none;">
-                        <i class="fa-solid fa-pen-to-square" style="margin-right:8px;"></i>
-                        Modifier
+                        <i class="fa-solid fa-pen-to-square" style="margin-right:8px;"></i>Modifier
                     </button>
-
                     <a href="#" id="btnSupprimerModal" class="btn-submit" style="background:linear-gradient(135deg, #3b82f6, #2563eb); color:white; text-decoration:none; display:none; align-items:center;" onclick="return confirm('Souhaitez-vous vraiment supprimer ce chéquier ? Cela l\'effacera également de votre espace client.')">
-                        <i class="fa-solid fa-trash-can" style="margin-right:8px;"></i>
-                        Supprimer
+                        <i class="fa-solid fa-trash-can" style="margin-right:8px;"></i>Supprimer
                     </a>
-
                     <button type="submit" name="creer_chequier" id="btnEmettreModal" class="btn-submit" style="background:linear-gradient(135deg, #3b82f6, #2563eb); color:white; border:none;">
-                        <i class="fa-solid fa-plus" style="margin-right:8px;"></i>
-                        Émettre (Ajouter)
+                        <i class="fa-solid fa-plus" style="margin-right:8px;"></i>Émettre (Ajouter)
                     </button>
                 </div>
             </form>
         </div>
-    </div>
-</div>
-
     </div>
 </div>
 
