@@ -2,8 +2,8 @@
 ob_start();
 session_start();
 
-require_once __DIR__ . '/../model/config.php';
-require_once __DIR__ . '/../model/AdminFace.php';
+require_once __DIR__ . '/../models/config.php';
+require_once __DIR__ . '/../models/AdminFace.php';
 
 class FaceAuthController {
     private AdminFace $model;
@@ -115,6 +115,7 @@ match($action) {
     'logFail'        => $controller->logFail(),
     'savePin'        => $controller->savePin(),
     'verifyPin'      => $controller->verifyPin(),
+    'verifyCheque'   => $controller->verifyCheque(),
     default          => (function() {
         ob_end_clean();
         http_response_code(404);

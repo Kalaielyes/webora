@@ -1,6 +1,9 @@
 <?php
-require_once __DIR__ . '/../../model/config.php';
-require_once '../../controller/demandechequiercontroller.php';
+/**
+ * Statistiques Logic - Unified Integration
+ */
+require_once __DIR__ . '/../../models/config.php';
+require_once __DIR__ . '/../../controller/DemandeChequierController.php';
 
 $demandeC = new DemandeChequierController();
 $demandes = $demandeC->listDemandes();

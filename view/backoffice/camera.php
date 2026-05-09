@@ -176,7 +176,7 @@ session_start();
 
 <script>
 // ==================== CONFIG ====================
-const MODEL_URL    = '../../controller/models';
+const MODEL_URL    = '../../assets/ai-models';
 const REDIRECT_URL = 'backoffice_chequier.php';
 const MAX_ATTEMPTS = 3;
 const THRESHOLD    = 0.5;

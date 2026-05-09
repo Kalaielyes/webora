@@ -1,30 +1,34 @@
 <?php
 
-define('GMAIL_USER', 'mounancib90@gmail.com');
-define('GMAIL_PASS', 'gqpvitxushwlxbww');
-define('MAIL_FROM_NAME', 'LegalFin Service Client');
+// Mailer configuration is now handled via environment variables in .env
 
 function sendMail($to, $toName, $subject, $htmlBody) {
-    $sock = @stream_socket_client('ssl://smtp.gmail.com:465', $errno, $errstr, 15);
+    $user = $_ENV['SMTP_USER'] ?? '';
+    $pass = $_ENV['SMTP_PASS'] ?? '';
+    $host = $_ENV['SMTP_HOST'] ?? 'smtp.gmail.com';
+    $port = $_ENV['SMTP_PORT'] ?? 465;
+    $fromName = $_ENV['MAIL_NAME'] ?? 'LegalFin Service Client';
+
+    $sock = @stream_socket_client("ssl://$host:$port", $errno, $errstr, 15);
     if (!$sock) return false;
 
     _smtp_read($sock);
     _smtp_cmd($sock, "EHLO localhost");
     _smtp_cmd($sock, "AUTH LOGIN");
-    _smtp_cmd($sock, base64_encode(GMAIL_USER));
-    $auth = _smtp_cmd($sock, base64_encode(GMAIL_PASS));
+    _smtp_cmd($sock, base64_encode($user));
+    $auth = _smtp_cmd($sock, base64_encode($pass));
 
     if (strpos($auth, '235') === false) {
         fclose($sock);
         return false;
     }
 
-    _smtp_cmd($sock, "MAIL FROM:<" . GMAIL_USER . ">");
+    _smtp_cmd($sock, "MAIL FROM:<$user>");
     _smtp_cmd($sock, "RCPT TO:<$to>");
     _smtp_cmd($sock, "DATA");
 
     $boundary = md5(uniqid());
-    $headers  = "From: " . MAIL_FROM_NAME . " <" . GMAIL_USER . ">\r\n";
+    $headers  = "From: $fromName <$user>\r\n";
     $headers .= "To: $toName <$to>\r\n";
     $headers .= "Subject: $subject\r\n";
     $headers .= "MIME-Version: 1.0\r\n";

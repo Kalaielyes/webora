@@ -1,4 +1,4 @@
-config.local.php
+models/vendor/
 .env
-vendor/
-.DS_Store
+models/config.local.php
+controller/helpers/config.local.php
