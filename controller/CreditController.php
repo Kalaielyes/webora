@@ -131,11 +131,11 @@ class CreditController
             $errors[] = 'ID invalide.';
 
         if ($errors) {
-            $this->renderView(errors: $errors, editDemandeId: $id, activeTab: 'dem');
+            $this->renderView(errors: $errors, editDemandeId: $id, activeTab: 'demande');
             return;
         }
         $this->demandeModel->update($id, $data);
-        $this->renderView(success: "Demande #$id mise à jour.", activeTab: 'dem');
+        $this->renderView(success: "Demande #$id mise à jour.", activeTab: 'demande');
     }
 
     private function deleteDemande(): void
@@ -370,11 +370,11 @@ class CreditController
         $errors = array_values($this->garantieModel->validate($data));
 
         if ($errors) {
-            $this->renderView(errors: $errors, activeTab: 'gar');
+            $this->renderView(errors: $errors, activeTab: 'garantie');
             return;
         }
         $this->garantieModel->create($data);
-        $this->renderView(success: 'Garantie ajoutée.', activeTab: 'gar');
+        $this->renderView(success: 'Garantie ajoutée.', activeTab: 'garantie');
     }
 
     private function updateGarantie(): void
@@ -386,11 +386,11 @@ class CreditController
             $errors[] = 'ID garantie invalide.';
 
         if ($errors) {
-            $this->renderView(errors: $errors, editGarantieId: $id, activeTab: 'gar');
+            $this->renderView(errors: $errors, editGarantieId: $id, activeTab: 'garantie');
             return;
         }
         $this->garantieModel->update($id, $data);
-        $this->renderView(success: "Garantie #$id mise à jour.", activeTab: 'gar');
+        $this->renderView(success: "Garantie #$id mise à jour.", activeTab: 'garantie');
     }
 
     private function deleteGarantie(): void
@@ -398,7 +398,7 @@ class CreditController
         $id = (int) ($_POST['id'] ?? 0);
         if ($id > 0)
             $this->garantieModel->delete($id);
-        $this->renderView(success: "Garantie #$id supprimée.", activeTab: 'gar');
+        $this->renderView(success: "Garantie #$id supprimée.", activeTab: 'garantie');
     }
 
     private function updateGarantieStatus(): void
@@ -412,7 +412,7 @@ class CreditController
         }
 
         if (!in_array($statut, ['en_attente', 'approuvee', 'refusee'], true)) {
-            $this->renderView(errors: ['Statut invalide.'], activeTab: 'gar');
+            $this->renderView(errors: ['Statut invalide.'], activeTab: 'garantie');
             return;
         }
 
@@ -422,9 +422,9 @@ class CreditController
                 'approuvee' => 'Approuvée',
                 'refusee' => 'Refusée',
             };
-            $this->renderView(success: "Garantie #$id marquée comme $statusLabel.", activeTab: 'gar');
+            $this->renderView(success: "Garantie #$id marquée comme $statusLabel.", activeTab: 'garantie');
         } else {
-            $this->renderView(errors: ['Erreur lors de la mise à jour.'], activeTab: 'gar');
+            $this->renderView(errors: ['Erreur lors de la mise à jour.'], activeTab: 'garantie');
         }
     }
 
@@ -480,7 +480,7 @@ private function getLoanSimulation(): void
         string $success = '',
         int $editDemandeId = 0,
         int $editGarantieId = 0,
-        string $activeTab = 'dem'
+        string $activeTab = 'demande'
     ): void {
         if (!$editDemandeId && isset($_GET['edit_d']))
             $editDemandeId = (int) $_GET['edit_d'];
@@ -489,9 +489,9 @@ private function getLoanSimulation(): void
         if (isset($_GET['tab'])) {
             $activeTab = $_GET['tab'];
         } elseif ($editDemandeId) {
-            $activeTab = 'dem';
+            $activeTab = 'demande';
         } elseif ($editGarantieId) {
-            $activeTab = 'gar';
+            $activeTab = 'garantie';
         }
 
         $demandes = $this->demandeModel->getAll();

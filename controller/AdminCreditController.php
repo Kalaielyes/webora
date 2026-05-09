@@ -123,11 +123,11 @@ class AdminCreditController
             $errors[] = 'ID invalide.';
 
         if ($errors) {
-            $this->renderView(errors: $errors, editDemandeId: $id, activeTab: 'demande');
+            $this->renderView(errors: $errors, editDemandeId: $id, activeTab: 'dem');
             return;
         }
         $this->demandeModel->update($id, $data);
-        $this->renderView(success: "Demande #$id mise à jour.", activeTab: 'demande');
+        $this->renderView(success: "Demande #$id mise à jour.", activeTab: 'dem');
     }
 
     private function deleteDemande(): void
@@ -530,7 +530,7 @@ class AdminCreditController
         string $success = '',
         int $editDemandeId = 0,
         int $editGarantieId = 0,
-        string $activeTab = 'demande'
+        string $activeTab = 'dem'
     ): void {
         if (!$editDemandeId && isset($_GET['edit_d']))
             $editDemandeId = (int) $_GET['edit_d'];
@@ -539,9 +539,9 @@ class AdminCreditController
         if (isset($_GET['tab'])) {
             $activeTab = $_GET['tab'];
         } elseif ($editDemandeId) {
-            $activeTab = 'demande';
+            $activeTab = 'dem';
         } elseif ($editGarantieId) {
-            $activeTab = 'garantie';
+            $activeTab = 'gar';
         }
 
         $demandes = $this->demandeModel->getAll();
@@ -603,5 +603,5 @@ try {
     (new AdminCreditController())->handle();
 } catch (PDOException $e) {
     $dbStatus = ['ok' => false, 'error' => $e->getMessage()];
-    require __DIR__ . '/../view/frontCredit/front_credit.php';
+    require __DIR__ . '/../view/backCredit/back_credit.php';
 }
