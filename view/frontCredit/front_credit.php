@@ -20,6 +20,7 @@ $stats = $stats ?? ['total' => 0, 'attente' => 0, 'approuvee' => 0, 'refusee' =>
 $self = $controllerSelf ?? $_SERVER['SCRIPT_NAME'];
 $viewRoot = defined('VIEW_URL') ? VIEW_URL : '';
 $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
+$showCreditsPage = in_array($activeTab, ['dem', 'gar'], true) || $success || $errors;
 ?>
 <!DOCTYPE html>
 
@@ -98,7 +99,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
     <div class="content">
 
       <!-- DASHBOARD -->
-      <div class="page on" id="page-dashboard">
+      <div class="page <?= $showCreditsPage ? '' : 'on' ?>" id="page-dashboard">
         <div class="kpi-grid">
           <div class="kpi kb">
             <div class="kpi-top"><span class="kpi-ico">📋</span></div>
@@ -132,7 +133,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
       </div>
 
       <!-- CRÉDITS -->
-      <div class="page" id="page-credits">
+      <div class="page <?= $showCreditsPage ? 'on' : '' ?>" id="page-credits">
 
         <?php if (isset($dbStatus) && !$dbStatus['ok']): ?>
           <div class="alert-err">⚠️ Base de données indisponible : <?= htmlspecialchars($dbStatus['error']) ?></div>
@@ -236,6 +237,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                     <th>Statut</th>
                     <th>Résultat</th>
                     <th>Motif</th>
+                    <th>Signature</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -278,6 +280,35 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                           title="Click to view full motif"
                           onclick="openMotifModal('<?= htmlspecialchars(addslashes($d['motif_resultat'] ?? ''), ENT_QUOTES) ?>')">
                           <?= htmlspecialchars(mb_substr($d['motif_resultat'] ?? '', 0, 40)) ?>    <?= mb_strlen($d['motif_resultat'] ?? '') > 40 ? '…' : '' ?>
+                        </td>
+                        <!-- BADGE STATUT SIGNATURE -->
+                        <td style="text-align:center;">
+                          <?php if ($d['resultat'] === 'approuvee'): ?>
+                            <?php
+                              $submId = $d['docuseal_submission_id'] ?? ($_SESSION['docuseal_submission_' . $d['id']] ?? null);
+                            ?>
+                            <?php if ($submId): ?>
+                              <span 
+                                class="badge b-wait sig-status-badge" 
+                                id="sig-badge-<?= $d['id'] ?>"
+                                data-submission-id="<?= $submId ?>"
+                                style="cursor:pointer;"
+                                onclick="checkSigStatus(<?= $d['id'] ?>, '<?= $submId ?>')"
+                                title="Cliquer pour vérifier le statut de signature">
+                                ✍️ En attente
+                              </span>
+                            <?php else: ?>
+                              <form method="POST" action="<?= $self ?>" style="display:inline;">
+                                <input type="hidden" name="action" value="send_signature" />
+                                <input type="hidden" name="id" value="<?= (int) $d['id'] ?>" />
+                                <button type="submit" class="badge b-off" style="border:0;cursor:pointer;font-size:.7rem;" title="Envoyer a <?= htmlspecialchars($d['client_email'] ?? 'email client') ?>">
+                                  Envoyer
+                                </button>
+                              </form>
+                            <?php endif; ?>
+                          <?php else: ?>
+                            <span style="color:var(--muted);font-size:.75rem;">—</span>
+                          <?php endif; ?>
                         </td>
                         <td>
                           <div class="td-acts">
@@ -926,7 +957,40 @@ function closeMapModal() {
     document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') { closeMotifModal(); closeMapModal(); }
 });
-
+async function checkSigStatus(demandeId, submissionId) {
+    const badge = document.getElementById('sig-badge-' + demandeId);
+    if (badge) {
+        badge.textContent = '⏳ Vérification...';
+        badge.className = 'badge b-wait';
+    }
+    try {
+        const formData = new FormData();
+        formData.append('action', 'check_signature_status');
+        formData.append('submission_id', submissionId);
+        const response = await fetch(window.CONTROLLER_PATH, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (badge) {
+            if (data.completed) {
+                badge.textContent = '✅ Signé';
+                badge.className = 'badge b-on';
+                badge.onclick = null;
+                badge.style.cursor = 'default';
+            } else if (data.status === 'declined') {
+                badge.textContent = '❌ Refusé';
+                badge.className = 'badge b-off';
+            } else {
+                badge.textContent = '✍️ En attente';
+                badge.className = 'badge b-wait';
+            }
+        }
+    } catch (err) {
+        console.error('[Signature] Erreur:', err);
+        if (badge) badge.textContent = '⚠️ Erreur';
+    }
+}
     // ────── CHECKBOX SELECTION ─────────────────────────────────────────────
     function toggleAllCheckboxes(checkAllCheckbox) {
       const checkboxes = document.querySelectorAll('.dem-checkbox');

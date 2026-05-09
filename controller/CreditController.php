@@ -7,6 +7,7 @@ require_once __DIR__ . '/../model/mailcredit.php';
 require_once __DIR__ . '/../model/ai_scoring.php';
 require_once __DIR__ . '/../model/ClientGeolocation.php';
 require_once __DIR__ . '/../model/GeolocHelper.php';
+require_once __DIR__ . '/../model/DocuSealService.php';
 
 class CreditController
 {
@@ -30,6 +31,7 @@ class CreditController
             'update_demande' => $this->updateDemande(),
             'delete_demande' => $this->deleteDemande(),
             'approve_demande' => $this->approveDemande(),
+            'send_signature' => $this->sendSignature(),
             'refuse_demande' => $this->refuseDemande(),
             'bulk_approve_demandes' => $this->bulkApproveDemandes(),
             'bulk_delete_demandes' => $this->bulkDeleteDemandes(),
@@ -39,6 +41,7 @@ class CreditController
             'update_garantie_status' => $this->updateGarantieStatus(),
             'get_client_location'    => $this->getClientLocation(),    // ← ADD THIS
     'get_loan_simulation'    => $this->getLoanSimulation(),
+            'check_signature_status' => $this->checkSignatureStatus(),
             default => $this->renderView(),
         };
     }
@@ -85,6 +88,10 @@ class CreditController
     $scoring = analyserSolvabilite($data);
     $data['resultat']       = $scoring['recommendation'];
     $data['motif_resultat'] = '[Score IA: ' . $scoring['score'] . '/100 | Risque: ' . $scoring['risque'] . '] ' . $scoring['motif'];
+    if (in_array($data['resultat'], ['approuvee', 'refusee'], true)) {
+        $data['statut'] = 'traitee';
+        $data['date_traitement'] = date('Y-m-d');
+    }
     // ────────────────────────────────────────────────────────────────────
 
     try {
@@ -98,6 +105,19 @@ class CreditController
         return;
     }
 
+
+    if (($data['resultat'] ?? '') === 'approuvee') {
+        $newId = (int) config::getConnexion()->lastInsertId();
+        $signResult = $newId > 0
+            ? $this->sendSignatureForDemande($newId)
+            : ['success' => false, 'error' => 'ID nouvelle demande introuvable.'];
+
+        if (empty($signResult['success'])) {
+            $scoreMsg = "Score IA: {$scoring['score']}/100 - {$scoring['recommendation']} ({$scoring['risque']})";
+            $this->renderView(errors: ["Demande soumise et approuvee. $scoreMsg. Signature non envoyee : " . ($signResult['error'] ?? 'erreur')]);
+            return;
+        }
+    }
     $scoreMsg = "Score IA: {$scoring['score']}/100 — {$scoring['recommendation']} ({$scoring['risque']})";
     $this->renderView(success: "Demande soumise. $scoreMsg");
 }
@@ -147,17 +167,108 @@ class CreditController
             'montant' => $demande['montant'],
             'duree_mois' => $demande['duree_mois'],
             'taux_interet' => $demande['taux_interet'],
-            'statut' => $demande['statut'],
+            'statut' => 'traitee',
             'resultat' => 'approuvee',
             'motif_resultat' => $demande['motif_resultat'] ?? '',
             'date_traitement' => date('Y-m-d'),
         ];
 
         if ($this->demandeModel->update($id, $data)) {
-            $this->renderView(success: "Demande #$id approuvée.");
+            $signResult = $this->sendSignatureForDemande($id);
+
+            if ($signResult['success']) {
+                $this->renderView(success: "Demande #$id approuvee et contrat envoye pour signature a " . ($signResult['email'] ?? 'email client') . ".");
+            } else {
+                $this->renderView(errors: ["Demande #$id approuvee, mais signature non envoyee : " . ($signResult['error'] ?? 'erreur')]);
+            }
+            return;
         } else {
             $this->renderView(errors: ['Erreur lors de la mise à jour.']);
         }
+    }
+
+    private function sendSignature(): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id <= 0) {
+            $this->renderView(errors: ['ID demande invalide.']);
+            return;
+        }
+
+        $result = $this->sendSignatureForDemande($id);
+
+        if ($result['success']) {
+            $this->renderView(success: 'Contrat de la demande #' . $id . ' envoye pour signature electronique a ' . ($result['email'] ?? 'email client') . '.');
+            return;
+        }
+
+        $this->renderView(errors: ['Signature non envoyee : ' . ($result['error'] ?? 'erreur inconnue')]);
+    }
+
+    private function sendSignatureForDemande(int $id): array
+    {
+        $demande = $this->demandeModel->getById($id);
+
+        if (!$demande) {
+            return ['success' => false, 'error' => "Demande #$id introuvable."];
+        }
+
+        if (($demande['resultat'] ?? '') !== 'approuvee') {
+            return ['success' => false, 'error' => 'La demande doit etre approuvee avant signature.'];
+        }
+
+        $clientEmail = trim((string) ($demande['client_email'] ?? ''));
+        if (!filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'error' => 'Email client invalide ou manquant.'];
+        }
+
+        $clientName = $_SESSION['user_name']
+            ?? trim(($_SESSION['prenom'] ?? '') . ' ' . ($_SESSION['nom'] ?? ''))
+            ?: 'Client LegalFin';
+
+        $signResult = DocuSealService::sendContratForSignature($demande, $clientEmail, $clientName);
+
+        if (empty($signResult['success'])) {
+            return $signResult;
+        }
+
+        $signResult['email'] = $clientEmail;
+        $_SESSION['docuseal_submission_' . $id] = $signResult['submission_id'];
+
+        try {
+            $this->ensureDocuSealColumn();
+            $pdo = config::getConnexion();
+            $pdo->prepare("UPDATE DemandeCredit SET docuseal_submission_id = ? WHERE id = ?")
+                ->execute([$signResult['submission_id'], $id]);
+        } catch (PDOException $e) {
+            error_log('[DocuSeal] Impossible de sauvegarder submission_id #' . $id . ': ' . $e->getMessage());
+        }
+
+        return $signResult;
+    }
+
+    private function ensureDocuSealColumn(): void
+    {
+        $pdo = config::getConnexion();
+        $stmt = $pdo->query("SHOW COLUMNS FROM DemandeCredit LIKE 'docuseal_submission_id'");
+
+        if (!$stmt->fetch()) {
+            $pdo->exec("ALTER TABLE DemandeCredit ADD COLUMN docuseal_submission_id BIGINT NULL AFTER client_email");
+        }
+    }
+
+    private function checkSignatureStatus(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $submissionId = (int)($_POST['submission_id'] ?? 0);
+
+        if ($submissionId) {
+            echo json_encode(DocuSealService::checkSignatureStatus($submissionId));
+        } else {
+            echo json_encode(['success' => false, 'error' => 'ID manquant']);
+        }
+
+        exit;
     }
 
     private function refuseDemande(): void
@@ -179,14 +290,14 @@ class CreditController
             'montant' => $demande['montant'],
             'duree_mois' => $demande['duree_mois'],
             'taux_interet' => $demande['taux_interet'],
-            'statut' => $demande['statut'],
+            'statut' => 'traitee',
             'resultat' => 'refusee',
             'motif_resultat' => $demande['motif_resultat'] ?? '',
             'date_traitement' => date('Y-m-d'),
         ];
 
         if ($this->demandeModel->update($id, $data)) {
-            $this->renderView(success: "Demande #$id refusée.");
+            $this->renderView(success: "Demande #$id refusee.");
         } else {
             $this->renderView(errors: ['Erreur lors de la mise à jour.']);
         }
@@ -223,6 +334,7 @@ class CreditController
             ];
             
             if ($this->demandeModel->update($id, $data)) {
+                $this->sendSignatureForDemande($id);
                 $count++;
             }
         }
@@ -408,6 +520,10 @@ private function getLoanSimulation(): void
             'date_traitement' => trim($_POST['date_traitement'] ?? ''),
             'client_id' => 1,
             'compte_id' => 1,
+            'client_email' => $_SESSION['user_email']
+                ?? $_SESSION['email']
+                ?? $_SESSION['user']['email']
+                ?? 'youssefkhca@gmail.com',
         ];
     }
 

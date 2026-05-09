@@ -373,7 +373,8 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                     <th>Durée</th>
                     <th>Taux</th>
                     <th>Date</th>
-                    <th style="text-align:center;">Actions</th>
+                    <th style="text-align:center;">Signature</th>
+                    <th style="text-align:center;">Actions</th> 
                   </tr>
                 </thead>
                 <tbody>
@@ -384,6 +385,32 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                       <td><?= (int) $d['duree_mois'] ?> m</td>
                       <td><?= $d['taux_interet'] ?>%</td>
                       <td><?= htmlspecialchars($d['date_demande']) ?></td>
+                      <td style="text-align:center;">
+                        <?php $submId = $d['docuseal_submission_id'] ?? ($_SESSION['docuseal_submission_' . $d['id']] ?? null); ?>
+                        <?php if ($d['resultat'] === 'approuvee'): ?>
+                          <?php if ($submId): ?>
+                            <span
+                              class="badge b-wait sig-status-badge"
+                              id="sig-badge-<?= $d['id'] ?>"
+                              data-submission-id="<?= $submId ?>"
+                              style="cursor:pointer;font-size:.75rem;"
+                              onclick="checkSigStatus(<?= $d['id'] ?>, <?= $submId ?>)"
+                              title="Cliquer pour vérifier">
+                              ✍️ En attente
+                            </span>
+                          <?php else: ?>
+                            <form method="POST" action="<?= $self ?>" style="display:inline;">
+                              <input type="hidden" name="action" value="send_signature" />
+                              <input type="hidden" name="id" value="<?= (int) $d['id'] ?>" />
+                              <button type="submit" class="badge b-off" style="border:0;cursor:pointer;font-size:.7rem;">
+                                Envoyer
+                              </button>
+                            </form>
+                          <?php endif; ?>
+                        <?php else: ?>
+                          <span style="color:var(--muted);font-size:.75rem;">—</span>
+                        <?php endif; ?>
+                      </td>
                       <td style="text-align:center;">
                         <div class="td-acts-row" style="justify-content:center;">
                           <a href="<?= $self ?>?edit_d=<?= $d['id'] ?>" class="btn-edt">✏️</a>
@@ -536,6 +563,27 @@ set('e-g-doc', (!docVal && !fileVal) ? 'Référence ou fichier requis.' : '');
 
     // Initialize calculator on load
     document.addEventListener('DOMContentLoaded', calcCredit);
+    async function checkSigStatus(demandeId, submissionId) {
+      const badge = document.getElementById('sig-badge-' + demandeId);
+      if (badge) { badge.textContent = '⏳ Vérification...'; badge.className = 'badge b-wait'; }
+      try {
+        const fd = new FormData();
+        fd.append('action', 'check_signature_status');
+        fd.append('submission_id', submissionId);
+        const res = await fetch(window.CONTROLLER_PATH || '<?= $self ?>', { method:'POST', body:fd });
+        const data = await res.json();
+        if (badge) {
+          if (data.completed) {
+            badge.textContent = '✅ Signé'; badge.className = 'badge b-on';
+            badge.onclick = null; badge.style.cursor = 'default';
+          } else if (data.status === 'declined') {
+            badge.textContent = '❌ Refusé'; badge.className = 'badge b-off';
+          } else {
+            badge.textContent = '✍️ En attente'; badge.className = 'badge b-wait';
+          }
+        }
+      } catch(err) { if (badge) badge.textContent = '⚠️ Erreur'; }
+    }
   </script>
 </body>
 </html>

@@ -47,8 +47,8 @@ class DemandeCredit
         $stmt = $this->pdo->prepare("
             INSERT INTO DemandeCredit
     (montant, duree_mois, taux_interet, statut, resultat, motif_resultat, 
-     date_demande, client_id, compte_id, country_code, ip_client)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     date_demande, date_traitement, client_id, compte_id, country_code, ip_client, client_email)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         return $stmt->execute([
             $data['montant'],
@@ -58,10 +58,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             $data['resultat'],
             $data['motif_resultat'],
             $data['date_demande'],
+            $data['date_traitement'] ?: null,
             $data['client_id'],
             $data['compte_id'],
             $data['country_code'] ?? 'TN',
-            $data['ip_client'] ?? null,
+$data['ip_client'] ?? null,
+$data['client_email'] ?? null,
         ]);
     }
 
