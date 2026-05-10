@@ -1,33 +1,33 @@
-<?php
+﻿<?php
 /**
  * Exemple d'utilisation de ClientGeolocation dans CreditController
- * Ajouter ces éléments à votre CreditController.php
+ * Ajouter ces Ã©lÃ©ments Ã  votre CreditController.php
  */
 
 // 1. Ajouter l'import en haut du fichier
-// require_once __DIR__ . '/../model/ClientGeolocation.php';
+// require_once __DIR__ . '/../models/ClientGeolocation.php';
 
-// 2. Ajouter une méthode pour initialiser les données géographiques
+// 2. Ajouter une mÃ©thode pour initialiser les donnÃ©es gÃ©ographiques
 public function initializeWithGeolocation(): void
 {
-    // Récupérer la localisation du client
+    // RÃ©cupÃ©rer la localisation du client
     $location = ClientGeolocation::getClientLocation();
     
     // Stocker dans la session
     $_SESSION['client_geolocation'] = $location;
     
-    // Récupérer les règles de crédit pour ce pays
+    // RÃ©cupÃ©rer les rÃ¨gles de crÃ©dit pour ce pays
     $rules = ClientGeolocation::getRegionalRules($location['country_code']);
     $_SESSION['regional_rules'] = $rules;
 }
 
-// 3. Modifier la méthode createDemande() pour utiliser la géolocalisation
+// 3. Modifier la mÃ©thode createDemande() pour utiliser la gÃ©olocalisation
 private function createDemande(): void
 {
-    // Récupérer les données du formulaire
+    // RÃ©cupÃ©rer les donnÃ©es du formulaire
     $data = $this->collectDemandePost();
     
-    // Récupérer la géolocalisation si pas déjà en session
+    // RÃ©cupÃ©rer la gÃ©olocalisation si pas dÃ©jÃ  en session
     if (empty($_SESSION['client_geolocation'])) {
         $this->initializeWithGeolocation();
     }
@@ -35,16 +35,16 @@ private function createDemande(): void
     $location = $_SESSION['client_geolocation'] ?? ClientGeolocation::getClientLocation();
     $rules = ClientGeolocation::getRegionalRules($location['country_code']);
     
-    // Ajouter les données de géolocalisation à $data
+    // Ajouter les donnÃ©es de gÃ©olocalisation Ã  $data
     $data['country_code'] = $location['country_code'];
     $data['currency'] = $location['currency'];
     $data['ip_client'] = $location['ip'];
     
-    // Valider le montant selon les règles régionales
+    // Valider le montant selon les rÃ¨gles rÃ©gionales
     if (!ClientGeolocation::isMontantValid((float)$data['montant'], $location['country_code'])) {
         $errors = [
             'montant' => sprintf(
-                'Le montant doit être entre %s et %s %s pour %s',
+                'Le montant doit Ãªtre entre %s et %s %s pour %s',
                 number_format($rules['min_montant'], 0, ',', ' '),
                 number_format($rules['max_montant'], 0, ',', ' '),
                 $location['currency'],
@@ -62,11 +62,11 @@ private function createDemande(): void
         return;
     }
     
-    // Créer la demande
+    // CrÃ©er la demande
     if ($this->demandeModel->create($data)) {
-        $_SESSION['success'] = 'Demande de crédit créée avec succès!';
+        $_SESSION['success'] = 'Demande de crÃ©dit crÃ©Ã©e avec succÃ¨s!';
     } else {
-        $_SESSION['error'] = 'Erreur lors de la création de la demande.';
+        $_SESSION['error'] = 'Erreur lors de la crÃ©ation de la demande.';
     }
     
     // Rediriger
@@ -74,7 +74,7 @@ private function createDemande(): void
     exit();
 }
 
-// 4. Méthode pour afficher les informations de géolocalisation en front-end
+// 4. MÃ©thode pour afficher les informations de gÃ©olocalisation en front-end
 public function getClientLocationInfo(): array
 {
     $location = $_SESSION['client_geolocation'] ?? ClientGeolocation::getClientLocation();
@@ -87,30 +87,30 @@ public function getClientLocationInfo(): array
     ];
 }
 
-// 5. Méthode pour adapter les tarifs en fonction du profil de risque
+// 5. MÃ©thode pour adapter les tarifs en fonction du profil de risque
 public function getPersonalizedOffer(float $montant, string $riskProfile = 'medium'): array
 {
     $location = $_SESSION['client_geolocation'] ?? ClientGeolocation::getClientLocation();
     $rules = ClientGeolocation::getRegionalRules($location['country_code']);
     
-    // Vérifier la validité du montant
+    // VÃ©rifier la validitÃ© du montant
     if (!ClientGeolocation::isMontantValid($montant, $location['country_code'])) {
-        return ['error' => 'Montant non valide pour cette région'];
+        return ['error' => 'Montant non valide pour cette rÃ©gion'];
     }
     
-    // Calculer le taux personnalisé
+    // Calculer le taux personnalisÃ©
     $taux = ClientGeolocation::getRecommendedRate($location['country_code'], $riskProfile);
     
-    // Calculer la durée optimale (en mois)
+    // Calculer la durÃ©e optimale (en mois)
     $dureeOptimale = min(36, $rules['duree_max_mois']);
     
-    // Calculer les mensualités
+    // Calculer les mensualitÃ©s
     $monthlyRate = $taux / 100 / 12;
     $numerator = $montant * $monthlyRate * pow(1 + $monthlyRate, $dureeOptimale);
     $denominator = pow(1 + $monthlyRate, $dureeOptimale) - 1;
     $mensualite = $numerator / $denominator;
     
-    // Montant total avec intérêts
+    // Montant total avec intÃ©rÃªts
     $totalAvecInterets = $mensualite * $dureeOptimale;
     $fraisInterets = $totalAvecInterets - $montant;
     

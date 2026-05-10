@@ -24,6 +24,31 @@ if ($pwdError && $flash && $flash['type'] === 'error') {
     $openModal = 'm-pwd';
 }
 
+$page = $_GET['page'] ?? 'profil';
+
+if ($page === 'credit') {
+    require_once __DIR__ . '/../../models/Demande_Credit.php';
+    require_once __DIR__ . '/../../models/Garantie.php';
+    $demandeModel = new DemandeCredit();
+    $garantieModel = new Garantie();
+    
+    $clientId = (int)Session::get('user_id');
+    $demandes = $demandeModel->getAllByClient($clientId);
+    $garanties = $garantieModel->getAllByClient($clientId);
+    $demandesSelect = $demandes; // for the dropdown in garantie form
+    
+    $editDemandeId = (int)($_GET['edit_d'] ?? 0);
+    $editGarantieId = (int)($_GET['edit_g'] ?? 0);
+    $editDemande = $editDemandeId ? $demandeModel->getById($editDemandeId) : null;
+    $editGarantie = $editGarantieId ? $garantieModel->getById($editGarantieId) : null;
+    
+    $activeTab = $_GET['view'] ?? 'mes-credits'; // mes-credits, mes-garanties, nouvelle
+    $activeSubTab = $_GET['tab'] ?? ($editGarantieId ? 'garantie' : 'demande');
+    
+    $dbStatus = \config::testConnexion();
+    $dbError = !$dbStatus['ok'];
+}
+
 function oldProfil(string $key, array $old, array $user): string {
     return htmlspecialchars($old[$key] ?? $user[$key] ?? '', ENT_QUOTES, 'UTF-8');
 }
@@ -57,12 +82,16 @@ function oldProfil(string $key, array $old, array $user): string {
 .modal-flash svg{width:13px;height:13px;flex-shrink:0;margin-top:2px;}
 .modal-flash-error{background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);color:var(--rose);}
 </style>
+<?php if ($page === 'credit'): ?>
+  <link rel="stylesheet" href="<?= APP_URL ?>/view/frontoffice/creditttt.css">
+  <script>window.CONTROLLER_PATH = '<?= APP_URL . "/controller/CreditController.php" ?>';</script>
+<?php endif; ?>
 </head>
 <body>
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
 <div class="main">
   <header class="topbar">
-    <div class="topbar-title">Mon Profil</div>
+    <div class="topbar-title"><?= ($page === 'credit') ? 'Gestion Crédits' : 'Mon Profil' ?></div>
     <div class="topbar-right">
       <div class="notif"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="notif-dot"></span></div>
     </div>
@@ -74,6 +103,10 @@ function oldProfil(string $key, array $old, array $user): string {
       <span><?= htmlspecialchars($flash['message']) ?></span>
     </div>
     <?php endif; ?>
+    
+    <?php if ($page === 'credit'): ?>
+      <?php include __DIR__ . '/front_credit_content.php'; ?>
+    <?php else: ?>
     
     <!-- HERO -->
     <div class="profile-hero">
@@ -231,6 +264,7 @@ function oldProfil(string $key, array $old, array $user): string {
         </div>
       </div>
     </div>
+    <?php endif; ?>
   </div>
 </div>
 

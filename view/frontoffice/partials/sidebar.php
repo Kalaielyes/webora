@@ -22,6 +22,7 @@ $showHistorique = $showHistorique ?? (!empty($_GET['tab'])  && $_GET['tab']==='h
 $isCompteSection = $isCompteSection ?? ($currentFile === 'frontoffice_compte.php' && ($showCompteForm || $showCarteForm || (!$showVirementForm && !$showObjectifs && !$showHistorique)));
 $isOperationSection = $isOperationSection ?? ($currentFile === 'frontoffice_compte.php' && ($showVirementForm || $showObjectifs || $showHistorique));
 $isChequierSection = ($currentFile === 'frontoffice_chequier.php');
+$isCreditSection = ($page === 'credit');
 
 $pendingCount = $pendingCount ?? 0;
 if ($pendingCount === 0 && isset($_SESSION['user_id'])) {
@@ -120,6 +121,28 @@ if ($pendingCount === 0 && isset($_SESSION['user_id'])) {
           </a>
           <a class="nav-sub-item <?= ($currentFile === 'frontoffice_chequier.php' && ($_GET['view']??'')==='mes_chequiers')?'active':'' ?>" href="<?= APP_URL ?>/view/frontoffice/frontoffice_chequier.php?view=mes_chequiers">
             <span class="nav-sub-dot"></span>Liste des chéquiers
+          </a>
+        </div>
+      </div>
+
+      <!-- ══ CRÉDITS DROPDOWN ══ -->
+      <div class="nav-dropdown <?= $isCreditSection ? 'open' : '' ?>" id="dropdown-credit">
+        <div class="nav-item nav-dropdown-toggle" onclick="toggleDropdown('dropdown-credit')" style="cursor:pointer; user-select:none;">
+          <div class="nav-dropdown-toggle-left">
+            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <span>Crédits</span>
+          </div>
+          <svg class="nav-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-left:auto"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="nav-dropdown-menu">
+          <a class="nav-sub-item <?= ($isCreditSection && ($activeTab === 'mes-credits')) ? 'active' : '' ?>" href="<?= APP_URL ?>/view/frontoffice/frontoffice_utilisateur.php?page=credit&view=mes-credits">
+            <span class="nav-sub-dot"></span>Mes Crédits
+          </a>
+          <a class="nav-sub-item <?= ($isCreditSection && ($activeTab === 'mes-garanties')) ? 'active' : '' ?>" href="<?= APP_URL ?>/view/frontoffice/frontoffice_utilisateur.php?page=credit&view=mes-garanties">
+            <span class="nav-sub-dot"></span>Mes Garanties
+          </a>
+          <a class="nav-sub-item <?= ($isCreditSection && ($activeTab === 'nouvelle')) ? 'active' : '' ?>" href="<?= APP_URL ?>/view/frontoffice/frontoffice_utilisateur.php?page=credit&view=nouvelle">
+            <span class="nav-sub-dot"></span>Demander un crédit
           </a>
         </div>
       </div>

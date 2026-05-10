@@ -1,9 +1,9 @@
-<?php
+﻿<?php
 $sc = ['en_cours' => 'cs-open', 'traitee' => 'cs-closed', 'annulee' => 'st-off'];
-$sl = ['en_cours' => 'En cours', 'traitee' => 'Traitée', 'annulee' => 'Annulée'];
+$sl = ['en_cours' => 'En cours', 'traitee' => 'TraitÃ©e', 'annulee' => 'AnnulÃ©e'];
 $rc = ['en_attente' => 'cs-open', 'approuvee' => 'cs-closed', 'refusee' => 'st-off'];
-$rl = ['en_attente' => 'En attente', 'approuvee' => 'Approuvée', 'refusee' => 'Refusée'];
-$tgL = ['vehicule' => '🚗 Véhicule', 'immobilier' => '🏠 Immobilier', 'garant' => '🤝 Garant', 'autre' => '📄 Autre'];
+$rl = ['en_attente' => 'En attente', 'approuvee' => 'ApprouvÃ©e', 'refusee' => 'RefusÃ©e'];
+$tgL = ['vehicule' => 'ðŸš— VÃ©hicule', 'immobilier' => 'ðŸ  Immobilier', 'garant' => 'ðŸ¤ Garant', 'autre' => 'ðŸ“„ Autre'];
 
 $activeTab = $activeTab ?? 'demande';
 $activeTab = in_array($activeTab, ['demande', 'garantie', 'simulateur'], true) ? $activeTab : 'demande';
@@ -25,13 +25,13 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>LegalFin — Gestion des Crédits</title>
-  <link rel="stylesheet" href="<?= htmlspecialchars($viewRoot) ?>/frontCredit/creditttt.css" />
+  <title>LegalFin â€” Gestion des CrÃ©dits</title>
+  <link rel="stylesheet" href="<?= htmlspecialchars($viewRoot) ?>/frontoffice/creditttt.css" />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 
 <body>
-  <!-- ══ SIDEBAR ══ -->
+  <!-- â•â• SIDEBAR â•â• -->
   <aside class="sidebar">
     <div class="sb-logo">
       LegalFin<span>Bank</span>
@@ -46,64 +46,64 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
     </div>
     <nav class="sb-nav">
       <div class="sb-sec">COMPTE</div>
-      <a class="sb-item on" onclick="showPage('credits',this)"><span class="sb-ico">📈</span> Crédits</a>
-      <a class="sb-item" onclick="showPage('mes-credits',this)"><span class="sb-ico">📋</span> Mes crédits <span class="sb-badge ba"><?= count($demandes) ?></span></a>
-      <a class="sb-item" onclick="showPage('mes-garanties',this)"><span class="sb-ico">🔒</span> Mes garanties <span class="sb-badge ba"><?= count($garanties) ?></span></a>
+      <a class="sb-item on" onclick="showPage('credits',this)"><span class="sb-ico">ðŸ“ˆ</span> CrÃ©dits</a>
+      <a class="sb-item" onclick="showPage('mes-credits',this)"><span class="sb-ico">ðŸ“‹</span> Mes crÃ©dits <span class="sb-badge ba"><?= count($demandes) ?></span></a>
+      <a class="sb-item" onclick="showPage('mes-garanties',this)"><span class="sb-ico">ðŸ”’</span> Mes garanties <span class="sb-badge ba"><?= count($garanties) ?></span></a>
       <div class="sb-sec">AUTRES</div>
-      <a class="sb-item" onclick="showPage('dashboard',this)"><span class="sb-ico">📊</span> Tableau de bord</a>
-      <a class="sb-item" onclick="showPage('profil',this)"><span class="sb-ico">👤</span> Profil</a>
+      <a class="sb-item" onclick="showPage('dashboard',this)"><span class="sb-ico">ðŸ“Š</span> Tableau de bord</a>
+      <a class="sb-item" onclick="showPage('profil',this)"><span class="sb-ico">ðŸ‘¤</span> Profil</a>
     </nav>
     <div class="sb-footer">
       <div class="st-row">
         <span class="std" style="background:#22C55E;"></span>
-        <span>Système en ligne</span>
+        <span>SystÃ¨me en ligne</span>
       </div>
       <a href="<?= htmlspecialchars($controllerRoot) ?>/AuthController.php?action=logout" style="font-size:.7rem;color:#94A3B8;text-decoration:none;transition:color .2s;">
-        Déconnexion ↗
+        DÃ©connexion â†—
       </a>
     </div>
   </aside>
 
-  <!-- ══ MAIN CONTENT ══ -->
+  <!-- â•â• MAIN CONTENT â•â• -->
   <div class="main">
     <!-- TOP BAR -->
     <header class="topbar">
       <div style="display:flex;align-items:center;gap:.8rem;">
-        <div class="tb-title" id="page-title">Gestion des Crédits</div>
+        <div class="tb-title" id="page-title">Gestion des CrÃ©dits</div>
       </div>
       <div class="tb-right">
         <div class="live"><span class="ldot"></span> En direct</div>
-        <a href="<?= htmlspecialchars($controllerRoot) ?>/AdminCreditController.php" class="btn-backoffice">Accueil ↗</a>
+        <a href="../view/frontoffice/frontoffice_utilisateur.php" class="btn-backoffice">Accueil â†—</a>
       </div>
     </header>
 
     <!-- CONTENT AREA -->
     <div class="content">
 
-      <!-- ════════════════════════════════════════════════════
-           PAGE: CRÉDITS (MAIN)
-      ════════════════════════════════════════════════════ -->
+      <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           PAGE: CRÃ‰DITS (MAIN)
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
       <div class="page on" id="page-credits">
 
         <!-- ALERTS & MESSAGES -->
         <?php if (isset($dbStatus) && !$dbStatus['ok']): ?>
           <div class="alert-err">
-            <strong>⚠️ Erreur Connexion:</strong> <?= htmlspecialchars($dbStatus['error']) ?>
+            <strong>âš ï¸ Erreur Connexion:</strong> <?= htmlspecialchars($dbStatus['error']) ?>
           </div>
         <?php endif; ?>
         <?php if ($dbError): ?>
           <div class="alert-err">
-            <strong>⚠️ Erreur:</strong> Connexion base de données indisponible.
+            <strong>âš ï¸ Erreur:</strong> Connexion base de donnÃ©es indisponible.
           </div>
         <?php endif; ?>
         <?php if ($success): ?>
           <div class="alert-ok">
-            <strong>✓ Succès:</strong> <?= htmlspecialchars($success) ?>
+            <strong>âœ“ SuccÃ¨s:</strong> <?= htmlspecialchars($success) ?>
           </div>
         <?php endif; ?>
         <?php if ($errors): ?>
           <div class="alert-err">
-            <strong>⚠️ Erreurs:</strong>
+            <strong>âš ï¸ Erreurs:</strong>
             <ul style="margin:.4rem 0 0 1.2rem;">
               <?php foreach ($errors as $e): ?>
                 <li style="margin:.2rem 0;"><?= htmlspecialchars($e) ?></li>
@@ -115,26 +115,26 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
         <!-- SECTION TABS -->
         <div class="tabs-crud">
           <div class="tab-c <?= $activeTab === 'demande' ? 'on' : '' ?>" onclick="switchTab('demande',this)">
-            📋 Nouvelle demande
+            ðŸ“‹ Nouvelle demande
           </div>
           <div class="tab-c <?= $activeTab === 'garantie' ? 'on' : '' ?>" onclick="switchTab('garantie',this)">
-            🔒 Nouvelle garantie
+            ðŸ”’ Nouvelle garantie
           </div>
           <div class="tab-c <?= $activeTab === 'simulateur' ? 'on' : '' ?>" onclick="switchTab('simulateur',this)">
-            🧮 Simulateur
+            ðŸ§® Simulateur
           </div>
         </div>
 
-        <!-- ══════════════════════════════════════════════════
-             TAB 1: DEMANDES DE CRÉDIT
-        ══════════════════════════════════════════════════ -->
+        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+             TAB 1: DEMANDES DE CRÃ‰DIT
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
         <div id="tab-demande" style="display:<?= $activeTab === 'demande' ? 'block' : 'none' ?>">
 
           <!-- FORM: NEW/EDIT DEMANDE -->
           <div class="sc" style="margin-bottom:1.5rem;">
             <div class="sc-hd">
               <div class="sc-title">
-                <?= $editDemande ? '✏️ Modifier demande #' . (int) $editDemande['id'] : '➕ Nouvelle demande de crédit' ?>
+                <?= $editDemande ? 'âœï¸ Modifier demande #' . (int) $editDemande['id'] : 'âž• Nouvelle demande de crÃ©dit' ?>
               </div>
             </div>
             <div style="padding:1.2rem;">
@@ -150,7 +150,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                     <div class="err-msg" id="e-montant"></div>
                   </div>
                   <div class="fg-crud">
-                    <label class="fl-crud">Durée (mois) *</label>
+                    <label class="fl-crud">DurÃ©e (mois) *</label>
                     <input class="fi-crud" id="f-duree" name="duree_mois" type="number" step="1" placeholder="ex: 36" value="<?= htmlspecialchars($editDemande['duree_mois'] ?? '') ?>" />
                     <div class="field-hint">Min: 6 | Max: 360 mois</div>
                     <div class="err-msg" id="e-duree"></div>
@@ -180,10 +180,10 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
 
                 <div style="display:flex;gap:.8rem;margin-top:1rem;">
                   <button type="submit" class="btn-crud">
-                    <?= $editDemande ? '💾 Enregistrer' : '✅ Créer la demande' ?>
+                    <?= $editDemande ? 'ðŸ’¾ Enregistrer' : 'âœ… CrÃ©er la demande' ?>
                   </button>
                   <?php if ($editDemande): ?>
-                    <a href="<?= $self ?>" class="sc-link">✕ Annuler</a>
+                    <a href="<?= $self ?>" class="sc-link">âœ• Annuler</a>
                   <?php endif; ?>
                 </div>
               </form>
@@ -192,16 +192,16 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
 
         </div><!-- /tab-demande -->
 
-        <!-- ══════════════════════════════════════════════════
+        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
              TAB 2: GARANTIES
-        ══════════════════════════════════════════════════ -->
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
         <div id="tab-garantie" style="display:<?= $activeTab === 'garantie' ? 'block' : 'none' ?>">
 
           <!-- FORM: NEW/EDIT GARANTIE -->
           <div class="sc" style="margin-bottom:1.5rem;">
             <div class="sc-hd">
               <div class="sc-title">
-                <?= $editGarantie ? '✏️ Modifier garantie #' . (int) $editGarantie['id'] : '🔒 Ajouter une garantie' ?>
+                <?= $editGarantie ? 'âœï¸ Modifier garantie #' . (int) $editGarantie['id'] : 'ðŸ”’ Ajouter une garantie' ?>
               </div>
             </div>
             <div style="padding:1.2rem;">
@@ -211,11 +211,11 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
 
                 <?php if (!$editGarantie): ?>
                   <div class="fg-crud">
-                    <label class="fl-crud">Demande associée *</label>
+                    <label class="fl-crud">Demande associÃ©e *</label>
                     <select class="fs-crud" name="demande_credit_id" id="f-g-demande" required>
-                      <option value="">— Sélectionner une demande —</option>
+                      <option value="">â€” SÃ©lectionner une demande â€”</option>
                       <?php foreach ($demandesSelect as $ds): ?>
-                        <option value="<?= $ds['id'] ?>">#<?= $ds['id'] ?> — <?= number_format($ds['montant'], 0, ',', ' ') ?> TND — <?= $ds['date_demande'] ?></option>
+                        <option value="<?= $ds['id'] ?>">#<?= $ds['id'] ?> â€” <?= number_format($ds['montant'], 0, ',', ' ') ?> TND â€” <?= $ds['date_demande'] ?></option>
                       <?php endforeach; ?>
                     </select>
                     <div class="err-msg" id="e-g-demande"></div>
@@ -226,26 +226,26 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                   <div class="fg-crud">
                     <label class="fl-crud">Type de garantie *</label>
                     <select class="fs-crud" name="type" id="f-g-type" onchange="updateDocLabel(this.value)" required>
-                      <option value="">— Choisir —</option>
-                      <option value="vehicule" <?= ($editGarantie['type'] ?? '') === 'vehicule' ? 'selected' : '' ?>>🚗 Véhicule</option>
-                      <option value="immobilier" <?= ($editGarantie['type'] ?? '') === 'immobilier' ? 'selected' : '' ?>>🏠 Immobilier</option>
-                      <option value="garant" <?= ($editGarantie['type'] ?? '') === 'garant' ? 'selected' : '' ?>>🤝 Garant</option>
-                      <option value="autre" <?= ($editGarantie['type'] ?? '') === 'autre' ? 'selected' : '' ?>>📄 Autre</option>
+                      <option value="">â€” Choisir â€”</option>
+                      <option value="vehicule" <?= ($editGarantie['type'] ?? '') === 'vehicule' ? 'selected' : '' ?>>ðŸš— VÃ©hicule</option>
+                      <option value="immobilier" <?= ($editGarantie['type'] ?? '') === 'immobilier' ? 'selected' : '' ?>>ðŸ  Immobilier</option>
+                      <option value="garant" <?= ($editGarantie['type'] ?? '') === 'garant' ? 'selected' : '' ?>>ðŸ¤ Garant</option>
+                      <option value="autre" <?= ($editGarantie['type'] ?? '') === 'autre' ? 'selected' : '' ?>>ðŸ“„ Autre</option>
                     </select>
                     <div class="err-msg" id="e-g-type"></div>
                   </div>
                   <div class="fg-crud">
     <label class="fl-crud" id="lbl-document">Document justificatif *</label>
     <input class="fi-crud" id="f-g-doc" name="document" type="text"
-        placeholder="Référence officielle (ex: 123456TUN)"
+        placeholder="RÃ©fÃ©rence officielle (ex: 123456TUN)"
         value="<?= htmlspecialchars($editGarantie['document'] ?? '') ?>" />
-    <div class="field-hint" id="hint-document">N° carte grise, titre propriété, nom garant…</div>
+    <div class="field-hint" id="hint-document">NÂ° carte grise, titre propriÃ©tÃ©, nom garantâ€¦</div>
 
     <!-- Upload fichier -->
     <label class="fl-crud" style="margin-top:.8rem;">
-        📎 Ou joindre un fichier
+        ðŸ“Ž Ou joindre un fichier
         <span style="font-weight:400;color:var(--muted);text-transform:none;font-size:.75rem;">
-            (PDF, JPG, PNG — max 5 Mo)
+            (PDF, JPG, PNG â€” max 5 Mo)
         </span>
     </label>
     <input class="fi-crud" name="document_file" id="f-g-file" type="file"
@@ -254,10 +254,10 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
 
     <?php if (!empty($editGarantie['document']) && str_starts_with($editGarantie['document'], 'uploads/')): ?>
         <div class="field-hint" style="margin-top:.4rem;">
-            📄 Fichier actuel :
+            ðŸ“„ Fichier actuel :
             <a href="<?= htmlspecialchars(BASE_URL . '/' . $editGarantie['document']) ?>"
                target="_blank" style="color:var(--blue);text-decoration:underline;">
-                Voir le document ↗
+                Voir le document â†—
             </a>
         </div>
     <?php endif; ?>
@@ -268,22 +268,22 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
 
                 <div class="form-row-2">
                   <div class="fg-crud">
-                    <label class="fl-crud">Valeur estimée (TND) *</label>
+                    <label class="fl-crud">Valeur estimÃ©e (TND) *</label>
                     <input class="fi-crud" id="f-g-valeur" name="valeur_estimee" type="number" min="0" step="100" placeholder="ex: 30 000" value="<?= htmlspecialchars($editGarantie['valeur_estimee'] ?? '') ?>" required />
                     <div class="err-msg" id="e-g-valeur"></div>
                   </div>
                   <div class="fg-crud">
                     <label class="fl-crud">Description</label>
-                    <input class="fi-crud" name="description" type="text" placeholder="Détails additionnels..." value="<?= htmlspecialchars($editGarantie['description'] ?? '') ?>" />
+                    <input class="fi-crud" name="description" type="text" placeholder="DÃ©tails additionnels..." value="<?= htmlspecialchars($editGarantie['description'] ?? '') ?>" />
                   </div>
                 </div>
 
                 <div style="display:flex;gap:.8rem;margin-top:1rem;">
                   <button type="submit" class="btn-crud">
-                    <?= $editGarantie ? '💾 Enregistrer' : '🔒 Ajouter la garantie' ?>
+                    <?= $editGarantie ? 'ðŸ’¾ Enregistrer' : 'ðŸ”’ Ajouter la garantie' ?>
                   </button>
                   <?php if ($editGarantie): ?>
-                    <a href="<?= $self ?>?tab=garantie" class="sc-link">✕ Annuler</a>
+                    <a href="<?= $self ?>?tab=garantie" class="sc-link">âœ• Annuler</a>
                   <?php endif; ?>
                 </div>
               </form>
@@ -292,85 +292,85 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
 
         </div><!-- /tab-garantie -->
 
-        <!-- ══════════════════════════════════════════════════
+        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
              TAB 3: SIMULATEUR
-        ══════════════════════════════════════════════════ -->
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
         <div id="tab-simulateur" style="display:<?= $activeTab === 'simulateur' ? 'block' : 'none' ?>">
           <div class="sc cr-sim">
-            <div class="sc-title" style="margin-bottom:1.5rem;">🧮 Simulateur de Crédit</div>
+            <div class="sc-title" style="margin-bottom:1.5rem;">ðŸ§® Simulateur de CrÃ©dit</div>
 
             <div class="slider-row">
-              <div class="sl-lbl"><span>Montant du crédit</span><span id="lv">20 000 TND</span></div>
+              <div class="sl-lbl"><span>Montant du crÃ©dit</span><span id="lv">20 000 TND</span></div>
               <input type="range" min="1000" max="100000" step="1000" value="20000" oninput="calcCredit()" />
             </div>
 
             <div class="slider-row">
-              <div class="sl-lbl"><span>Durée du remboursement</span><span id="dv">36 mois</span></div>
+              <div class="sl-lbl"><span>DurÃ©e du remboursement</span><span id="dv">36 mois</span></div>
               <input type="range" min="6" max="84" step="6" value="36" oninput="calcCredit()" />
             </div>
 
             <div class="slider-row">
-              <div class="sl-lbl"><span>Taux annuel d'intérêt</span><span id="rv">8.5%</span></div>
+              <div class="sl-lbl"><span>Taux annuel d'intÃ©rÃªt</span><span id="rv">8.5%</span></div>
               <input type="range" min="5" max="20" step="0.5" value="8.5" oninput="calcCredit()" />
             </div>
 
             <div class="cr-result">
-              <div class="sl-lbl" style="justify-content:center;margin-bottom:.8rem;">Mensualité estimée</div>
+              <div class="sl-lbl" style="justify-content:center;margin-bottom:.8rem;">MensualitÃ© estimÃ©e</div>
               <div class="cr-monthly" id="mp">631 TND</div>
-              <div class="cr-detail" id="cd">Total : 22 716 TND · Coût : 2 716 TND</div>
+              <div class="cr-detail" id="cd">Total : 22 716 TND Â· CoÃ»t : 2 716 TND</div>
             </div>
 
-            <button class="apply-btn" onclick="switchTab('demande',null);document.querySelector('[onclick*=\'demande\']').click();">Faire ma demande →</button>
+            <button class="apply-btn" onclick="switchTab('demande',null);document.querySelector('[onclick*=\'demande\']').click();">Faire ma demande â†’</button>
           </div>
         </div>
 
       </div><!-- /page-credits -->
 
-      <!-- ════════════════════════════════════════════════════
+      <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
            PAGE: TABLEAU DE BORD
-      ════════════════════════════════════════════════════ -->
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
       <div class="page" id="page-dashboard">
         <div class="sc">
-          <div class="sc-title">📊 Tableau de Bord</div>
+          <div class="sc-title">ðŸ“Š Tableau de Bord</div>
           <div style="padding:2rem;text-align:center;color:var(--muted);">
-            Tableau de bord à venir.
+            Tableau de bord Ã  venir.
           </div>
         </div>
       </div>
 
-      <!-- ════════════════════════════════════════════════════
+      <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
            PAGE: PROFIL
-      ════════════════════════════════════════════════════ -->
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
       <div class="page" id="page-profil">
         <div class="sc">
-          <div class="sc-title" style="margin-bottom:1rem;">👤 Mon Profil</div>
+          <div class="sc-title" style="margin-bottom:1rem;">ðŸ‘¤ Mon Profil</div>
           <div style="padding:1.5rem;color:var(--muted);">
-            Gestion du profil à venir.
+            Gestion du profil Ã  venir.
           </div>
         </div>
       </div>
 
-      <!-- ════════════════════════════════════════════════════
-           PAGE: MES CRÉDITS (DEMANDES TABLE)
-      ════════════════════════════════════════════════════ -->
+      <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           PAGE: MES CRÃ‰DITS (DEMANDES TABLE)
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
       <div class="page" id="page-mes-credits">
         <div class="sc">
           <div class="sc-hd">
-            <div class="sc-title">📋 Vos demandes (<?= count($demandes) ?>)</div>
+            <div class="sc-title">ðŸ“‹ Vos demandes (<?= count($demandes) ?>)</div>
           </div>
           <?php if (empty($demandes)): ?>
             <div style="padding:2rem;text-align:center;color:var(--muted);">
-              <div style="font-size:3rem;margin-bottom:.5rem;">📋</div>
-              Aucune demande de crédit pour le moment.
+              <div style="font-size:3rem;margin-bottom:.5rem;">ðŸ“‹</div>
+              Aucune demande de crÃ©dit pour le moment.
             </div>
           <?php else: ?>
             <div style="overflow-x:auto;">
               <table class="tbl-crud">
                 <thead>
                   <tr>
-                    <th>Demande n°</th>
+                    <th>Demande nÂ°</th>
                     <th>Montant</th>
-                    <th>Durée</th>
+                    <th>DurÃ©e</th>
                     <th>Taux</th>
                     <th>Date</th>
                     <th style="text-align:center;">Signature</th>
@@ -380,7 +380,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                 <tbody>
                   <?php foreach ($demandes as $d): ?>
                     <tr>
-                      <td><strong>Demande n°<?= (int) $d['id'] ?></strong></td>
+                      <td><strong>Demande nÂ°<?= (int) $d['id'] ?></strong></td>
                       <td><strong><?= number_format($d['montant'], 0, ',', ' ') ?> TND</strong></td>
                       <td><?= (int) $d['duree_mois'] ?> m</td>
                       <td><?= $d['taux_interet'] ?>%</td>
@@ -395,8 +395,8 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                               data-submission-id="<?= $submId ?>"
                               style="cursor:pointer;font-size:.75rem;"
                               onclick="checkSigStatus(<?= $d['id'] ?>, <?= $submId ?>)"
-                              title="Cliquer pour vérifier">
-                              ✍️ En attente
+                              title="Cliquer pour vÃ©rifier">
+                              âœï¸ En attente
                             </span>
                           <?php else: ?>
                             <form method="POST" action="<?= $self ?>" style="display:inline;">
@@ -408,16 +408,16 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                             </form>
                           <?php endif; ?>
                         <?php else: ?>
-                          <span style="color:var(--muted);font-size:.75rem;">—</span>
+                          <span style="color:var(--muted);font-size:.75rem;">â€”</span>
                         <?php endif; ?>
                       </td>
                       <td style="text-align:center;">
                         <div class="td-acts-row" style="justify-content:center;">
-                          <a href="<?= $self ?>?edit_d=<?= $d['id'] ?>" class="btn-edt">✏️</a>
-                          <form method="POST" action="<?= $self ?>" style="display:inline;" onsubmit="return confirm('Êtes-vous sûr ?')">
+                          <a href="<?= $self ?>?edit_d=<?= $d['id'] ?>" class="btn-edt">âœï¸</a>
+                          <form method="POST" action="<?= $self ?>" style="display:inline;" onsubmit="return confirm('ÃŠtes-vous sÃ»r ?')">
                             <input type="hidden" name="action" value="delete_demande" />
                             <input type="hidden" name="id" value="<?= $d['id'] ?>" />
-                            <button type="submit" class="btn-del">🗑️</button>
+                            <button type="submit" class="btn-del">ðŸ—‘ï¸</button>
                           </form>
                         </div>
                       </td>
@@ -430,17 +430,17 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
         </div>
       </div>
 
-      <!-- ════════════════════════════════════════════════════
+      <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
            PAGE: MES GARANTIES (GARANTIES TABLE)
-      ════════════════════════════════════════════════════ -->
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
       <div class="page" id="page-mes-garanties">
         <div class="sc">
           <div class="sc-hd">
-            <div class="sc-title">🔒 Vos garanties (<?= count($garanties) ?>)</div>
+            <div class="sc-title">ðŸ”’ Vos garanties (<?= count($garanties) ?>)</div>
           </div>
           <?php if (empty($garanties)): ?>
             <div style="padding:2rem;text-align:center;color:var(--muted);">
-              <div style="font-size:3rem;margin-bottom:.5rem;">🔒</div>
+              <div style="font-size:3rem;margin-bottom:.5rem;">ðŸ”’</div>
               Aucune garantie pour le moment.
             </div>
           <?php else: ?>
@@ -448,7 +448,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
               <table class="tbl-crud">
                 <thead>
                   <tr>
-                    <th>Demande n°</th>
+                    <th>Demande nÂ°</th>
                     <th>Type</th>
                     <th>Document</th>
                     <th>Valeur</th>
@@ -458,14 +458,14 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                 <tbody>
                   <?php foreach ($garanties as $g): ?>
                     <tr>
-                      <td><span class="claim-st cs-open">Demande n°<?= (int) $g['demande_credit_id'] ?> <?= $g['dc_montant'] ? ' — ' . number_format($g['dc_montant'], 0, ',', ' ') . ' TND' : '' ?></span></td>
+                      <td><span class="claim-st cs-open">Demande nÂ°<?= (int) $g['demande_credit_id'] ?> <?= $g['dc_montant'] ? ' â€” ' . number_format($g['dc_montant'], 0, ',', ' ') . ' TND' : '' ?></span></td>
                       <td><?= $tgL[$g['type']] ?? htmlspecialchars($g['type']) ?></td>
                       <td>
                         <?php if (str_starts_with($g['document'], 'uploads/')): ?>
                           <a href="<?= $self ?>?action=download_garantie_file&id=<?= $g['id'] ?>" 
                              target="_blank" 
                              style="color:var(--blue);text-decoration:underline;cursor:pointer;">
-                            📄 <?= htmlspecialchars(basename($g['document'])) ?> ↗
+                            ðŸ“„ <?= htmlspecialchars(basename($g['document'])) ?> â†—
                           </a>
                         <?php else: ?>
                           <?= htmlspecialchars($g['document']) ?>
@@ -474,11 +474,11 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
                       <td><strong><?= number_format($g['valeur_estimee'], 0, ',', ' ') ?> TND</strong></td>
                       <td style="text-align:center;">
                         <div class="td-acts-row" style="justify-content:center;">
-                          <a href="<?= $self ?>?edit_g=<?= $g['id'] ?>&tab=garantie" class="btn-edt">✏️</a>
-                          <form method="POST" action="<?= $self ?>" style="display:inline;" onsubmit="return confirm('Êtes-vous sûr ?')">
+                          <a href="<?= $self ?>?edit_g=<?= $g['id'] ?>&tab=garantie" class="btn-edt">âœï¸</a>
+                          <form method="POST" action="<?= $self ?>" style="display:inline;" onsubmit="return confirm('ÃŠtes-vous sÃ»r ?')">
                             <input type="hidden" name="action" value="delete_garantie" />
                             <input type="hidden" name="id" value="<?= $g['id'] ?>" />
-                            <button type="submit" class="btn-del">🗑️</button>
+                            <button type="submit" class="btn-del">ðŸ—‘ï¸</button>
                           </form>
                         </div>
                       </td>
@@ -500,7 +500,7 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
       document.getElementById('page-' + id).classList.add('on');
       document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('on'));
       if (el) el.classList.add('on');
-      const titles = { dashboard: 'Tableau de bord', credits: 'Gestion des Crédits', profil: 'Mon Profil', 'mes-credits': 'Mes demandes de crédit', 'mes-garanties': 'Mes garanties' };
+      const titles = { dashboard: 'Tableau de bord', credits: 'Gestion des CrÃ©dits', profil: 'Mon Profil', 'mes-credits': 'Mes demandes de crÃ©dit', 'mes-garanties': 'Mes garanties' };
       document.getElementById('page-title').textContent = titles[id] || id;
     }
 
@@ -516,9 +516,9 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
     document.getElementById('form-demande').addEventListener('submit', function (e) {
       let ok = true;
       const set = (id, msg) => { const el = document.getElementById(id); if (el) { el.textContent = msg; if (msg) ok = false; } };
-      set('e-montant', (v => (!v || v < 1 || v > 1000000) ? 'Montant invalide (1–1 000 000 TND).' : '')(parseFloat(document.getElementById('f-montant').value)));
-      set('e-duree', (v => (!v || v < 6 || v > 360) ? 'Durée invalide (6–360 mois).' : '')(parseInt(document.getElementById('f-duree').value)));
-      set('e-taux', (v => (isNaN(v) || v < 0 || v > 30) ? 'Taux invalide (0–30 %).' : '')(parseFloat(document.getElementById('f-taux').value)));
+      set('e-montant', (v => (!v || v < 1 || v > 1000000) ? 'Montant invalide (1â€“1 000 000 TND).' : '')(parseFloat(document.getElementById('f-montant').value)));
+      set('e-duree', (v => (!v || v < 6 || v > 360) ? 'DurÃ©e invalide (6â€“360 mois).' : '')(parseInt(document.getElementById('f-duree').value)));
+      set('e-taux', (v => (isNaN(v) || v < 0 || v > 30) ? 'Taux invalide (0â€“30 %).' : '')(parseFloat(document.getElementById('f-taux').value)));
       set('e-date', !document.getElementById('f-date').value ? 'Date requise.' : '');
       if (!ok) e.preventDefault();
     });
@@ -527,21 +527,21 @@ $controllerRoot = defined('BASE_URL') ? BASE_URL . '/controller' : '';
       let ok = true;
       const set = (id, msg) => { const el = document.getElementById(id); if (el) { el.textContent = msg; if (msg) ok = false; } };
       if (document.getElementById('f-g-demande'))
-        set('e-g-demande', !document.getElementById('f-g-demande').value ? 'Sélectionnez une demande.' : '');
+        set('e-g-demande', !document.getElementById('f-g-demande').value ? 'SÃ©lectionnez une demande.' : '');
       set('e-g-type', !document.getElementById('f-g-type').value ? 'Type obligatoire.' : '');
 const docVal = document.getElementById('f-g-doc').value.trim();
 const fileVal = document.getElementById('f-g-file')?.files?.length > 0;
-set('e-g-doc', (!docVal && !fileVal) ? 'Référence ou fichier requis.' : '');
+set('e-g-doc', (!docVal && !fileVal) ? 'RÃ©fÃ©rence ou fichier requis.' : '');
       set('e-g-valeur', (v => (isNaN(v) || v < 0) ? 'Valeur invalide.' : '')(parseFloat(document.getElementById('f-g-valeur').value)));
       if (!ok) e.preventDefault();
     });
 
     function updateDocLabel(val) {
       const map = {
-        vehicule: ['N° carte grise *', 'Ex: 123456TUN'],
-        immobilier: ['N° titre propriété / acte *', 'Ex: TP-2021-88821'],
-        garant: ['Nom complet du garant *', 'Prénom Nom'],
-        autre: ['Référence document *', 'Toute référence officielle']
+        vehicule: ['NÂ° carte grise *', 'Ex: 123456TUN'],
+        immobilier: ['NÂ° titre propriÃ©tÃ© / acte *', 'Ex: TP-2021-88821'],
+        garant: ['Nom complet du garant *', 'PrÃ©nom Nom'],
+        autre: ['RÃ©fÃ©rence document *', 'Toute rÃ©fÃ©rence officielle']
       };
       if (val && map[val]) {
         document.getElementById('lbl-document').textContent = map[val][0];
@@ -558,14 +558,14 @@ set('e-g-doc', (!docVal && !fileVal) ? 'Référence ou fichier requis.' : '');
       document.getElementById('rv').textContent = t + '%';
       const mr = t / 100 / 12, mp = Math.round((l * (mr * Math.pow(1 + mr, d))) / (Math.pow(1 + mr, d) - 1)), tot = Math.round(mp * d);
       document.getElementById('mp').textContent = mp.toLocaleString() + ' TND';
-      document.getElementById('cd').textContent = 'Total : ' + tot.toLocaleString() + ' TND · Coût : ' + (tot - l).toLocaleString() + ' TND';
+      document.getElementById('cd').textContent = 'Total : ' + tot.toLocaleString() + ' TND Â· CoÃ»t : ' + (tot - l).toLocaleString() + ' TND';
     }
 
     // Initialize calculator on load
     document.addEventListener('DOMContentLoaded', calcCredit);
     async function checkSigStatus(demandeId, submissionId) {
       const badge = document.getElementById('sig-badge-' + demandeId);
-      if (badge) { badge.textContent = '⏳ Vérification...'; badge.className = 'badge b-wait'; }
+      if (badge) { badge.textContent = 'â³ VÃ©rification...'; badge.className = 'badge b-wait'; }
       try {
         const fd = new FormData();
         fd.append('action', 'check_signature_status');
@@ -574,16 +574,17 @@ set('e-g-doc', (!docVal && !fileVal) ? 'Référence ou fichier requis.' : '');
         const data = await res.json();
         if (badge) {
           if (data.completed) {
-            badge.textContent = '✅ Signé'; badge.className = 'badge b-on';
+            badge.textContent = 'âœ… SignÃ©'; badge.className = 'badge b-on';
             badge.onclick = null; badge.style.cursor = 'default';
           } else if (data.status === 'declined') {
-            badge.textContent = '❌ Refusé'; badge.className = 'badge b-off';
+            badge.textContent = 'âŒ RefusÃ©'; badge.className = 'badge b-off';
           } else {
-            badge.textContent = '✍️ En attente'; badge.className = 'badge b-wait';
+            badge.textContent = 'âœï¸ En attente'; badge.className = 'badge b-wait';
           }
         }
-      } catch(err) { if (badge) badge.textContent = '⚠️ Erreur'; }
+      } catch(err) { if (badge) badge.textContent = 'âš ï¸ Erreur'; }
     }
   </script>
 </body>
 </html>
+

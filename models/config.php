@@ -47,7 +47,7 @@ class Config
     {
         if (self::$pdo === null) {
             $host    = $_ENV['DB_HOST'] ?? 'localhost';
-            $port    = $_ENV['DB_PORT'] ?? 3307;  // XAMPP MySQL port
+            $port    = $_ENV['DB_PORT'] ?? 3306;  // XAMPP MySQL port
             $dbname  = $_ENV['DB_NAME'] ?? 'webora';
             $user    = $_ENV['DB_USER'] ?? 'root';
             $pass    = $_ENV['DB_PASS'] ?? '';
@@ -65,10 +65,21 @@ class Config
                 self::$pdo = new PDO($dsn, $user, $pass, $options);
             } catch (PDOException $e) {
                 error_log('[Legafin] DB Connection failed: ' . $e->getMessage());
-                die(json_encode(['error' => 'Database unavailable. Please try later.']));
+                error_log('[Legafin] DB Connection failed: ' . $e->getMessage());
+                die($e->getMessage());
             }
         }
         return self::$pdo;
+    }
+
+    public static function testConnexion(): array
+    {
+        try {
+            self::getConnexion()->query('SELECT 1');
+            return ['ok' => true, 'error' => ''];
+        } catch (\PDOException $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
     }
 
     /**

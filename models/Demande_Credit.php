@@ -18,6 +18,13 @@ class DemandeCredit
             ->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getAllByClient(int $clientId): array
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM DemandeCredit WHERE client_id = ? ORDER BY date_demande DESC");
+        $stmt->execute([$clientId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function getById(int $id): array|false
     {
         $stmt = $this->pdo->prepare("SELECT * FROM DemandeCredit WHERE id = ?");

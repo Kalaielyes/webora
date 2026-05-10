@@ -1,13 +1,13 @@
 <?php
 session_start();
-require_once __DIR__ . '/../model/Demande_Credit.php';
-require_once __DIR__ . '/../model/Garantie.php';
-require_once __DIR__ . '/../model/config.php';
-require_once __DIR__ . '/../model/mailcredit.php';
-require_once __DIR__ . '/../model/ai_scoring.php';
-require_once __DIR__ . '/../model/ClientGeolocation.php';
-require_once __DIR__ . '/../model/GeolocHelper.php';
-require_once __DIR__ . '/../model/DocuSealService.php';
+require_once __DIR__ . '/../models/Demande_Credit.php';
+require_once __DIR__ . '/../models/Garantie.php';
+require_once __DIR__ . '/../models/config.php';
+require_once __DIR__ . '/../models/mailcredit.php';
+require_once __DIR__ . '/../models/ai_scoring.php';
+require_once __DIR__ . '/../models/ClientGeolocation.php';
+require_once __DIR__ . '/../models/GeolocHelper.php';
+require_once __DIR__ . '/../models/DocuSealService.php';
 
 class AdminCreditController
 {
@@ -21,7 +21,7 @@ class AdminCreditController
         $this->garantieModel = new Garantie();
     }
 
-    // ── Entry point ───────────────────────────────────────────────────────────
+    // — Entry point ——————————————————————————————————————————————————————————
     public function handle(): void
     {
         $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -47,7 +47,7 @@ class AdminCreditController
         };
     }
 
-    // ── DemandeCredit ─────────────────────────────────────────────────────────
+    // — DemandeCredit —————————————————————————————————————————————————————————
     private function createDemande(): void
     {
         $data = $this->collectDemandePost();
@@ -85,7 +85,7 @@ class AdminCreditController
         // 💾 Stocker la géolocalisation en session
         $_SESSION['client_location'] = $location;
 
-        // ── Scoring IA ──────────────────────────────────────────────────────
+        // — Scoring IA ——————————————————————————————————————————————————————
         $scoring = analyserSolvabilite($data);
         $data['resultat']       = $scoring['recommendation'];
         $data['motif_resultat'] = '[Score IA: ' . $scoring['score'] . '/100 | Risque: ' . $scoring['risque'] . '] ' . $scoring['motif'];
@@ -93,7 +93,7 @@ class AdminCreditController
             $data['statut'] = 'traitee';
             $data['date_traitement'] = date('Y-m-d');
         }
-        // ────────────────────────────────────────────────────────────────────
+        // —————————————————————————————————————————————————————————————————————
         try {
             $result = $this->demandeModel->create($data);
             if (!$result) {
@@ -167,10 +167,10 @@ class AdminCreditController
         $signResult = $this->sendSignatureForDemande($id);
 
         if ($signResult['success']) {
-            $this->renderView(success: 'Demande #' . $id . ' approuvee et contrat envoye par email pour signature electronique.');
+            $this->renderView(success: 'Demande #' . $id . ' approuvée et contrat envoyé par email pour signature électronique.');
         } else {
             error_log('[DocuSeal] Erreur envoi contrat #' . $id . ': ' . ($signResult['error'] ?? ''));
-            $this->renderView(errors: ['Demande #' . $id . ' approuvee, mais le contrat DocuSeal n\'a pas pu etre envoye : ' . ($signResult['error'] ?? 'erreur')]);
+            $this->renderView(errors: ['Demande #' . $id . ' approuvée, mais le contrat DocuSeal n\'a pas pu être envoyé : ' . ($signResult['error'] ?? 'erreur')]);
         }
         return;
     }
@@ -185,11 +185,11 @@ class AdminCreditController
         $result = $this->sendSignatureForDemande($id);
 
         if ($result['success']) {
-            $this->renderView(success: 'Contrat de la demande #' . $id . ' envoye pour signature electronique.');
+            $this->renderView(success: 'Contrat de la demande #' . $id . ' envoyé pour signature électronique.');
             return;
         }
 
-        $this->renderView(errors: ['Signature non envoyee : ' . ($result['error'] ?? 'erreur inconnue')]);
+        $this->renderView(errors: ['Signature non envoyée : ' . ($result['error'] ?? 'erreur inconnue')]);
     }
 
     private function sendSignatureForDemande(int $id): array
@@ -201,7 +201,7 @@ class AdminCreditController
         }
 
         if (($demande['resultat'] ?? '') !== 'approuvee') {
-            return ['success' => false, 'error' => 'La demande doit etre approuvee avant signature.'];
+            return ['success' => false, 'error' => 'La demande doit être approuvée avant signature.'];
         }
 
         $clientEmail = trim((string) ($demande['client_email'] ?? ''));
@@ -327,7 +327,7 @@ class AdminCreditController
         $this->renderView(success: "$count demande(s) et garanties associées supprimées.");
     }
 
-    // ── Garantie 
+    // — Garantie 
     private function createGarantie(): void
     {
         $data = $this->collectGarantiePost();
@@ -400,7 +400,6 @@ class AdminCreditController
 
         $filePath = __DIR__ . '/../' . $garantie['document'];
 
-        // Verify the file exists and is within the uploads directory
         if (!file_exists($filePath)) {
             http_response_code(404);
             echo 'File not found on server.';
@@ -416,17 +415,14 @@ class AdminCreditController
             exit;
         }
 
-        // Get file info
         $finfo = new \finfo(FILEINFO_MIME_TYPE);
         $mimeType = $finfo->file($filePath);
         $filename = basename($filePath);
 
-        // Set headers for viewing (not downloading) for PDFs and images
         if (in_array($mimeType, ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], true)) {
             header('Content-Type: ' . $mimeType);
             header('Content-Disposition: inline; filename="' . $filename . '"');
         } else {
-            // Force download for other file types
             header('Content-Type: application/octet-stream');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
         }
@@ -450,7 +446,7 @@ class AdminCreditController
     exit;
 }
 
-    // ── Geolocation AJAX ──────────────────────────────────────────────────────────
+    // — Geolocation AJAX ——————————————————————————————————————
     private function getClientLocation(): void
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -524,7 +520,7 @@ class AdminCreditController
         exit;
     }
 
-    // ── Render ────────────────────────────────────────────────────────────────
+    // — Render ————————————————————————————————————————————————————————————————
     private function renderView(
         array $errors = [],
         string $success = '',
@@ -532,10 +528,15 @@ class AdminCreditController
         int $editGarantieId = 0,
         string $activeTab = 'dem'
     ): void {
+        require_once __DIR__ . '/../models/Session.php';
+        if ($success) Session::setFlash('success', $success);
+        if ($errors) Session::setFlash('error', implode('<br>', $errors));
+        
         if (!$editDemandeId && isset($_GET['edit_d']))
             $editDemandeId = (int) $_GET['edit_d'];
         if (!$editGarantieId && isset($_GET['edit_g']))
             $editGarantieId = (int) $_GET['edit_g'];
+            
         if (isset($_GET['tab'])) {
             $activeTab = $_GET['tab'];
         } elseif ($editDemandeId) {
@@ -544,19 +545,15 @@ class AdminCreditController
             $activeTab = 'gar';
         }
 
-        $demandes = $this->demandeModel->getAll();
-        $garanties = $this->garantieModel->getAll();
-        $demandesSelect = $demandes;
-        $stats = $this->demandeModel->getStats();
-        $editDemande = $editDemandeId ? $this->demandeModel->getById($editDemandeId) : null;
-        $editGarantie = $editGarantieId ? $this->garantieModel->getById($editGarantieId) : null;
-        $controllerSelf = $_SERVER['SCRIPT_NAME']; // always the controller since we're running from it
-        $dbStatus = config::testConnexion();
-
-        require __DIR__ . '/../view/backCredit/back_credit.php';
+        $params = ['page' => 'credit', 'tab' => $activeTab];
+        if ($editDemandeId) $params['edit_d'] = $editDemandeId;
+        if ($editGarantieId) $params['edit_g'] = $editGarantieId;
+        
+        header('Location: ../view/backoffice/backoffice_utilisateur.php?' . http_build_query($params));
+        exit;
     }
 
-    // ── Data collectors ───────────────────────────────────────────────────────
+    // — Data collectors ———————————————————————————————————————————————————————
     private function collectDemandePost(): array
     {
         return [
@@ -579,12 +576,11 @@ class AdminCreditController
 
     private function collectGarantiePost(): array
 {
-    // Gestion de l'upload fichier
     $documentPath = trim($_POST['document'] ?? '');
     if (!empty($_FILES['document_file']['name']) && $_FILES['document_file']['error'] === UPLOAD_ERR_OK) {
         $uploaded = $this->garantieModel->handleUpload($_FILES['document_file']);
         if ($uploaded) {
-            $documentPath = $uploaded; // chemin fichier remplace la saisie manuelle
+            $documentPath = $uploaded;
         }
     }
 
@@ -598,10 +594,10 @@ class AdminCreditController
 }
 }
 
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
+// — Bootstrap ———————————————————————————————————————————————————————————————
 try {
     (new AdminCreditController())->handle();
 } catch (PDOException $e) {
     $dbStatus = ['ok' => false, 'error' => $e->getMessage()];
-    require __DIR__ . '/../view/backCredit/back_credit.php';
+    require __DIR__ . '/../view/backoffice/back_credit.php';
 }

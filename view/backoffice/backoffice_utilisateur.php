@@ -24,6 +24,27 @@ $m      = new Utilisateur();
 $filtre = $_GET['filtre'] ?? 'tous';
 $page   = $_GET['page'] ?? 'utilisateurs'; 
 
+if ($page === 'credit') {
+    require_once __DIR__ . '/../../models/Demande_Credit.php';
+    require_once __DIR__ . '/../../models/Garantie.php';
+    $demandeModel = new DemandeCredit();
+    $garantieModel = new Garantie();
+    $creditStats = $demandeModel->getStats();
+    $demandes = $demandeModel->getAll();
+    $garanties = $garantieModel->getAll();
+    $demandesSelect = $demandes;
+    $dbStatus = \config::testConnexion();
+    $dbError = !$dbStatus['ok'];
+    $editDemandeId = (int)($_GET['edit_d'] ?? 0);
+    $editGarantieId = (int)($_GET['edit_g'] ?? 0);
+    $editDemande = $editDemandeId ? $demandeModel->getById($editDemandeId) : null;
+    $editGarantie = $editGarantieId ? $garantieModel->getById($editGarantieId) : null;
+    $activeTab = $_GET['tab'] ?? ($editGarantieId ? 'gar' : 'dem');
+    $controllerSelf = BASE_URL . '/controller/AdminCreditController.php';
+    $controllerRoot = BASE_URL . '/controller';
+    $viewRoot = VIEW_URL;
+} 
+
 // Pagination Logic
 $limit  = 10; // Users per page
 $p      = max(1, (int)($_GET['p'] ?? 1));
@@ -123,6 +144,11 @@ function initials(string $n, string $p): string {
 <title>LegalFin Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../assets/css/backoffice/Utilisateur.css">
+<?php if ($page === 'credit'): ?>
+<link rel="stylesheet" href="creditttttttttttttttt.css">
+<script src="<?= htmlspecialchars(VIEW_URL) ?>/frontoffice/geolocation-form.js"></script>
+<script>window.CONTROLLER_PATH = '<?= htmlspecialchars(BASE_URL . "/controller/AdminCreditController.php") ?>';</script>
+<?php endif; ?>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -232,6 +258,8 @@ function initials(string $n, string $p): string {
         <?php endforeach; ?>
       </div>
     </div>
+    <?php elseif($page==='credit' && in_array('credit',$myModules)): ?>
+      <?php include __DIR__ . '/back_credit_content.php'; ?>
     <?php elseif($page==='utilisateurs' && in_array('utilisateurs',$myModules)): ?>
     <div class="two-col-layout">
       <div class="table-card">

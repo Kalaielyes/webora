@@ -112,12 +112,19 @@ if(!isset($pendingTotal)){
       </div>
     </div>
 
-    <?php foreach(["actions","credit","dons_collectes"] as $mk): ?>
+    <?php foreach(["actions","dons_collectes"] as $mk): ?>
     <a href="#" class="nav-item <?= !in_array($mk,$myModules_sidebar)?"disabled":"" ?>">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><?= $ALL_MODULES_SIDEBAR[$mk]["icon"] ?></svg>
       <?= $ALL_MODULES_SIDEBAR[$mk]["label"] ?>
     </a>
     <?php endforeach; ?>
+
+    <!-- ══ CRÉDIT ══ -->
+    <a href="<?= APP_URL ?>/controller/AdminCreditController.php"
+       class="nav-item <?= ($currentFile_sidebar === 'AdminCreditController.php') ? 'active' : '' ?> <?= !in_array('credit', $myModules_sidebar) ? 'disabled' : '' ?>">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><?= $ALL_MODULES_SIDEBAR['credit']['icon'] ?></svg>
+      Gestion Crédits
+    </a>
     
 
     <div class="nav-section">Paramètres</div>

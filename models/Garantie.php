@@ -23,6 +23,19 @@ class Garantie
         ")->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getAllByClient(int $clientId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT g.*, d.montant AS dc_montant
+            FROM Garantie g
+            INNER JOIN DemandeCredit d ON g.demande_credit_id = d.id
+            WHERE d.client_id = ?
+            ORDER BY g.id DESC
+        ");
+        $stmt->execute([$clientId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function getById(int $id): array|false
     {
         $stmt = $this->pdo->prepare("SELECT * FROM Garantie WHERE id = ?");

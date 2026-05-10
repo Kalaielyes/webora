@@ -1,4 +1,4 @@
-﻿/* ══════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════
    LegalFin — front_credit.php — Light Professional Theme
 ══════════════════════════════════════════════════ */
 :root{
@@ -271,8 +271,9 @@ input[type="range"]::-webkit-slider-thumb{appearance:none;width:15px;height:15px
 
 /* ── MODAL ────────────────────────────────── */
 .modal-overlay{
-  position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(2px);
+  position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);display:none;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(2px);
 }
+.modal-overlay.open{display:flex;}
 
 .modal-content{
   background:var(--surface);border-radius:12px;box-shadow:0 20px 25px rgba(15,23,42,.15);width:90%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;animation:slideIn .3s ease-out;
