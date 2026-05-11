@@ -1,16 +1,15 @@
 <?php
-require_once __DIR__ . '/../model/config.php';
-require_once __DIR__ . '/../model/AchievementModel.php';
+require_once __DIR__ . '/../models/config.php';
 
 class AchievementService
 {
     private PDO $pdo;
-    private AchievementModel $achievementModel;
+
+    private const ALLOWED_ROLES = ['donor', 'association'];
 
     public function __construct()
     {
         $this->pdo = Config::getConnexion();
-        $this->achievementModel = new AchievementModel();
     }
 
     public function runPostDonationCreated(int $donateurId): void
@@ -48,8 +47,8 @@ class AchievementService
             return;
         }
 
-        $donateurId = (int)$row['id_donateur'];
-        $idCagnotte = (int)$row['id_cagnotte'];
+        $donateurId        = (int)$row['id_donateur'];
+        $idCagnotte        = (int)$row['id_cagnotte'];
         $associationUserId = (int)$row['id_createur'];
 
         if ($donateurId > 0) {
@@ -67,9 +66,8 @@ class AchievementService
         if ($userId <= 0) {
             return [];
         }
-
-        $metrics = $this->getDonorMetrics($userId);
-        $achievements = $this->achievementModel->listAllForRole('donor', true);
+        $metrics      = $this->getDonorMetrics($userId);
+        $achievements = $this->listAllForRole('donor', true);
         return $this->evaluateAndUnlock($userId, $achievements, $metrics);
     }
 
@@ -78,9 +76,8 @@ class AchievementService
         if ($userId <= 0) {
             return [];
         }
-
-        $metrics = $this->getAssociationMetrics($userId);
-        $achievements = $this->achievementModel->listAllForRole('association', true);
+        $metrics      = $this->getAssociationMetrics($userId);
+        $achievements = $this->listAllForRole('association', true);
         return $this->evaluateAndUnlock($userId, $achievements, $metrics);
     }
 
@@ -122,21 +119,19 @@ class AchievementService
         $totalPoints = 0;
 
         try {
-            $donorAchievements = $this->checkDonorAchievements($userId);
-            foreach ($donorAchievements as $achievement) {
-                $totalPoints += (int)($achievement['points'] ?? 0);
+            foreach ($this->checkDonorAchievements($userId) as $a) {
+                $totalPoints += (int)($a['points'] ?? 0);
             }
         } catch (Throwable $e) {
-            // continue if donor check fails
+            // continue
         }
 
         try {
-            $associationAchievements = $this->checkAssociationAchievements($userId);
-            foreach ($associationAchievements as $achievement) {
-                $totalPoints += (int)($achievement['points'] ?? 0);
+            foreach ($this->checkAssociationAchievements($userId) as $a) {
+                $totalPoints += (int)($a['points'] ?? 0);
             }
         } catch (Throwable $e) {
-            // continue if association check fails
+            // continue
         }
 
         return $totalPoints;
@@ -156,15 +151,15 @@ class AchievementService
 
         foreach ($achievements as $achievement) {
             $conditionType = (string)($achievement['condition_type'] ?? '');
-            $threshold = (float)($achievement['condition_value'] ?? 0);
-            $current = (float)($metrics[$conditionType] ?? 0);
+            $threshold     = (float)($achievement['condition_value'] ?? 0);
+            $current       = (float)($metrics[$conditionType] ?? 0);
 
             if ($current >= $threshold) {
-                $unlocked = $this->achievementModel->unlockAchievement($userId, (int)$achievement['id']);
+                $unlocked = $this->unlockAchievement($userId, (int)$achievement['id']);
                 if ($unlocked) {
                     $newUnlocks[] = [
-                        'id' => (int)$achievement['id'],
-                        'title' => (string)$achievement['title'],
+                        'id'     => (int)$achievement['id'],
+                        'title'  => (string)$achievement['title'],
                         'points' => (int)$achievement['points'],
                     ];
                 }
@@ -174,41 +169,73 @@ class AchievementService
         return $newUnlocks;
     }
 
+    private function listAllForRole(string $roleType, bool $enabledOnly = true): array
+    {
+        if (!in_array($roleType, self::ALLOWED_ROLES, true)) {
+            return [];
+        }
+        $sql = 'SELECT * FROM achievements WHERE role_type = :role_type';
+        if ($enabledOnly) {
+            $sql .= ' AND is_enabled = 1';
+        }
+        $sql .= ' ORDER BY condition_type ASC, condition_value ASC, id ASC';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['role_type' => $roleType]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    private function unlockAchievement(int $userId, int $achievementId): bool
+    {
+        $sql  = 'INSERT INTO user_achievements (user_id, achievement_id, unlocked_at) VALUES (:user_id, :achievement_id, NOW())';
+        $stmt = $this->pdo->prepare($sql);
+        try {
+            return $stmt->execute([
+                'user_id'        => $userId,
+                'achievement_id' => $achievementId,
+            ]);
+        } catch (PDOException $e) {
+            if ((string)$e->getCode() === '23000') {
+                return false; // already unlocked — duplicate key
+            }
+            throw $e;
+        }
+    }
+
     private function getDonorMetrics(int $userId): array
     {
-        $sql = "SELECT COUNT(*) AS donation_count,
-                       COALESCE(SUM(montant),0) AS amount_total,
-                       COUNT(DISTINCT id_cagnotte) AS supported_campaign_count
-                FROM don
-                WHERE id_donateur = :user_id
-                  AND statut = 'confirme'";
+        $sql  = "SELECT COUNT(*) AS donation_count,
+                        COALESCE(SUM(montant),0) AS amount_total,
+                        COUNT(DISTINCT id_cagnotte) AS supported_campaign_count
+                 FROM don
+                 WHERE id_donateur = :user_id
+                   AND statut = 'confirme'";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['user_id' => $userId]);
         $row = $stmt->fetch() ?: [];
 
         return [
-            'donation_count' => (int)($row['donation_count'] ?? 0),
-            'amount_total' => (float)($row['amount_total'] ?? 0),
+            'donation_count'           => (int)($row['donation_count'] ?? 0),
+            'amount_total'             => (float)($row['amount_total'] ?? 0),
             'supported_campaign_count' => (int)($row['supported_campaign_count'] ?? 0),
         ];
     }
 
     private function getAssociationMetrics(int $userId): array
     {
-        $sql = "SELECT COUNT(*) AS campaign_count,
-                       COALESCE(SUM(montant_collecte),0) AS raised_amount_total,
-                       SUM(CASE WHEN COALESCE(montant_collecte,0) >= COALESCE(objectif_montant,0)
-                                AND COALESCE(objectif_montant,0) > 0 THEN 1 ELSE 0 END) AS funded_campaign_count
-                FROM cagnotte
-                WHERE id_createur = :user_id";
+        $sql  = "SELECT COUNT(*) AS campaign_count,
+                        COALESCE(SUM(montant_collecte),0) AS raised_amount_total,
+                        SUM(CASE WHEN COALESCE(montant_collecte,0) >= COALESCE(objectif_montant,0)
+                                 AND COALESCE(objectif_montant,0) > 0 THEN 1 ELSE 0 END) AS funded_campaign_count
+                 FROM cagnotte
+                 WHERE id_createur = :user_id";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['user_id' => $userId]);
         $row = $stmt->fetch() ?: [];
 
         return [
-            'campaign_count' => (int)($row['campaign_count'] ?? 0),
-            'raised_amount_total' => (float)($row['raised_amount_total'] ?? 0),
-            'funded_campaign_count' => (int)($row['funded_campaign_count'] ?? 0),
+            'campaign_count'       => (int)($row['campaign_count'] ?? 0),
+            'raised_amount_total'  => (float)($row['raised_amount_total'] ?? 0),
+            'funded_campaign_count'=> (int)($row['funded_campaign_count'] ?? 0),
         ];
     }
 }
