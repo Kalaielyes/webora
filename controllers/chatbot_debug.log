@@ -1,0 +1,54 @@
+[2026-05-07 16:44:04] Gemini HTTP:200 cURL:ok resp:{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Bonjour **M. Kalai Elyes**,\n\nAprès consultation de vos données en temps réel, aucune carte bancaire n'est actuellement associée à votre compte **LegalFin**.\n\nSi vous souhaitez obtenir une carte,
+[2026-05-07 16:44:29] Gemini HTTP:200 cURL:ok resp:{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Bonjour Monsieur **Kalai Elyes**,\n\nD'après les informations de votre dossier, voici l'IBAN associé à votre compte :\n\n• **TN59 4596 6703 4004 1807**\n\nSouhaitez-vous obtenir d'autres information
+[2026-05-07 21:03:11] Gemini HTTP:403 cURL:ok resp:{
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+[2026-05-07 21:03:18] Gemini HTTP:403 cURL:ok resp:{
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+[2026-05-07 21:28:59] Gemini HTTP:403 cURL:ok resp:{
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+[2026-05-07 21:29:03] Gemini HTTP:403 cURL:ok resp:{
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+[2026-05-07 22:31:08] Gemini HTTP:403 cURL:ok resp:{
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
