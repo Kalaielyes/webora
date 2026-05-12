@@ -1,0 +1,4 @@
+models/vendor/
+.env
+models/config.local.php
+controller/helpers/config.local.php

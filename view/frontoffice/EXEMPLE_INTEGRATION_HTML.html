@@ -1,0 +1,278 @@
+<!-- 
+    EXEMPLE : Intégration de la géolocalisation dans front_credit.php
+    Ajouter cette structure HTML dans votre formulaire de crédit
+-->
+
+<!-- 1. Boîte d'informations de géolocalisation -->
+<div id="geo-info" class="geo-info-box">
+    <!-- Sera remplie dynamiquement par geolocation-form.js -->
+</div>
+
+<!-- 2. Formulaire de demande de crédit -->
+<form method="POST" class="credit-form" id="credit-form">
+    <input type="hidden" name="action" value="create_demande">
+    
+    <!-- Champs de géolocalisation (cachés) -->
+    <input type="hidden" name="country_code" id="country_code">
+    <input type="hidden" name="currency" id="currency">
+    <input type="hidden" name="ip_client" id="ip_client">
+
+    <!-- Montant -->
+    <div class="form-group">
+        <label for="montant">Montant demandé</label>
+        <div class="input-with-info">
+            <input 
+                type="number" 
+                name="montant" 
+                id="montant"
+                step="100"
+                min="500"
+                max="1000000"
+                placeholder="500 - 1 000 000 TND"
+                required
+                class="form-control"
+            >
+            <span class="currency-symbol" id="currency-symbol">TND</span>
+        </div>
+        <small class="form-text">Montant adapté selon votre région</small>
+    </div>
+
+    <!-- Durée -->
+    <div class="form-group">
+        <label for="duree_mois">Durée du remboursement</label>
+        <div class="input-wrapper">
+            <input 
+                type="number" 
+                name="duree_mois" 
+                id="duree_mois"
+                min="6"
+                max="60"
+                value="36"
+                required
+                class="form-control"
+            >
+            <span class="unit">mois</span>
+        </div>
+        <small class="form-text">Durée maximale selon votre région</small>
+    </div>
+
+    <!-- Taux d'intérêt -->
+    <div class="form-group">
+        <label for="taux_interet">Taux d'intérêt annuel (%)</label>
+        <input 
+            type="number" 
+            name="taux_interet" 
+            id="taux_interet"
+            step="0.1"
+            min="1"
+            max="20"
+            value="7.5"
+            required
+            class="form-control"
+            readonly
+        >
+        <small class="form-text">Taux adapté au profil de risque et à votre région</small>
+    </div>
+
+    <!-- Zone de simulation -->
+    <div id="loan-simulation" class="simulation-box">
+        <!-- Sera remplie dynamiquement -->
+    </div>
+
+    <!-- Bouton de soumission -->
+    <button type="submit" class="btn btn-primary btn-lg">
+        ✓ Soumettre la demande de crédit
+    </button>
+</form>
+
+<!-- Styles CSS à ajouter dans creditttt.css -->
+<style>
+/* Boîte d'information de géolocalisation */
+.geo-info-box {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.geo-badge {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.geo-flag {
+    font-size: 2.5rem;
+}
+
+.geo-details {
+    flex: 1;
+}
+
+.geo-details strong {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.geo-details small {
+    display: block;
+    opacity: 0.9;
+    margin-bottom: 0.5rem;
+}
+
+.geo-currency {
+    font-size: 0.9rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Styles des champs de formulaire */
+.credit-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.input-with-info {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-with-info input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+}
+
+.currency-symbol {
+    position: absolute;
+    right: 1rem;
+    font-weight: 600;
+    color: #667eea;
+    pointer-events: none;
+}
+
+.form-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: #666;
+}
+
+/* Boîte de simulation */
+.simulation-box {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin: 2rem 0;
+}
+
+.simulation-title {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.simulation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.sim-item {
+    padding: 0.75rem;
+    background: white;
+    border-radius: 0.5rem;
+    border-left: 3px solid #667eea;
+}
+
+.sim-item.highlight {
+    border-left-color: #28a745;
+    background: #f0f8f5;
+}
+
+.sim-label {
+    display: block;
+    font-size: 0.875rem;
+    color: #666;
+    margin-bottom: 0.25rem;
+}
+
+.sim-item strong {
+    display: block;
+    font-size: 1.1rem;
+    color: #333;
+}
+
+.simulation-info {
+    text-align: center;
+    padding-top: 1rem;
+    border-top: 1px solid #e9ecef;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* Bouton */
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-lg {
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .geo-badge {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .simulation-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .credit-form {
+        padding: 1rem;
+    }
+}
+</style>
+
+<!-- Script à ajouter dans front_credit.php (avant la fermeture du body) -->
+<script src="/view/frontCredit/geolocation-form.js"></script>

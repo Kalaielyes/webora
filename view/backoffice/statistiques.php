@@ -1,3 +1,11 @@
+<?php
+require_once __DIR__ . '/../../models/Session.php';
+require_once __DIR__ . '/../../models/Utilisateur.php';
+require_once __DIR__ . '/../../models/config.php';
+require_once __DIR__ . '/../../models/investissement_projet.php';
+require_once __DIR__ . '/../../models/score.php';
+Session::start();
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -58,27 +66,11 @@
 .score-factor-title{font-size:.75rem;font-weight:700;color:#0f172a;margin-bottom:.2rem;}
 .score-factor-reason{font-size:.74rem;color:#64748b;line-height:1.45;}
 </style>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  // Sidebar Dropdown Logic
-  const actionsParent = document.getElementById('nav-actions-parent');
-  const actionsSubmenu = document.getElementById('actions-submenu');
-  const chevron = actionsParent.querySelector('.dropdown-chevron');
-  
-  actionsParent.addEventListener('click', (e) => {
-    const isVisible = actionsSubmenu.style.display === 'block';
-    actionsSubmenu.style.display = isVisible ? 'none' : 'block';
-    chevron.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
-  });
-});
-</script>
+
+
 </head>
 <body>
 <?php
-require_once __DIR__ . '/../../model/config.php';
-require_once __DIR__ . '/../../model/investissement.php';
-require_once __DIR__ . '/../../model/score.php';
-
 $pdo = Config::getConnexion();
 $projects = []; $investments = [];
 $pendingCount = 0; $totalCount = 0; $pendingInvestmentsCount = 0;
@@ -173,48 +165,7 @@ $topProjects = array_filter(array_slice($topProjects, 0, 5), fn($p) => $p['total
 $maxInvested = !empty($topProjects) ? max(array_column($topProjects, 'total_investi')) : 1;
 $maxSectorInv = !empty($sectors) ? max(array_column($sectors, 'invested')) : 1;
 ?>
-<div class="sidebar">
-  <div class="sb-logo">
-    <div class="sb-logo-name">Legal<span>Fin</span></div>
-    <div class="sb-logo-env">ADMIN</div>
-  </div>
-  <div class="sb-admin">
-    <div class="sb-av">AD</div>
-    <div>
-      <div class="sb-aname">Sara</div>
-      <div class="sb-arole">Super administrateur</div>
-    </div>
-  </div>
-  <div class="sb-nav">
-    <div class="nav-dropdown" id="actions-dropdown">
-      <div class="nav-item" id="nav-actions-parent">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-        Actions
-        <svg class="dropdown-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-left:auto;transition:transform .2s"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
-      <div class="nav-submenu" id="actions-submenu" style="display:none">
-        <a class="nav-item sub-item" href="backofficecondidature.php" style="padding-left:2.8rem;font-size:.75rem">
-          <div class="sub-dot"></div> Projets
-        </a>
-        <a class="nav-item sub-item" href="backofficeinvestissements.php" style="padding-left:2.8rem;font-size:.75rem">
-          <div class="sub-dot"></div> Investissements
-        </a>
-      </div>
-    </div>
-    <a class="nav-item active" href="statistiques.php">
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-      Statistiques
-    </a>
-    <div class="nav-section">Paramètres</div>
-    <a class="nav-item" href="#">
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg>
-      Paramètres
-    </a>
-  </div>
-  <div class="sb-footer">
-    <div class="sb-status"><div class="status-dot"></div> Système opérationnel</div>
-  </div>
-</div>
+<?php include __DIR__ . '/partials/sidebar_unified.php'; ?>
 <div class="main">
   <div class="topbar">
     <div class="tb-left">

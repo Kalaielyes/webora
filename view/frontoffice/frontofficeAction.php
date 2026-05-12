@@ -1,3 +1,8 @@
+<?php
+require_once __DIR__ . '/../../models/Session.php';
+require_once __DIR__ . '/../../models/config.php';
+Session::requireLogin();
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -5,7 +10,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>MonEspace — Mes Actions</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="action.css?v=5">
+<link rel="stylesheet" href="<?= APP_URL ?>/assets/css/frontoffice/Utilisateur.css">
+<link rel="stylesheet" href="action.css?v=6">
 <style>
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
@@ -99,30 +105,7 @@
 </head>
 <body>
 
-<div class="sidebar">
-  <div class="sb-logo">
-    <div class="sb-logo-name">Legal<span>Fin</span></div>
-    <div class="sb-logo-tag">Espace Client</div>
-  </div>
-  <div class="sb-user">
-    <div class="sb-av">A</div>
-    <div>
-      <div class="sb-uname">Ahmed Ahmed</div>
-      <div class="sb-uemail">ahmed@.gmail.com</div>
-    </div>
-  </div>
-  <div class="sb-nav">
-    <div class="nav-section">Mon espace</div>
-    
-    <a class="nav-item active" href="#"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Mes actions</a>
-
-    <div class="nav-section">Autres</div>
-    <a class="nav-item" href="#"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg>Paramètres</a>
-  </div>
-  <div class="sb-footer">
-    <div class="badge-kyc"><div class="dot-pulse"></div> KYC Vérifié</div>
-  </div>
-</div>
+<?php include __DIR__ . '/partials/sidebar.php'; ?>
 
 <div class="main">
   <div class="topbar">
@@ -287,8 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const actionInput = form ? form.querySelector('input[name="action"]') : null;
   const projectIdInput = form ? form.querySelector('input[name="project_id"]') : null;
   const statusInput = form ? form.querySelector('input[name="status"]') : null;
-  const controllerUrl = new URL('../../controlller/projet.php', window.location.href).href;
-  const investmentControllerUrl = new URL('../../controlller/investissement.php', window.location.href).href;
+  const controllerUrl = new URL('../../controller/projet.php', window.location.href).href;
+  const investmentControllerUrl = new URL('../../controller/investissement.php', window.location.href).href;
   const projectsGrid = document.getElementById('project-list');
   const investModal = document.getElementById('invest-modal');
   const investForm = document.getElementById('invest-form');
