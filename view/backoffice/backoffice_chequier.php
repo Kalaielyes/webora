@@ -16,13 +16,49 @@ Session::requireAdmin('../frontoffice/login.php');
 $demandeC = new DemandeChequierController();
 $chequierC = new ChequierController();
 
+function isAjaxRequest(): bool {
+    return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+}
+
+function sendJsonResponse(array $payload, int $statusCode = 200): void {
+    http_response_code($statusCode);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    exit();
+}
+
+function generateUniqueChequierNumber(PDO $db, string $preferredNumber = ''): string {
+    $base = trim($preferredNumber);
+    $checkSql = "SELECT COUNT(*) FROM chequier WHERE numero_chequier = :num";
+    $checkStmt = $db->prepare($checkSql);
+
+    if ($base !== '') {
+        $checkStmt->execute([':num' => $base]);
+        if ((int)$checkStmt->fetchColumn() === 0) {
+            return $base;
+        }
+    }
+
+    do {
+        $timestamp = date('YmdHis');
+        $randomPart = str_pad((string)random_int(0, 999), 3, '0', STR_PAD_LEFT);
+        $candidate = 'CHQ-' . $timestamp . '-' . $randomPart;
+        $checkStmt->execute([':num' => $candidate]);
+    } while ((int)$checkStmt->fetchColumn() > 0);
+
+    return $candidate;
+}
+
 // ── Handle Post Actions (Legacy Logic) ───────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['creer_chequier'])) {
     $id_demande = (int)$_POST['id_demande'];
     $id_Compte = (int)$_POST['id_Compte'];
+
+    $db = Config::getConnexion();
+    $numero_chequier = generateUniqueChequierNumber($db, $_POST['numero_chequier'] ?? '');
     
     $data = [
-        'numero_chequier' => $_POST['numero_chequier'],
+        'numero_chequier' => $numero_chequier,
         'date_creation' => $_POST['date_creation'],
         'date_expiration' => $_POST['date_expiration'],
         'statut' => $_POST['statut_chequier'],
@@ -35,10 +71,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['creer_chequier'])) {
     try {
         if ($chequierC->addChequier($newChequier)) {
             $demandeC->updateStatus($id_demande, 'Acceptée');
+
+            if (isAjaxRequest()) {
+                sendJsonResponse([
+                    'success' => true,
+                    'message' => 'Chéquier créé avec succès et demande acceptée.',
+                    'numero_chequier' => $numero_chequier
+                ]);
+            }
+
             header('Location: backoffice_chequier.php?success=1&action=dashboard');
             exit();
         }
     } catch (Exception $e) {
+        if (isAjaxRequest()) {
+            sendJsonResponse([
+                'success' => false,
+                'message' => 'Erreur lors de la création du chéquier.',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+
         $error_msg = "Erreur : " . $e->getMessage();
     }
 }
@@ -47,6 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modifier_chequier']))
     $id_chequier = (int)$_POST['id_chequier'];
     $data = [
         'id_chequier' => $id_chequier,
+        'id_demande' => (int)($_POST['id_demande'] ?? 0),
         'date_expiration' => $_POST['date_expiration'],
         'statut' => $_POST['statut_chequier'],
         'nombre_feuilles' => (int)$_POST['nombre_feuilles']
@@ -55,10 +109,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modifier_chequier']))
     $chequier = new Chequier($data); 
     try {
         if ($chequierC->updateChequier($chequier)) {
+
+            if (isAjaxRequest()) {
+                sendJsonResponse([
+                    'success' => true,
+                    'message' => 'Chéquier modifié avec succès.'
+                ]);
+            }
+
             header('Location: backoffice_chequier.php?success=1&action_type=edit&action=chequiers');
             exit();
         }
     } catch (Exception $e) {
+        if (isAjaxRequest()) {
+            sendJsonResponse([
+                'success' => false,
+                'message' => 'Erreur lors de la modification du chéquier.',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+
         $error_msg = "Erreur : " . $e->getMessage();
     }
 }
@@ -76,9 +146,24 @@ if (isset($_GET['op']) && isset($_GET['id'])) {
             $id_demande_reset = $chq['id_demande'];
             if ($chequierC->deleteChequier($id)) {
                 $demandeC->updateStatus($id_demande_reset, 'En attente');
+
+                if (isAjaxRequest()) {
+                    sendJsonResponse([
+                        'success' => true,
+                        'message' => 'Chéquier supprimé et demande remise en attente.'
+                    ]);
+                }
+
                 header('Location: backoffice_chequier.php?success=1&action_type=delete&action=chequiers');
                 exit();
             }
+        }
+
+        if (isAjaxRequest()) {
+            sendJsonResponse([
+                'success' => false,
+                'message' => 'Chéquier introuvable ou suppression impossible.'
+            ], 404);
         }
     }
 }
@@ -94,6 +179,42 @@ foreach($demandes_db as $d) {
     if($s === 'En attente') $stats['en_attente']++;
     if($s === 'Acceptée') $stats['actifs']++;
     if($s === 'Refusée') $stats['refusees']++;
+}
+
+$flashMessage = '';
+$flashType = '';
+if (isset($_GET['success'])) {
+    $successFlag = (int)$_GET['success'];
+    $actionType = strtolower(trim((string)($_GET['action_type'] ?? '')));
+
+    if ($successFlag === 1) {
+        if ($actionType === 'edit') {
+            $flashMessage = 'Chéquier modifié avec succès.';
+        } elseif ($actionType === 'delete') {
+            $flashMessage = 'Chéquier supprimé avec succès.';
+        } else {
+            $flashMessage = 'Chéquier créé avec succès et demande acceptée.';
+        }
+        $flashType = 'success';
+    } else {
+        if ($actionType === 'refus') {
+            $flashMessage = 'Demande refusée.';
+        } else {
+            $flashMessage = 'Opération non effectuée.';
+        }
+        $flashType = 'error';
+    }
+}
+
+function demandInitials(string $name): string {
+    $parts = preg_split('/\s+/', trim($name)) ?: [];
+    $initials = '';
+    foreach ($parts as $part) {
+        if ($part === '') continue;
+        $initials .= mb_strtoupper(mb_substr($part, 0, 1, 'UTF-8'), 'UTF-8');
+        if (mb_strlen($initials, 'UTF-8') >= 2) break;
+    }
+    return $initials !== '' ? $initials : 'CL';
 }
 
 ?>
@@ -169,6 +290,123 @@ foreach($demandes_db as $d) {
         .btn-cancel:hover { background: #e2e8f0; }
         .btn-submit-premium { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; border-radius: 12px; padding: 0.8rem 2.5rem; font-weight: 700; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3); transition: all 0.2s; }
         .btn-submit-premium:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(37, 99, 235, 0.4); }
+
+        /* Requests block redesigned to match the reference mockup */
+        .demand-card {
+            background: #ffffff;
+            border: 1px solid #e5e9f0;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+        .demand-card .table-toolbar {
+            padding: 0.95rem 1.15rem;
+            border-bottom: 1px solid #e8edf3;
+        }
+        .demand-card .table-toolbar-title {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #0f172a;
+        }
+        .demand-card .filters {
+            gap: 0.55rem;
+        }
+        .demand-card .filter-btn {
+            border-color: #d9e1ea;
+            border-radius: 9px;
+            padding: 0.34rem 0.95rem;
+            background: #ffffff;
+            color: #64748b;
+        }
+        .demand-card .filter-btn:hover,
+        .demand-card .filter-btn.active {
+            border-color: #8fb3ff;
+            color: #2f5fff;
+            background: #eef4ff;
+        }
+        .demand-card .table-scroll {
+            overflow-x: auto;
+        }
+        .demand-card table {
+            min-width: 760px;
+        }
+        .demand-card thead tr {
+            background: #f7f9fc;
+        }
+        .demand-card th {
+            padding: 0.9rem 1.15rem;
+            color: #7b8794;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+        }
+        .demand-card td {
+            padding: 1rem 1.15rem;
+            border-top: 1px solid #edf1f6;
+            vertical-align: middle;
+        }
+        .request-row {
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+        .request-row:hover {
+            transform: translateY(-1px);
+        }
+        .request-row:hover td {
+            background: #fafcff;
+        }
+        .client-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+        .client-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2563eb, #0d9488);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.78rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .client-name {
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: #0f172a;
+            line-height: 1.15;
+        }
+        .client-sub {
+            margin-top: 0.12rem;
+            font-size: 0.67rem;
+            color: #94a3b8;
+            font-family: var(--fm);
+        }
+        .request-row .badge {
+            font-size: 0.72rem;
+            padding: 0.25rem 0.75rem;
+        }
+        .request-actions .act-btn {
+            width: 31px;
+            height: 31px;
+            border-radius: 8px;
+            border-color: #dbe3ee;
+            color: #64748b;
+        }
+        .request-actions .act-btn:hover {
+            border-color: #8fb3ff;
+            color: #2f5fff;
+            background: #eef4ff;
+        }
+        .request-actions .act-btn.success:hover {
+            border-color: #86efac;
+            color: #16a34a;
+            background: #f0fdf4;
+        }
+        @media (max-width: 1180px) {
+            .two-col-layout { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -289,7 +527,7 @@ foreach($demandes_db as $d) {
                 </div>
 
                 <div class="two-col-layout">
-                    <div id="tabDemandes" class="table-card">
+                    <div id="tabDemandes" class="table-card demand-card">
                         <div class="table-toolbar">
                             <div class="table-toolbar-title">Demandes de chéquier</div>
                             <div class="filters">
@@ -312,14 +550,24 @@ foreach($demandes_db as $d) {
                                     <?php foreach ($demandes_db as $dem): 
                                         $statut = $dem['statut'] ?? 'En attente';
                                         $sClass = ($statut === 'Acceptée') ? 'b-acceptee' : (($statut === 'Refusée') ? 'b-refusee' : 'b-attente');
+                                        $fullName = trim((string)($dem['nom et prenom'] ?? 'Client'));
+                                        $iban = trim((string)($dem['iban'] ?? ''));
                                     ?>
                                     <tr class="request-row" onclick="showDetail(this)" style="cursor:pointer;" data-status="<?= strtolower(str_replace('é', 'e', $statut)) ?>" data-id="<?= $dem['id_demande'] ?>" data-id-compte="<?= $dem['id_compte'] ?>" data-name="<?= htmlspecialchars($dem['nom et prenom']) ?>" data-iban="<?= htmlspecialchars($dem['iban']) ?>" data-date="<?= date('d/m/Y', strtotime($dem['date_demande'])) ?>" data-type="<?= ucfirst($dem['type_chequier'] ?? 'Standard') ?>" data-nb="<?= $dem['nombre_cheques'] ?>" data-montant="<?= $dem['montant_max_par_cheque'] ?>" data-mode="<?= $dem['mode_reception'] ?>" data-tel="<?= $dem['telephone'] ?>" data-email="<?= $dem['email'] ?>" data-statut="<?= $statut ?>">
-                                        <td><div class="td-name"><?= htmlspecialchars($dem['nom et prenom']) ?></div><div class="td-mono" style="font-size:0.65rem; opacity:0.6;"><?= htmlspecialchars($dem['iban']) ?></div></td>
+                                        <td>
+                                            <div class="client-cell">
+                                                <div class="client-avatar"><?= htmlspecialchars(demandInitials($fullName)) ?></div>
+                                                <div>
+                                                    <div class="client-name"><?= htmlspecialchars($fullName) ?></div>
+                                                    <div class="client-sub"><?= htmlspecialchars($iban !== '' ? $iban : 'Aucun IBAN renseigné') ?></div>
+                                                </div>
+                                            </div>
+                                        </td>
                                         <td class="td-mono">DEM-<?= $dem['id_demande'] ?></td>
                                         <td><?= date('d/m/Y', strtotime($dem['date_demande'])) ?></td>
                                         <td><span class="badge <?= $sClass ?>"><?= $statut ?></span></td>
                                         <td>
-                                            <div class="action-group">
+                                            <div class="action-group request-actions">
                                                 <button class="act-btn" onclick="event.stopPropagation(); showDetail(this.closest('tr'))"><i class="fa-solid fa-eye"></i></button>
                                                 <button class="act-btn success" onclick="event.stopPropagation(); openPremiumModal(this.closest('tr').dataset)"><i class="fa-solid fa-check"></i></button>
                                             </div>
@@ -439,7 +687,7 @@ foreach($demandes_db as $d) {
         <div class="premium-modal">
             <div class="modal-header" style="padding: 2.2rem 2.5rem 1.5rem; display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                    <h1 style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; font-family: var(--fh);">Émettre un nouveau chéquier</h1>
+                    <h1 id="premiumModalTitle" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; font-family: var(--fh);">Émettre un nouveau chéquier</h1>
                     <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.3rem;">Demande associée : <span id="disp_id_demande_modal" style="color:#2563EB; font-weight:700;">DEM-114</span></div>
                 </div>
                 <button class="close-btn" id="premiumModalCloseBtn" style="background:#f1f5f9; border:none; width:36px; height:36px; border-radius:50%; color:#64748b; cursor:pointer; display:flex; align-items:center; justify-content:center; transition: all 0.2s;">
@@ -481,7 +729,7 @@ foreach($demandes_db as $d) {
                     Informations du chéquier <span style="flex: 1; height: 1px; background: #f1f5f9;"></span>
                 </div>
 
-                <form method="POST" action="backoffice_chequier.php" id="formPremium">
+                <form id="formPremium" onsubmit="submitChequerForm(event)" novalidate>
                     <input type="hidden" name="id_demande" id="hidden_id_demande_modal">
                     <input type="hidden" name="id_Compte" id="hidden_id_compte_modal">
                     <input type="hidden" name="id_chequier" id="hidden_id_chequier_modal">
@@ -540,13 +788,13 @@ foreach($demandes_db as $d) {
                         </div>
                     </div>
 
-                    <div style="margin-top: 2.5rem; display: flex; justify-content: flex-end; gap: 1rem; align-items: center; padding-top: 1.5rem; border-top: 1px solid #f1f5f9;">
-                        <button type="button" id="btnDeleteModal" class="btn-cancel" style="background:#fee2e2; color:#dc2626; display:none; margin-right: auto;">
-                            <i class="fa-solid fa-trash-can" style="margin-right:8px;"></i>Supprimer
-                        </button>
+                    <div style="margin-top: 2.5rem; display: flex; justify-content: flex-end; gap: 1rem; align-items: center; padding-top: 1.5rem; border-top: 1px solid #f1f5f9; flex-wrap: wrap;">
                         <button type="button" class="btn-cancel" onclick="closePremiumModal()">Annuler</button>
                         <button type="submit" name="modifier_chequier" id="btnModifierModal" class="btn-submit-premium" style="display:none;">
-                            <i class="fa-solid fa-pen-to-square" style="margin-right:8px;"></i>Enregistrer
+                            <i class="fa-solid fa-pen-to-square" style="margin-right:8px;"></i>Modifier
+                        </button>
+                        <button type="button" id="btnDeleteModal" class="btn-cancel" style="background:#fee2e2; color:#dc2626; display:none;">
+                            <i class="fa-solid fa-trash-can" style="margin-right:8px;"></i>Supprimer
                         </button>
                         <button type="submit" name="creer_chequier" id="btnEmettreModal" class="btn-submit-premium">
                             <i class="fa-solid fa-plus" style="margin-right:8px;"></i>Émettre (Ajouter)
@@ -670,11 +918,13 @@ foreach($demandes_db as $d) {
             const modal = document.getElementById('premiumChequeModal');
             modal.classList.add('active');
             
-            const chq = existingChequiers.find(c => parseInt(c.id_demande) === parseInt(d.id_demande || d.id));
+            const requestId = parseInt(d.id_demande || d.id || 0);
+            const chq = existingChequiers.find(c => parseInt(c.id_demande) === requestId);
             const isEdit = !!chq;
+            const titleEl = document.getElementById('premiumModalTitle');
             
             document.getElementById('hidden_id_demande_modal').value = d.id_demande || d.id;
-            document.getElementById('hidden_id_compte_modal').value = d.id_compte || d.idCompte;
+            document.getElementById('hidden_id_compte_modal').value = d.id_compte || d.idCompte || (chq ? (chq.id_Compte || chq.id_compte || '') : '');
             document.getElementById('hidden_id_chequier_modal').value = isEdit ? chq.id_chequier : "";
             
             document.getElementById('preview_signature').textContent = d['nom et prenom'] || d.name;
@@ -686,7 +936,7 @@ foreach($demandes_db as $d) {
             const btnDelete = document.getElementById('btnDeleteModal');
 
             if (isEdit) {
-                document.querySelector('.saisie-title h1').textContent = "Modifier le chéquier";
+                if (titleEl) titleEl.textContent = "Modifier le chéquier";
                 document.getElementById('input_numero_chequier').value = chq.numero_chequier;
                 document.getElementById('modal_nb_feuilles').value = chq.nombre_feuilles;
                 document.getElementById('modal_date_creation').value = chq.date_creation;
@@ -697,12 +947,44 @@ foreach($demandes_db as $d) {
                 btnDelete.style.display = 'block';
                 btnDelete.onclick = () => {
                     if(confirm('Supprimer définitivement ce chéquier ?')) {
-                        window.location.href = 'backoffice_chequier.php?op=delete_chq&id=' + chq.id_chequier;
+                        fetch('backoffice_chequier.php?op=delete_chq&id=' + chq.id_chequier, {
+                            method: 'GET',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                        .then(async response => {
+                            const payload = await response.json().catch(() => null);
+                            if (!payload) {
+                                throw new Error('Réponse serveur invalide');
+                            }
+                            if (!response.ok || payload.success === false) {
+                                throw new Error(payload.message || 'Suppression impossible');
+                            }
+                            return payload;
+                        })
+                        .then(payload => {
+                            alert(payload.message || 'Chéquier supprimé.');
+                            closePremiumModal();
+                            location.reload();
+                        })
+                        .catch(error => {
+                            alert('Erreur: ' + error.message);
+                        });
                     }
                 };
             } else {
-                document.querySelector('.saisie-title h1').textContent = "Émettre un nouveau chéquier";
-                const num = 'CHQ-' + new Date().getFullYear() + '-' + Math.floor(10000 + Math.random() * 90000);
+                if (titleEl) titleEl.textContent = "Émettre un nouveau chéquier";
+                // Generate unique number with timestamp: CHQ-YYYYMMDDHHmmss-XXX
+                const now = new Date();
+                const timestamp = now.getFullYear() + 
+                                  String(now.getMonth() + 1).padStart(2, '0') + 
+                                  String(now.getDate()).padStart(2, '0') + 
+                                  String(now.getHours()).padStart(2, '0') + 
+                                  String(now.getMinutes()).padStart(2, '0') + 
+                                  String(now.getSeconds()).padStart(2, '0');
+                const randomPart = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+                const num = 'CHQ-' + timestamp + '-' + randomPart;
                 document.getElementById('input_numero_chequier').value = num;
                 document.getElementById('modal_nb_feuilles').value = "25";
                 document.getElementById('modal_date_creation').value = new Date().toISOString().split('T')[0];
@@ -730,8 +1012,150 @@ foreach($demandes_db as $d) {
             document.getElementById('preview_exp_date').textContent = expVal ? new Date(expVal).toLocaleDateString('fr-FR') : '—';
         }
 
+        function submitChequerForm(event) {
+            event.preventDefault();
+            
+            const id_demande = document.getElementById('hidden_id_demande_modal').value;
+            const id_Compte = document.getElementById('hidden_id_compte_modal').value;
+            const id_chequier = document.getElementById('hidden_id_chequier_modal').value;
+            const numero_chequier = document.getElementById('input_numero_chequier').value;
+            const date_creation = document.getElementById('modal_date_creation').value;
+            const date_expiration = document.getElementById('modal_date_exp').value;
+            const statut_chequier = document.getElementById('modal_statut').value;
+            const nombre_feuilles = document.getElementById('modal_nb_feuilles').value;
+            
+            if (!id_demande) {
+                showMessage('❌ ERREUR: ID demande manquant!', 'error');
+                return;
+            }
+            if (!id_Compte) {
+                showMessage('❌ ERREUR: ID compte manquant!', 'error');
+                return;
+            }
+            
+            // Determine if creating or modifying
+            const isModifying = !!id_chequier;
+            const formData = new FormData();
+            
+            if (isModifying) {
+                formData.append('modifier_chequier', '1');
+                formData.append('id_chequier', id_chequier);
+            } else {
+                formData.append('creer_chequier', '1');
+            }
+            
+            formData.append('id_demande', id_demande);
+            formData.append('id_Compte', id_Compte);
+            formData.append('numero_chequier', numero_chequier);
+            formData.append('date_creation', date_creation);
+            formData.append('date_expiration', date_expiration);
+            formData.append('statut_chequier', statut_chequier);
+            formData.append('nombre_feuilles', nombre_feuilles);
+            
+            console.log('📤 SUBMITTING FORM:', {
+                isModifying,
+                id_demande,
+                id_Compte,
+                numero_chequier,
+                date_creation,
+                date_expiration,
+                statut_chequier,
+                nombre_feuilles
+            });
+            
+            fetch('backoffice_chequier.php', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(async response => {
+                const payload = await response.json().catch(() => null);
+
+                if (!payload) {
+                    throw new Error('Réponse serveur invalide');
+                }
+
+                if (!response.ok || payload.success === false) {
+                    const details = payload.details ? ' (' + payload.details + ')' : '';
+                    throw new Error((payload.message || 'Erreur serveur') + details);
+                }
+
+                return payload;
+            })
+            .then(payload => {
+                console.log('✅ RESPONSE RECEIVED:', payload);
+                alert(payload.message || ('Chéquier ' + (isModifying ? 'modifié' : 'créé') + ' avec succès!'));
+                closePremiumModal();
+                location.reload();
+            })
+            .catch(error => {
+                console.error('❌ FETCH ERROR:', error);
+                alert('Erreur réseau: ' + error.message);
+            });
+        }
+
+        function showMessage(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                border-radius: 6px;
+                font-size: 0.95rem;
+                font-weight: 500;
+                z-index: 9999;
+                animation: slideIn 0.3s ease-out;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                max-width: 500px;
+            `;
+            
+            if (type === 'error') {
+                notification.style.background = '#fee2e2';
+                notification.style.color = '#991b1b';
+                notification.style.borderLeft = '4px solid #dc2626';
+            } else if (type === 'success') {
+                notification.style.background = '#dcfce7';
+                notification.style.color = '#166534';
+                notification.style.borderLeft = '4px solid #16a34a';
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(400px); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(400px); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
         document.getElementById('premiumModalCloseBtn').onclick = closePremiumModal;
         window.onclick = (e) => { if(e.target == document.getElementById('premiumChequeModal')) closePremiumModal(); };
+
+        const serverFlashMessage = <?= json_encode($flashMessage, JSON_UNESCAPED_UNICODE) ?>;
+        if (serverFlashMessage) {
+            window.setTimeout(() => {
+                alert(serverFlashMessage);
+            }, 100);
+        }
     </script>
 </body>
 </html>

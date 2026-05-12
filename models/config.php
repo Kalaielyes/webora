@@ -24,6 +24,21 @@ if (!defined('APP_URL')) {
 if (!defined('GEMINI_API_KEY')) {
     define('GEMINI_API_KEY', $_ENV['GEMINI_API_KEY'] ?? '');
 }
+
+// ── STRIPE KEYS (don module) ─────────────────────────────────────────────────
+if (!defined('STRIPE_PUBLISHABLE_KEY')) {
+    define('STRIPE_PUBLISHABLE_KEY', $_ENV['STRIPE_PUBLISHABLE_KEY']
+        ?? 'pk_test_51TQTz7Cz4nvPjL6ZoAoVbcjpuFDbesqOzGqOYMVyS8w20gZy1SN9XAYkCWt7B2cJN0d7DwZWt0rjlTR7I2m2RMl400kp6PpOQu');
+}
+if (!defined('STRIPE_SECRET_KEY')) {
+    define('STRIPE_SECRET_KEY', $_ENV['STRIPE_SECRET_KEY']
+        ?? 'sk_test_51TQTz7Cz4nvPjL6ZUYTiUqdVxKs4E58t6XqZEEkgt3MKYVvyWr1tD4KyUG8QV2NoML1gHjroZXAbUzig7bXiedKT00MDTdVXuE');
+}
+
+// ── OLLAMA AI ENDPOINT (don module) ─────────────────────────────────────────
+if (!defined('OLLAMA_URL')) {
+    define('OLLAMA_URL', $_ENV['OLLAMA_URL'] ?? 'http://51.83.4.21:11434/api/generate');
+}
 if (!defined('BASE_URL')) {
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host     = $_SERVER['HTTP_HOST'] ?? 'localhost';
@@ -47,7 +62,7 @@ class Config
     {
         if (self::$pdo === null) {
             $host    = $_ENV['DB_HOST'] ?? 'localhost';
-            $port    = $_ENV['DB_PORT'] ?? 3307;  // XAMPP MySQL port
+            $port    = $_ENV['DB_PORT'] ?? 3306;  // XAMPP MySQL port
             $dbname  = $_ENV['DB_NAME'] ?? 'webora';
             $user    = $_ENV['DB_USER'] ?? 'root';
             $pass    = $_ENV['DB_PASS'] ?? '';
@@ -65,10 +80,21 @@ class Config
                 self::$pdo = new PDO($dsn, $user, $pass, $options);
             } catch (PDOException $e) {
                 error_log('[Legafin] DB Connection failed: ' . $e->getMessage());
-                die(json_encode(['error' => 'Database unavailable. Please try later.']));
+                error_log('[Legafin] DB Connection failed: ' . $e->getMessage());
+                die($e->getMessage());
             }
         }
         return self::$pdo;
+    }
+
+    public static function testConnexion(): array
+    {
+        try {
+            self::getConnexion()->query('SELECT 1');
+            return ['ok' => true, 'error' => ''];
+        } catch (\PDOException $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
     }
 
     /**
@@ -100,7 +126,7 @@ class Config
         }
 
         $_SESSION['user'] = [
-            'id'         => $row['id'],
+            'id'         => $row['id_utilisateur'],
             'nom'        => $row['nom']        ?? '',
             'prenom'     => $row['prenom']     ?? '',
             'email'      => $row['email']       ?? '',
@@ -109,7 +135,28 @@ class Config
         ];
         
         // Also set new system keys for compatibility
-        $_SESSION['user_id'] = $row['id'];
+        $_SESSION['user_id'] = $row['id_utilisateur'];
         $_SESSION['role']    = $row['role'] ?? 'CLIENT';
+    }
+    public static function getMeetingSettings(): array
+    {
+        return [
+            'jitsi_base_url'    => self::getEnv('JITSI_BASE_URL', 'https://meet.jit.si'),
+            'zoom_account_id'   => self::getEnv('ZOOM_ACCOUNT_ID', ''),
+            'zoom_client_id'    => self::getEnv('ZOOM_CLIENT_ID', ''),
+            'zoom_client_secret'=> self::getEnv('ZOOM_CLIENT_SECRET', ''),
+            'zoom_user_id'      => self::getEnv('ZOOM_USER_ID', 'me'),
+            'sender_name'       => self::getEnv('MEETING_SENDER_NAME', 'Webora'),
+            'sender_email'      => self::getEnv('MEETING_SENDER_EMAIL', 'noreply@example.com'),
+        ];
+    }
+
+    private static function getEnv(string $key, string $default = ''): string
+    {
+        $value = getenv($key);
+        if ($value === false || $value === null || $value === '') {
+            return $default;
+        }
+        return (string)$value;
     }
 }

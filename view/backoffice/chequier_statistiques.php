@@ -176,23 +176,6 @@ Session::requireAdmin('../frontoffice/login.php');
                 </div>
             </div>
 
-            <!-- TABLE -->
-            <div class="table-card">
-                <div class="table-header">Détail par date</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th style="text-align:center">Acceptées</th>
-                            <th style="text-align:center">Refusées</th>
-                            <th style="text-align:center">En attente</th>
-                            <th style="text-align:right">Total</th>
-                            <th style="text-align:right">Taux acceptation</th>
-                        </tr>
-                    </thead>
-                    <tbody id="stats-table"></tbody>
-                </table>
-            </div>
         </div>
     </div>
 
@@ -226,7 +209,6 @@ Session::requireAdmin('../frontoffice/login.php');
         const pending = labels.map(d => stats[d].en_attente || 0);
 
         updateCharts(labels, accepted, refused, pending, totaux);
-        updateTable(labels, stats);
     }
 
     function updateCharts(labels, accepted, refused, pending, totaux) {

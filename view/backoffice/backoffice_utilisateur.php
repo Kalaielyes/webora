@@ -24,6 +24,27 @@ $m      = new Utilisateur();
 $filtre = $_GET['filtre'] ?? 'tous';
 $page   = $_GET['page'] ?? 'utilisateurs'; 
 
+if ($page === 'credit') {
+    require_once __DIR__ . '/../../models/Demande_Credit.php';
+    require_once __DIR__ . '/../../models/Garantie.php';
+    $demandeModel = new DemandeCredit();
+    $garantieModel = new Garantie();
+    $creditStats = $demandeModel->getStats();
+    $demandes = $demandeModel->getAll();
+    $garanties = $garantieModel->getAll();
+    $demandesSelect = $demandes;
+    $dbStatus = \config::testConnexion();
+    $dbError = !$dbStatus['ok'];
+    $editDemandeId = (int)($_GET['edit_d'] ?? 0);
+    $editGarantieId = (int)($_GET['edit_g'] ?? 0);
+    $editDemande = $editDemandeId ? $demandeModel->getById($editDemandeId) : null;
+    $editGarantie = $editGarantieId ? $garantieModel->getById($editGarantieId) : null;
+    $activeTab = $_GET['tab'] ?? ($editGarantieId ? 'gar' : 'dem');
+    $controllerSelf = BASE_URL . '/controller/AdminCreditController.php';
+    $controllerRoot = BASE_URL . '/controller';
+    $viewRoot = VIEW_URL;
+} 
+
 // Pagination Logic
 $limit  = 10; // Users per page
 $p      = max(1, (int)($_GET['p'] ?? 1));
@@ -45,6 +66,7 @@ if ($detail && ($detail['role'] ?? '') === 'SUPER_ADMIN') {
 }
 $adminInitials = strtoupper(mb_substr(Session::get('user_nom'),0,1).mb_substr(Session::get('user_prenom'),0,1));
 $ALL_MODULES = [
+    'cagnottes'        => ['label'=>'Cagnottes',         'icon'=>'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', 'color'=>'var(--teal)'],
     'comptes'          => ['label'=>'Comptes',           'icon'=>'<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',                                              'color'=>'var(--blue)'],
     'actions'          => ['label'=>'Actions',           'icon'=>'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',                                                                                                'color'=>'var(--teal)'],
     'credit'           => ['label'=>'Crédit',            'icon'=>'<rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>',                                                    'color'=>'var(--green)'],
@@ -123,6 +145,11 @@ function initials(string $n, string $p): string {
 <title>LegalFin Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../assets/css/backoffice/Utilisateur.css">
+<?php if ($page === 'credit'): ?>
+<link rel="stylesheet" href="creditttttttttttttttt.css">
+<script src="<?= htmlspecialchars(VIEW_URL) ?>/frontoffice/geolocation-form.js"></script>
+<script>window.CONTROLLER_PATH = '<?= htmlspecialchars(BASE_URL . "/controller/AdminCreditController.php") ?>';</script>
+<?php endif; ?>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -215,6 +242,8 @@ function initials(string $n, string $p): string {
           $href = match($mk) {
             'utilisateurs' => '?page=utilisateurs&filtre=tous',
             'statistiques' => '?page=statistiques',
+            'cagnottes' => APP_URL . '/view/backoffice/don/cagnotte.php',
+            'dons_collectes' => APP_URL . '/view/backoffice/don/dons.php',
             default        => '#'
           };
         ?>
@@ -232,6 +261,8 @@ function initials(string $n, string $p): string {
         <?php endforeach; ?>
       </div>
     </div>
+    <?php elseif($page==='credit' && in_array('credit',$myModules)): ?>
+      <?php include __DIR__ . '/back_credit_content.php'; ?>
     <?php elseif($page==='utilisateurs' && in_array('utilisateurs',$myModules)): ?>
     <div class="two-col-layout">
       <div class="table-card">

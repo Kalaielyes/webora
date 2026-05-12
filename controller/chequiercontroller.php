@@ -74,14 +74,7 @@ class ChequierController {
                 ':compte'     => $chequier->getIdCompte()
             ]);
 
-            // Send expiration reminder if expires within 15 days
-            $dateExp = new DateTime($chequier->getDateExpiration());
-            $today   = new DateTime();
-            $diff    = $today->diff($dateExp)->days;
-
-            if ($diff <= 15 && $dateExp >= $today) {
-                $this->envoyerEmailRappelExpiration($chequier->getIdDemande());
-            }
+            $this->maybeSendExpirationReminder($chequier->getIdDemande(), $chequier->getDateExpiration());
 
             return true;
         } catch (PDOException $e) {
@@ -101,12 +94,16 @@ class ChequierController {
 
         $stmt = $db->prepare($sql);
         try {
-            return $stmt->execute([
+            $result = $stmt->execute([
                 ':expiration' => $chequier->getDateExpiration(),
                 ':statut'     => $chequier->getStatut(),
                 ':nb'         => $chequier->getNombreFeuilles(),
                 ':id'         => $chequier->getIdChequier()
             ]);
+
+            $this->maybeSendExpirationReminder($chequier->getIdDemande(), $chequier->getDateExpiration());
+
+            return $result;
         } catch (PDOException $e) {
             error_log('[LegaFin] ChequierController::updateChequier - ' . $e->getMessage());
             throw $e;
@@ -156,6 +153,26 @@ class ChequierController {
     }
 
     // ── Send expiration reminder email ──────────────────────────────────────
+    private function maybeSendExpirationReminder($idDemande, $dateExpiration): void {
+        if (empty($idDemande) || empty($dateExpiration)) {
+            return;
+        }
+
+        try {
+            $exp = new DateTime((string)$dateExpiration);
+            $today = new DateTime('today');
+            $diffDays = (int)$today->diff($exp)->format('%r%a');
+
+            if ($diffDays < 0 || $diffDays > 15) {
+                return;
+            }
+
+            $this->envoyerEmailRappelExpiration((int)$idDemande);
+        } catch (Exception $e) {
+            error_log('[LegaFin] ChequierController::maybeSendExpirationReminder - ' . $e->getMessage());
+        }
+    }
+
     private function envoyerEmailRappelExpiration($idDemande) {
         $db = Config::getConnexion();
 

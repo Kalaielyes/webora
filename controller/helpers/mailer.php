@@ -3,11 +3,11 @@
 // Mailer configuration is now handled via environment variables in .env
 
 function sendMail($to, $toName, $subject, $htmlBody) {
-    $user = $_ENV['SMTP_USER'] ?? '';
-    $pass = $_ENV['SMTP_PASS'] ?? '';
-    $host = $_ENV['SMTP_HOST'] ?? 'smtp.gmail.com';
-    $port = $_ENV['SMTP_PORT'] ?? 465;
-    $fromName = $_ENV['MAIL_NAME'] ?? 'LegalFin Service Client';
+    $user = $_ENV['SMTP_USER'] ?? ($_ENV['MAIL_USERNAME'] ?? '');
+    $pass = $_ENV['SMTP_PASS'] ?? ($_ENV['MAIL_PASSWORD'] ?? '');
+    $host = $_ENV['SMTP_HOST'] ?? ($_ENV['MAIL_HOST'] ?? 'smtp.gmail.com');
+    $port = $_ENV['SMTP_PORT'] ?? ($_ENV['MAIL_PORT'] ?? 465);
+    $fromName = $_ENV['MAIL_NAME'] ?? ($_ENV['MAIL_FROM_NAME'] ?? 'LegalFin Service Client');
 
     $sock = @stream_socket_client("ssl://$host:$port", $errno, $errstr, 15);
     if (!$sock) return false;
