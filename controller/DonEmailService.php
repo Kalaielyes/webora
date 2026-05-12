@@ -1,13 +1,21 @@
 <?php
 
+$donMailAutoload = dirname(__DIR__) . '/vendor/autoload.php';
+if (is_file($donMailAutoload)) {
+    require_once $donMailAutoload;
+}
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
-require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/Exception.php';
-require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/PHPMailer.php';
-require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/SMTP.php';
+if (!class_exists(PHPMailer::class)) {
+    require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/Exception.php';
+    require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/PHPMailer.php';
+    require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/SMTP.php';
+}
 require_once __DIR__ . '/../models/EnvLoader.php';
+require_once __DIR__ . '/../models/MailService.php';
 
 /**
  * DonEmailService — handles donation notification emails (merged from don/EmailService).
@@ -25,6 +33,19 @@ class DonEmailService
             EnvLoader::load($rootEnv);
         }
         $this->config = $_ENV;
+    }
+
+    private function fallbackSend(string $toEmail, string $subject, string $body): bool
+    {
+        try {
+            if (class_exists('MailService')) {
+                $mailService = new MailService();
+                return $mailService->send($toEmail, $subject, $body);
+            }
+        } catch (Throwable $e) {
+            error_log('[DonEmailService] Fallback mail sender failed: ' . $e->getMessage());
+        }
+        return false;
     }
 
     /**
@@ -66,19 +87,30 @@ class DonEmailService
         $subject = "🎉 Objectif atteint ! Votre cagnotte « {$cagnotteTitre} » est complète";
         $body    = $this->buildEmailBody($cagnotteTitre, $donMontant, $collected, $objectif, $donorName);
 
+        $smtpHost     = $this->config['MAIL_HOST'] ?? getenv('MAIL_HOST') ?: 'smtp.gmail.com';
+        $smtpUser     = $this->config['MAIL_USERNAME'] ?? getenv('MAIL_USERNAME') ?: '';
+        $smtpPass     = $this->config['MAIL_PASSWORD'] ?? getenv('MAIL_PASSWORD') ?: '';
+        $smtpPort     = (int)($this->config['MAIL_PORT'] ?? getenv('MAIL_PORT') ?: 587);
+        $smtpSecure   = strtolower((string)($this->config['MAIL_ENCRYPTION'] ?? getenv('MAIL_ENCRYPTION') ?: 'tls'));
+        $fromName     = $this->config['MAIL_FROM_NAME'] ?? getenv('MAIL_FROM_NAME') ?: 'LegalFin Donations';
+        $fromEmailCfg = $this->config['MAIL_FROM_ADDRESS'] ?? getenv('MAIL_FROM_ADDRESS') ?: '';
+        $fromEmail    = $fromEmailCfg !== '' ? $fromEmailCfg : ($smtpUser !== '' ? $smtpUser : '');
+
+        // If SMTP credentials are not configured, use application fallback mail sender.
+        if ($smtpUser === '' || $smtpPass === '' || $fromEmail === '') {
+            return $this->fallbackSend($toEmail, $subject, $body);
+        }
+
         $mail = new PHPMailer(true);
         try {
             $mail->isSMTP();
             $mail->CharSet    = 'UTF-8';
-            $mail->Host       = $this->config['MAIL_HOST']       ?? 'smtp.gmail.com';
+            $mail->Host       = $smtpHost;
             $mail->SMTPAuth   = true;
-            $mail->Username   = $this->config['MAIL_USERNAME']   ?? '';
-            $mail->Password   = $this->config['MAIL_PASSWORD']   ?? '';
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port       = (int)($this->config['MAIL_PORT'] ?? 587);
-
-            $fromName  = $this->config['MAIL_FROM_NAME']    ?? 'LegalFin Donations';
-            $fromEmail = $this->config['MAIL_FROM_ADDRESS'] ?? ($this->config['MAIL_USERNAME'] ?? 'no-reply@legalfin.local');
+            $mail->Username   = $smtpUser;
+            $mail->Password   = $smtpPass;
+            $mail->SMTPSecure = $smtpSecure === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port       = $smtpPort;
 
             $mail->setFrom($fromEmail, $fromName);
             $mail->addAddress($toEmail, $toName ?: 'Association');
@@ -91,7 +123,7 @@ class DonEmailService
             return true;
         } catch (PHPMailerException $e) {
             error_log('[DonEmailService] Mail error for don #' . ($don['id_don'] ?? '?') . ': ' . $e->getMessage());
-            return false;
+            return $this->fallbackSend($toEmail, $subject, $body);
         }
     }
 

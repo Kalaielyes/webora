@@ -2,16 +2,28 @@
 /**
  * Webora Mailer - Gmail SMTP via raw socket
  * No external libraries needed
- * EDIT YOUR CREDENTIALS BELOW
+ * Credentials are now loaded from .env file for security
  */
 
-// =============================================
-//  YOUR GMAIL CREDENTIALS - EDIT THESE
-// =============================================
-define('GMAIL_USER', 'gympro984@gmail.com');
-define('GMAIL_PASS', 'merfwzblorbevoyt');
-define('MAIL_FROM_NAME', 'Webora Service Client');
-// =============================================
+// Load EnvLoader to get .env configuration
+if (!function_exists('getenv') || empty(getenv('MAIL_USERNAME'))) {
+    $envFile = dirname(__DIR__) . '/.env';
+    if (file_exists($envFile)) {
+        require_once dirname(__DIR__) . '/models/EnvLoader.php';
+        EnvLoader::load($envFile);
+    }
+}
+
+// Read credentials from .env, with fallback defaults
+if (!defined('GMAIL_USER')) {
+    define('GMAIL_USER', getenv('MAIL_USERNAME') ?: 'gympro984@gmail.com');
+}
+if (!defined('GMAIL_PASS')) {
+    define('GMAIL_PASS', getenv('MAIL_PASSWORD') ?: 'merfwzblorbevoyt');
+}
+if (!defined('MAIL_FROM_NAME')) {
+    define('MAIL_FROM_NAME', getenv('MAIL_FROM_NAME') ?: 'Webora Service Client');
+}
 
 function sendMail($to, $toName, $subject, $htmlBody, $textBody = '') {
     $src = __DIR__ . '/../vendor/phpmailer/src/PHPMailer.php';

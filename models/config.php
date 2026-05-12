@@ -126,7 +126,7 @@ class Config
         }
 
         $_SESSION['user'] = [
-            'id'         => $row['id'],
+            'id'         => $row['id_utilisateur'],
             'nom'        => $row['nom']        ?? '',
             'prenom'     => $row['prenom']     ?? '',
             'email'      => $row['email']       ?? '',
@@ -135,7 +135,28 @@ class Config
         ];
         
         // Also set new system keys for compatibility
-        $_SESSION['user_id'] = $row['id'];
+        $_SESSION['user_id'] = $row['id_utilisateur'];
         $_SESSION['role']    = $row['role'] ?? 'CLIENT';
+    }
+    public static function getMeetingSettings(): array
+    {
+        return [
+            'jitsi_base_url'    => self::getEnv('JITSI_BASE_URL', 'https://meet.jit.si'),
+            'zoom_account_id'   => self::getEnv('ZOOM_ACCOUNT_ID', ''),
+            'zoom_client_id'    => self::getEnv('ZOOM_CLIENT_ID', ''),
+            'zoom_client_secret'=> self::getEnv('ZOOM_CLIENT_SECRET', ''),
+            'zoom_user_id'      => self::getEnv('ZOOM_USER_ID', 'me'),
+            'sender_name'       => self::getEnv('MEETING_SENDER_NAME', 'Webora'),
+            'sender_email'      => self::getEnv('MEETING_SENDER_EMAIL', 'noreply@example.com'),
+        ];
+    }
+
+    private static function getEnv(string $key, string $default = ''): string
+    {
+        $value = getenv($key);
+        if ($value === false || $value === null || $value === '') {
+            return $default;
+        }
+        return (string)$value;
     }
 }

@@ -32,7 +32,8 @@ if ($currentUserName === '') {
   $currentUserName = 'Utilisateur';
 }
 $currentUserEmail = trim((string)($currentUser['email'] ?? ''));
-$currentUserIsAssociation = (bool)($currentUser['association'] ?? 0);
+$currentUserRole = strtolower(trim((string)($currentUser['role'] ?? ($_SESSION['user']['role'] ?? Session::get('role') ?? ''))));
+$currentUserIsAssociation = ((int)($currentUser['association'] ?? 0) === 1) || in_array($currentUserRole, ['association', 'organisation', 'organization'], true);
 $_SESSION['user'] = array_merge($_SESSION['user'] ?? [], $currentUser ?? []);
 $userAccounts = $donateurUserId > 0 ? CompteController::findByUtilisateur($donateurUserId) : [];
 $donEligibleAccounts = [];
@@ -290,7 +291,10 @@ foreach ($userDons as $d) {
       </div>
       <?php if ($currentUserIsAssociation): ?>
       <div>
-        <div class="section-head" style="margin-bottom:.9rem"><div class="section-title">Mes cagnottes</div></div>
+        <div class="section-head" style="margin-bottom:.9rem;display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;">
+          <div class="section-title">Mes cagnottes</div>
+          <button class="btn-ghost" type="button" onclick="showView('creer')">+ Ajouter une cagnotte</button>
+        </div>
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem;">
           <?php if (empty($userCagnottes)): ?>
             <div>Aucune cagnotte créée</div>
@@ -400,7 +404,7 @@ foreach ($userDons as $d) {
       </div>
 
       <div class="form-grid">
-        <form id="create-cagnotte-form" method="post" enctype="multipart/form-data">
+        <form id="create-cagnotte-form" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" id="create-action" name="action" value="create_cagnotte" />
         <input type="hidden" id="create-id" name="id" value="" />
         <input type="hidden" id="form-is-edit" value="0" />
@@ -430,7 +434,7 @@ foreach ($userDons as $d) {
             <div class="field">
               <div class="field-label">Titre <span class="req">*</span></div>
               <div class="inp-wrap">
-                <input class="fi" type="text" id="inp-titre" name="titre" maxlength="80" placeholder="Min. 10 caractères" oninput="validateTitre();updatePv();countC('inp-titre','cnt-titre',80)" onblur="validateTitre()"/>
+                <input class="fi" type="text" id="inp-titre" name="titre" maxlength="80" placeholder="Min. 10 caractères" oninput="updatePv();countC('inp-titre','cnt-titre',80)"/>
                 <span class="inp-icon" id="icon-titre"></span>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -443,7 +447,7 @@ foreach ($userDons as $d) {
             <!-- Description -->
             <div class="field">
               <div class="field-label">Description <span class="req">*</span></div>
-              <textarea class="fi" id="inp-desc" name="description" maxlength="500" placeholder="Min. 30 caractères — décrivez la situation et l'utilisation des fonds…" oninput="validateDesc();updatePv();countC('inp-desc','cnt-desc',500)" onblur="validateDesc()"></textarea>
+              <textarea class="fi" id="inp-desc" name="description" maxlength="500" placeholder="Min. 30 caractères — décrivez la situation et l'utilisation des fonds…" oninput="updatePv();countC('inp-desc','cnt-desc',500)"></textarea>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div class="field-error" id="err-desc">⚠ Minimum 30 caractères requis</div>
                 <div class="field-ok" id="ok-desc">✔ Description valide</div>
@@ -479,7 +483,7 @@ foreach ($userDons as $d) {
               <div class="field">
                 <div class="field-label">Montant objectif (€) <span class="req">*</span></div>
                 <div class="inp-wrap">
-                  <input class="fi" type="number" id="inp-objectif" name="objectif_montant" placeholder="Min. 100 €" oninput="validateObjectif()" onblur="validateObjectif()"/>
+                  <input class="fi" type="number" id="inp-objectif" name="objectif_montant" placeholder="Min. 100 €" oninput="updatePv()"/>
                   <span class="inp-icon" id="icon-objectif"></span>
                 </div>
                 <div class="field-error" id="err-objectif">⚠ Montant entre 100 et 9 999 999 €</div>
@@ -490,12 +494,12 @@ foreach ($userDons as $d) {
             <div class="row-2">
               <div class="field">
                 <div class="field-label">Date de début <span class="req">*</span></div>
-                <input class="fi" type="date" id="inp-debut" name="date_debut" onchange="validateDates()" onblur="validateDates()"/>
+                <input class="fi" type="date" id="inp-debut" name="date_debut"/>
                 <div class="field-error" id="err-debut">⚠ Date de début requise</div>
               </div>
               <div class="field">
                 <div class="field-label">Date de fin <span class="req">*</span></div>
-                <input class="fi" type="date" id="inp-fin" name="date_fin" onchange="validateDates()" onblur="validateDates()"/>
+                <input class="fi" type="date" id="inp-fin" name="date_fin"/>
                 <div class="field-error" id="err-fin">⚠ La date de fin doit être après le début</div>
                 <div class="field-hint">La date de fin est obligatoire</div>
               </div>
@@ -527,7 +531,7 @@ foreach ($userDons as $d) {
             <!-- Bénéficiaire -->
             <div class="field">
               <div class="field-label">Nom du bénéficiaire</div>
-              <input class="fi" type="text" id="inp-benef" name="beneficiaire" maxlength="100" placeholder="Ex : Sami B., 8 ans" oninput="validateBenef()" onblur="validateBenef()"/>
+              <input class="fi" type="text" id="inp-benef" name="beneficiaire" maxlength="100" placeholder="Ex : Sami B., 8 ans"/>
               <div class="field-error" id="err-benef">⚠ Nom trop court (min. 2 caractères)</div>
               <div class="field-hint">Optionnel — apparaîtra sur la page publique</div>
             </div>
@@ -707,8 +711,8 @@ foreach ($userDons as $d) {
   <div class="view" id="view-history">
     <div class="content">
       <?php
-        $userRole = $_SESSION['role'] ?? 'donor';
-        $isAssoc = ($userRole === 'association' || $currentUserIsAssociation);
+        $userRole = strtolower((string)($_SESSION['role'] ?? 'donor'));
+        $isAssoc = in_array($userRole, ['association', 'organisation', 'organization'], true) || $currentUserIsAssociation;
         $histCagnottes = $cagCtrl->getUserCagnottes($selectedUserId);
         $histDons = $donCtrl->getDonsByDonateur($donateurUserId);
 
@@ -1220,7 +1224,8 @@ function showView(v) {
   document.getElementById('view-' + v).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   if (v === 'dashboard') {
-    document.getElementById('nav-apercu').classList.add('active');
+    var navApercu = document.getElementById('nav-apercu');
+    if (navApercu) navApercu.classList.add('active');
     document.getElementById('topbar-title').textContent = 'Tableau de bord';
     document.getElementById('topbar-back').style.display = 'none';
     document.getElementById('topbar-dashboard-btns').style.display = 'flex';
@@ -1439,35 +1444,57 @@ function setStep(n, isActive, isDone) {
 }
 
 function validateForm() {
-  var ok = true;
-  if (!selectedCat) { document.getElementById('err-cat').classList.add('visible'); ok = false; }
   var titre = document.getElementById('inp-titre').value.trim();
-  if (titre.length < 10) { document.getElementById('inp-titre').classList.add('error'); document.getElementById('err-titre').classList.add('visible'); ok=false; }
   var desc = document.getElementById('inp-desc').value.trim();
-  if (desc.length < 30) { document.getElementById('inp-desc').classList.add('error'); document.getElementById('err-desc').classList.add('visible'); ok=false; }
-  var obj = parseFloat(document.getElementById('inp-objectif').value);
-  if (!obj || obj < 100 || obj > 9999999) { document.getElementById('inp-objectif').classList.add('error'); document.getElementById('err-objectif').classList.add('visible'); ok=false; }
+  var objectifRaw = document.getElementById('inp-objectif').value;
+  var objectif = parseFloat(objectifRaw);
   var debut = document.getElementById('inp-debut').value;
-  if (!debut) { document.getElementById('inp-debut').classList.add('error'); document.getElementById('err-debut').classList.add('visible'); ok=false; }
   var fin = document.getElementById('inp-fin').value;
-  var today = new Date(); today.setHours(0,0,0,0);
-  if (!fin) { document.getElementById('inp-fin').classList.add('error'); document.getElementById('err-fin').textContent='⚠ Date de fin requise'; document.getElementById('err-fin').classList.add('visible'); ok=false; }
-  if (fin && debut && new Date(fin) < new Date(debut)) { document.getElementById('inp-fin').classList.add('error'); document.getElementById('err-fin').classList.add('visible'); ok=false; }
-  return ok;
+  var benef = document.getElementById('inp-benef').value.trim();
+  var catInput = document.getElementById('inp-categorie');
+  var catValue = (catInput ? catInput.value : '').trim();
+  var fileInput = document.getElementById('inp-file');
+
+  var isTitreOk = titre.length >= 10 && titre.length <= 80;
+  var isDescOk = desc.length >= 30 && desc.length <= 500;
+  var isObjectifOk = objectifRaw !== '' && !isNaN(objectif) && objectif >= 100 && objectif <= 9999999;
+  var isDebutOk = debut !== '';
+  var isFinOk = fin !== '' && debut !== '' && new Date(fin) >= new Date(debut);
+  var isCatOk = selectedCat !== '' && catValue !== '';
+  var isBenefOk = benef === '' || benef.length >= 2;
+
+  var isBannerOk = true;
+  if (fileInput && fileInput.files && fileInput.files.length > 0) {
+    var file = fileInput.files[0];
+    var validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    var maxSize = 5 * 1024 * 1024;
+    isBannerOk = validTypes.indexOf(file.type) !== -1 && file.size <= maxSize;
+    document.getElementById('err-banner').classList.toggle('visible', !isBannerOk);
+  }
+
+  validateTitre();
+  validateDesc();
+  validateObjectif();
+  validateDates();
+  validateBenef();
+
+  if (!isCatOk) {
+    document.getElementById('err-cat').classList.add('visible');
+  } else {
+    document.getElementById('err-cat').classList.remove('visible');
+  }
+
+  return isTitreOk && isDescOk && isObjectifOk && isDebutOk && isFinOk && isCatOk && isBenefOk && isBannerOk;
 }
 
 function soumettre() {
-  if (!validateForm()) {
-    var fb = document.getElementById('front-form-feedback');
-    if (fb) fb.style.display = 'block';
-    // Scroll to first error
-    var firstErr = document.querySelector('.fi.error');
-    if (firstErr) firstErr.scrollIntoView({behavior:'smooth', block:'center'});
-    return;
-  }
   var fb2 = document.getElementById('front-form-feedback');
   if (fb2) fb2.style.display = 'none';
-  // submit server-side (controller will validate). The preview overlay will be shown after server redirects back on success.
+  var isValid = validateForm();
+  if (!isValid) {
+    if (fb2) fb2.style.display = 'block';
+    return;
+  }
   var form = document.getElementById('create-cagnotte-form');
   if (form) form.submit();
 }
@@ -1732,27 +1759,47 @@ document.getElementById('don-overlay').addEventListener('click', function(e) { i
 // ═══════════════════════════════════════════
 window.addEventListener('load', function() {
   document.getElementById('inp-debut').valueAsDate = new Date();
-  var todayStr = new Date().toISOString().split('T')[0];
-  document.getElementById('inp-debut').setAttribute('min', todayStr);
-  document.getElementById('inp-fin').setAttribute('min', todayStr);
-  document.getElementById('inp-debut').addEventListener('change', function(){
-    var start = document.getElementById('inp-debut').value || todayStr;
-    document.getElementById('inp-fin').setAttribute('min', start);
-  });
   ['inp-titre','inp-desc','inp-objectif','inp-debut','inp-fin'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) { el.addEventListener('input', checkStepper); el.addEventListener('change', checkStepper); }
   });
-  var form = document.getElementById('create-cagnotte-form');
-  if (form) {
-    form.addEventListener('submit', function(e) {
-      if (!validateForm()) {
-        e.preventDefault();
-        var fb = document.getElementById('front-form-feedback');
-        if (fb) fb.style.display = 'block';
-      }
-    });
+
+  var titreEl = document.getElementById('inp-titre');
+  if (titreEl) {
+    titreEl.addEventListener('input', validateTitre);
+    titreEl.addEventListener('blur', validateTitre);
   }
+
+  var descEl = document.getElementById('inp-desc');
+  if (descEl) {
+    descEl.addEventListener('input', validateDesc);
+    descEl.addEventListener('blur', validateDesc);
+  }
+
+  var objectifEl = document.getElementById('inp-objectif');
+  if (objectifEl) {
+    objectifEl.addEventListener('input', validateObjectif);
+    objectifEl.addEventListener('blur', validateObjectif);
+  }
+
+  var debutEl = document.getElementById('inp-debut');
+  if (debutEl) {
+    debutEl.addEventListener('input', validateDates);
+    debutEl.addEventListener('change', validateDates);
+  }
+
+  var finEl = document.getElementById('inp-fin');
+  if (finEl) {
+    finEl.addEventListener('input', validateDates);
+    finEl.addEventListener('change', validateDates);
+  }
+
+  var benefEl = document.getElementById('inp-benef');
+  if (benefEl) {
+    benefEl.addEventListener('input', validateBenef);
+    benefEl.addEventListener('blur', validateBenef);
+  }
+
   checkStepper();
 });
 </script>

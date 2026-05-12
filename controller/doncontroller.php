@@ -118,6 +118,7 @@ class DonController
 
         $moyen_paiement = (isset($data['moyen_paiement']) && in_array($data['moyen_paiement'], ['carte', 'virement'], true))
             ? $data['moyen_paiement'] : 'carte';
+        $autoConfirmCard = $moyen_paiement === 'carte' && !empty($data['auto_confirm']);
         $message = isset($data['message']) ? htmlspecialchars(trim($data['message'])) : null;
 
         $cagCtrl = new CagnotteController();
@@ -127,6 +128,9 @@ class DonController
         }
 
         $pdo = Config::getConnexion();
+        $confirmedDonId = null;
+        $confirmedCagnotteId = null;
+        $confirmedMontant = null;
 
         // For virement: deduct from account in a transaction
         if ($moyen_paiement === 'virement') {
@@ -164,6 +168,12 @@ class DonController
                     $deviseDon
                 );
 
+                // Virement donations are confirmed inside DonVirementService.
+                // Keep track to trigger objective-reached email after commit.
+                $confirmedDonId = $idDon;
+                $confirmedCagnotteId = (int)$data['id_cagnotte'];
+                $confirmedMontant = (float)$data['montant'];
+
                 $pdo->commit();
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
@@ -173,21 +183,37 @@ class DonController
         } else {
             // Card payment — just register as pending
             $sql  = "INSERT INTO don (id_cagnotte, id_donateur, montant, est_anonyme, message, moyen_paiement, statut, date_don)
-                     VALUES (:id_cagnotte, :id_donateur, :montant, 0, :message, :moyen_paiement, 'en_attente', NOW())";
+                     VALUES (:id_cagnotte, :id_donateur, :montant, 0, :message, :moyen_paiement, :statut, NOW())";
             $stmt = $pdo->prepare($sql);
+            $statusToInsert = $autoConfirmCard ? 'confirme' : 'en_attente';
             $stmt->execute([
                 'id_cagnotte'    => (int)$data['id_cagnotte'],
                 'id_donateur'    => $donateurId,
                 'montant'        => $data['montant'],
                 'message'        => $message,
                 'moyen_paiement' => $moyen_paiement,
+                'statut'         => $statusToInsert,
             ]);
+
+            if ($autoConfirmCard) {
+                $idDon = (int)$pdo->lastInsertId();
+                $pdo->prepare("UPDATE cagnotte SET montant_collecte = COALESCE(montant_collecte,0) + :montant WHERE id_cagnotte = :id_cagnotte")
+                    ->execute(['montant' => $data['montant'], 'id_cagnotte' => (int)$data['id_cagnotte']]);
+
+                $confirmedDonId = $idDon;
+                $confirmedCagnotteId = (int)$data['id_cagnotte'];
+                $confirmedMontant = (float)$data['montant'];
+            }
         }
 
         try {
             (new AchievementService())->runPostDonationCreated($donateurId);
         } catch (Throwable $e) {
             // Non-blocking
+        }
+
+        if ($confirmedDonId !== null && $confirmedCagnotteId !== null && $confirmedMontant !== null) {
+            $this->sendDonationConfirmedEmail($confirmedDonId, $confirmedCagnotteId, $confirmedMontant);
         }
 
         return true;

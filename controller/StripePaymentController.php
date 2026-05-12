@@ -111,6 +111,7 @@ if ($action === 'confirm_don') {
         'montant'        => $montant,
         'id_cagnotte'    => $idCagnotte,
         'moyen_paiement' => 'carte',
+        'auto_confirm'   => true,
         'message'        => $message !== '' ? $message : null,
     ], $donateurId);
 

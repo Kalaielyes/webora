@@ -37,6 +37,7 @@ $isCompteSection = $isCompteSection ?? ($currentFile === 'frontoffice_compte.php
 $isOperationSection = $isOperationSection ?? ($currentFile === 'frontoffice_compte.php' && ($showVirementForm || $showObjectifs || $showHistorique));
 $isChequierSection = ($currentFile === 'frontoffice_chequier.php');
 $isCreditSection = ($page === 'credit');
+$isActionSection = ($currentFile === 'frontofficeAction.php');
 $isDonationSection = str_ends_with($currentDir, '/view/frontoffice/don');
 
 $pendingCount = $pendingCount ?? 0;
@@ -161,6 +162,12 @@ if ($pendingCount === 0 && isset($_SESSION['user_id'])) {
           </a>
         </div>
       </div>
+
+      <!-- ══ MES ACTIONS ══ -->
+      <a class="nav-item <?= $isActionSection ? 'active' : '' ?>" href="<?= APP_URL ?>/view/frontoffice/frontofficeAction.php">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        Mes Actions
+      </a>
 
       <?php if ($pendingCount > 0): ?>
       <div class="nav-section" style="margin-top:.4rem">Suivi</div>

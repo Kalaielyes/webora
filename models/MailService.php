@@ -1,23 +1,50 @@
 <?php
 
-// Conditionally load PHPMailer if Composer vendor directory exists
-if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
-    require_once __DIR__ . '/../vendor/autoload.php';
+// Load Composer autoloader from the workspace vendor directory.
+$mailAutoloadCandidates = [
+    __DIR__ . '/../vendor/autoload.php',
+    dirname(__DIR__) . '/vendor/autoload.php',
+];
+foreach ($mailAutoloadCandidates as $autoloadPath) {
+    if (is_file($autoloadPath)) {
+        require_once $autoloadPath;
+        break;
+    }
 }
 
 class MailService {
+    private static function ensureMailerLoaded(): bool {
+        if (class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+            return true;
+        }
+
+        $autoloadCandidates = [
+            __DIR__ . '/../vendor/autoload.php',
+            dirname(__DIR__) . '/vendor/autoload.php',
+        ];
+
+        foreach ($autoloadCandidates as $autoloadPath) {
+            if (is_file($autoloadPath)) {
+                require_once $autoloadPath;
+                break;
+            }
+        }
+
+        return class_exists('PHPMailer\\PHPMailer\\PHPMailer');
+    }
+
     /**
      * Envoi d'un e-mail via SMTP Gmail (PHPMailer).
      */
     public static function sendOTP(string $toEmail, string $userName, string $code): bool {
         // Check if PHPMailer is available
-        if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+        if (!self::ensureMailerLoaded()) {
             error_log('[LegaFin] PHPMailer not installed. Using file-based fallback.');
             // Fallback: log to file for testing
             return self::logEmailToFile($toEmail, $userName, $code);
         }
         
-        // --- CONTRÔLE DE SAISIE PHP ---
+        // Keep basic server checks as a safety net in addition to HTML form validation.
         $toEmail = filter_var(trim($toEmail), FILTER_VALIDATE_EMAIL);
         if (!$toEmail) {
             return false;
@@ -37,12 +64,13 @@ class MailService {
             error_log('[LegaFin Email Debug] Recipient: ' . $toEmail);
             
             $mail->isSMTP();
-            $mail->Host       = 'smtp.gmail.com';
+            $mail->Host       = getenv('MAIL_HOST') ?: 'smtp.gmail.com';
             $mail->SMTPAuth   = true;
-            $mail->Username   = 'aymenhamouda321@gmail.com'; 
-            $mail->Password   = 'vqgk uqzg tdci bqjt'; 
-            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;            
-            $mail->Port       = 465;
+            $mail->Username   = getenv('MAIL_USERNAME');
+            $mail->Password   = getenv('MAIL_PASSWORD');
+            $encryptionType   = strtoupper(getenv('MAIL_ENCRYPTION') ?: 'smtps');
+            $mail->SMTPSecure = ($encryptionType === 'TLS') ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;            
+            $mail->Port       = (int)(getenv('MAIL_PORT') ?: 465);
             $mail->CharSet    = 'UTF-8';
             
             // Enable SMTP debugging
@@ -53,7 +81,9 @@ class MailService {
             
             error_log('[LegaFin Email Debug] SMTP configured');
 
-            $mail->setFrom('no-reply@legalfin.tn', 'LegalFin Bank');
+            $fromAddress = getenv('MAIL_FROM_ADDRESS') ?: 'aymenhamouda321@gmail.com';
+            $fromName    = getenv('MAIL_FROM_NAME') ?: 'LegalFin Bank';
+            $mail->setFrom($fromAddress, $fromName);
             $mail->addAddress($toEmail, $userName);
 
             $mail->isHTML(true);
@@ -155,7 +185,7 @@ Line: " . $e->getLine() . "
 
     public function send(string $toEmail, string $subject, string $htmlContent): bool {
         // Check if PHPMailer is available
-        if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+        if (!self::ensureMailerLoaded()) {
             error_log('[LegaFin] PHPMailer not installed. Using file-based fallback.');
             return $this->logGenericEmailToFile($toEmail, $subject, $htmlContent);
         }
@@ -163,15 +193,18 @@ Line: " . $e->getLine() . "
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
         try {
             $mail->isSMTP();
-            $mail->Host       = 'smtp.gmail.com';
+            $mail->Host       = getenv('MAIL_HOST') ?: 'smtp.gmail.com';
             $mail->SMTPAuth   = true;
-            $mail->Username   = 'aymenhamouda321@gmail.com'; 
-            $mail->Password   = 'vqgk uqzg tdci bqjt'; 
-            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;            
-            $mail->Port       = 465;
+            $mail->Username   = getenv('MAIL_USERNAME');
+            $mail->Password   = getenv('MAIL_PASSWORD');
+            $encryptionType   = strtoupper(getenv('MAIL_ENCRYPTION') ?: 'smtps');
+            $mail->SMTPSecure = ($encryptionType === 'TLS') ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;            
+            $mail->Port       = (int)(getenv('MAIL_PORT') ?: 465);
             $mail->CharSet    = 'UTF-8';
 
-            $mail->setFrom('no-reply@legalfin.tn', 'LegalFin Bank');
+            $fromAddress = getenv('MAIL_FROM_ADDRESS') ?: 'aymenhamouda321@gmail.com';
+            $fromName    = getenv('MAIL_FROM_NAME') ?: 'LegalFin Bank';
+            $mail->setFrom($fromAddress, $fromName);
             $mail->addAddress($toEmail);
 
             $mail->isHTML(true);

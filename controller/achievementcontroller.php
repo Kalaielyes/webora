@@ -34,26 +34,56 @@ class AchievementController
         $points         = isset($data['points']) ? (int)$data['points'] : 0;
         $isEnabled      = isset($data['is_enabled']) ? (int)(bool)$data['is_enabled'] : 1;
 
-        if ($title === '' || mb_strlen($title) > 120) {
-            throw new \InvalidArgumentException('Titre invalide');
+        // Validate title: 3-120 characters
+        if ($title === '') {
+            throw new \InvalidArgumentException('Le titre est requis');
         }
-        if ($description === '' || mb_strlen($description) > 255) {
-            throw new \InvalidArgumentException('Description invalide');
+        $titleLen = mb_strlen($title);
+        if ($titleLen < 3) {
+            throw new \InvalidArgumentException('Le titre doit contenir au moins 3 caractères');
         }
-        if ($icon === '' || mb_strlen($icon) > 120) {
-            throw new \InvalidArgumentException('Icon invalide');
+        if ($titleLen > 120) {
+            throw new \InvalidArgumentException('Le titre ne doit pas dépasser 120 caractères');
         }
+
+        // Validate description: 10-255 characters
+        if ($description === '') {
+            throw new \InvalidArgumentException('La description est requise');
+        }
+        $descLen = mb_strlen($description);
+        if ($descLen < 10) {
+            throw new \InvalidArgumentException('La description doit contenir au moins 10 caractères');
+        }
+        if ($descLen > 255) {
+            throw new \InvalidArgumentException('La description ne doit pas dépasser 255 caractères');
+        }
+
+        // Validate icon: non-empty, max 120 characters
+        if ($icon === '') {
+            throw new \InvalidArgumentException('L\'icône est requise');
+        }
+        if (mb_strlen($icon) > 120) {
+            throw new \InvalidArgumentException('L\'icône ne doit pas dépasser 120 caractères');
+        }
+
+        // Validate role type
         if (!in_array($roleType, self::ALLOWED_ROLES, true)) {
-            throw new \InvalidArgumentException('role_type invalide');
+            throw new \InvalidArgumentException('Le rôle sélectionné est invalide');
         }
+
+        // Validate condition type
         if (!in_array($conditionType, self::ALLOWED_CONDITIONS, true)) {
-            throw new \InvalidArgumentException('condition_type invalide');
+            throw new \InvalidArgumentException('Le type de condition sélectionné est invalide');
         }
+
+        // Validate condition value: must be non-negative
         if ($conditionValue < 0) {
-            throw new \InvalidArgumentException('condition_value invalide');
+            throw new \InvalidArgumentException('La valeur de condition doit être un nombre positif');
         }
+
+        // Validate points: must be non-negative
         if ($points < 0) {
-            throw new \InvalidArgumentException('points invalide');
+            throw new \InvalidArgumentException('Les points doivent être un nombre entier positif');
         }
 
         return [

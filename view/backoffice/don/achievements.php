@@ -207,15 +207,15 @@ $achievementEndpoint = APP_URL . '/controller/AchievementController.php';
       <div class="ach-fg">
         <div class="full">
           <label class="ach-label">Titre</label>
-          <input id="ach-title" class="ach-input" maxlength="120" required>
+          <input id="ach-title" class="ach-input" type="text">
         </div>
         <div class="full">
           <label class="ach-label">Description</label>
-          <textarea id="ach-description" class="ach-input" maxlength="255" rows="2" required></textarea>
+          <textarea id="ach-description" class="ach-input" rows="2"></textarea>
         </div>
         <div>
           <label class="ach-label">Icône (classe FA)</label>
-          <input id="ach-icon" class="ach-input" maxlength="120" value="fa-solid fa-star" required oninput="updateIconPreview(this.value)">
+          <input id="ach-icon" class="ach-input" type="text" value="fa-solid fa-star" oninput="updateIconPreview(this.value)">
         </div>
         <div style="display:flex;align-items:flex-end;gap:.5rem;">
           <div style="flex:1">
@@ -225,7 +225,7 @@ $achievementEndpoint = APP_URL . '/controller/AchievementController.php';
         </div>
         <div>
           <label class="ach-label">Rôle</label>
-          <select id="ach-role" class="ach-input" required>
+          <select id="ach-role" class="ach-input">
             <?php foreach ($roleOptions as $val => $label): ?>
               <option value="<?= htmlspecialchars($val) ?>"><?= htmlspecialchars($label) ?></option>
             <?php endforeach; ?>
@@ -233,7 +233,7 @@ $achievementEndpoint = APP_URL . '/controller/AchievementController.php';
         </div>
         <div>
           <label class="ach-label">Type de condition</label>
-          <select id="ach-condition-type" class="ach-input" required>
+          <select id="ach-condition-type" class="ach-input">
             <?php foreach ($conditionLabels as $val => $label): ?>
               <option value="<?= htmlspecialchars($val) ?>"><?= htmlspecialchars($label) ?></option>
             <?php endforeach; ?>
@@ -241,11 +241,11 @@ $achievementEndpoint = APP_URL . '/controller/AchievementController.php';
         </div>
         <div>
           <label class="ach-label">Valeur condition</label>
-          <input id="ach-condition-value" class="ach-input" type="number" min="0" step="0.01" required>
+          <input id="ach-condition-value" class="ach-input" type="text">
         </div>
         <div>
           <label class="ach-label">Points</label>
-          <input id="ach-points" class="ach-input" type="number" min="0" step="1" required>
+          <input id="ach-points" class="ach-input" type="text">
         </div>
         <div class="full">
           <label class="ach-label">Statut</label>
@@ -271,6 +271,7 @@ const csrfToken = <?= json_encode($csrfToken) ?>;
 function openModal() {
   document.getElementById('ach-modal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  setupLiveValidation(); // Reinitialize listeners
 }
 function closeModal() {
   document.getElementById('ach-modal-overlay').classList.remove('open');
@@ -281,6 +282,59 @@ function handleOverlayClick(e) {
   if (e.target === document.getElementById('ach-modal-overlay')) closeModal();
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// Add live validation feedback
+function setupLiveValidation() {
+  const titleEl = document.getElementById('ach-title');
+  const descEl = document.getElementById('ach-description');
+  const condValueEl = document.getElementById('ach-condition-value');
+  const pointsEl = document.getElementById('ach-points');
+  
+  [titleEl, descEl, condValueEl, pointsEl].forEach(el => {
+    if (el) {
+      el.addEventListener('input', () => {
+        // Reset error styling when user corrects value
+        const fieldName = el.getAttribute('id');
+        const val = el.value.trim();
+        
+        if (fieldName === 'ach-title') {
+          if (val.length >= 3 && val.length <= 120) {
+            el.style.borderColor = '';
+          }
+        } else if (fieldName === 'ach-description') {
+          if (val.length >= 10 && val.length <= 255) {
+            el.style.borderColor = '';
+          }
+        } else if (fieldName === 'ach-condition-value' || fieldName === 'ach-points') {
+          const num = parseFloat(el.value);
+          if (!isNaN(num) && num >= 0) {
+            el.style.borderColor = '';
+          }
+        }
+      });
+      
+      el.addEventListener('blur', () => {
+        const fieldName = el.getAttribute('id');
+        const val = el.value.trim();
+        
+        if (fieldName === 'ach-title' && val && (val.length < 3 || val.length > 120)) {
+          el.style.borderColor = 'var(--rose)';
+        } else if (fieldName === 'ach-description' && val && (val.length < 10 || val.length > 255)) {
+          el.style.borderColor = 'var(--rose)';
+        } else if ((fieldName === 'ach-condition-value' || fieldName === 'ach-points') && val) {
+          const num = parseFloat(el.value);
+          if (isNaN(num) || num < 0) {
+            el.style.borderColor = 'var(--rose)';
+          } else {
+            el.style.borderColor = '';
+          }
+        }
+      });
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', setupLiveValidation);
 
 function updateIconPreview(val) {
   const el = document.getElementById('ach-icon-preview');
@@ -343,8 +397,98 @@ async function runAction(action, payload) {
   }
 }
 
+function validateAchievementForm() {
+  const title = document.getElementById('ach-title').value.trim();
+  const description = document.getElementById('ach-description').value.trim();
+  const icon = document.getElementById('ach-icon').value.trim();
+  const roleType = document.getElementById('ach-role').value.trim();
+  const conditionType = document.getElementById('ach-condition-type').value.trim();
+  const conditionValue = parseFloat(document.getElementById('ach-condition-value').value);
+  const points = parseInt(document.getElementById('ach-points').value, 10);
+
+  // Validate title
+  if (!title) {
+    showFlash('Le titre est requis.', false);
+    document.getElementById('ach-title').focus();
+    return false;
+  }
+  if (title.length < 3) {
+    showFlash('Le titre doit contenir au moins 3 caractères.', false);
+    document.getElementById('ach-title').focus();
+    return false;
+  }
+  if (title.length > 120) {
+    showFlash('Le titre ne doit pas dépasser 120 caractères.', false);
+    document.getElementById('ach-title').focus();
+    return false;
+  }
+
+  // Validate description
+  if (!description) {
+    showFlash('La description est requise.', false);
+    document.getElementById('ach-description').focus();
+    return false;
+  }
+  if (description.length < 10) {
+    showFlash('La description doit contenir au moins 10 caractères.', false);
+    document.getElementById('ach-description').focus();
+    return false;
+  }
+  if (description.length > 255) {
+    showFlash('La description ne doit pas dépasser 255 caractères.', false);
+    document.getElementById('ach-description').focus();
+    return false;
+  }
+
+  // Validate icon
+  if (!icon) {
+    showFlash('L\'icône est requise.', false);
+    document.getElementById('ach-icon').focus();
+    return false;
+  }
+  if (icon.length > 120) {
+    showFlash('L\'icône ne doit pas dépasser 120 caractères.', false);
+    document.getElementById('ach-icon').focus();
+    return false;
+  }
+
+  // Validate role type
+  if (!roleType) {
+    showFlash('Le rôle est requis.', false);
+    document.getElementById('ach-role').focus();
+    return false;
+  }
+
+  // Validate condition type
+  if (!conditionType) {
+    showFlash('Le type de condition est requis.', false);
+    document.getElementById('ach-condition-type').focus();
+    return false;
+  }
+
+  // Validate condition value
+  if (isNaN(conditionValue) || conditionValue < 0) {
+    showFlash('La valeur de la condition doit être un nombre positif.', false);
+    document.getElementById('ach-condition-value').focus();
+    return false;
+  }
+
+  // Validate points
+  if (isNaN(points) || points < 0) {
+    showFlash('Les points doivent être un nombre entier positif.', false);
+    document.getElementById('ach-points').focus();
+    return false;
+  }
+
+  return true;
+}
+
 function submitAchievement(event) {
   event.preventDefault();
+
+  if (!validateAchievementForm()) {
+    return;
+  }
 
   const id = document.getElementById('ach-id').value.trim();
   const payload = {
@@ -357,11 +501,6 @@ function submitAchievement(event) {
     points: document.getElementById('ach-points').value,
     is_enabled: document.getElementById('ach-enabled').value,
   };
-
-  if (!payload.title || !payload.description || !payload.icon) {
-    showFlash('Tous les champs sont requis.', false);
-    return;
-  }
 
   if (id !== '') {
     payload.id = id;

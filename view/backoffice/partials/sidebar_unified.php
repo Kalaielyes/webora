@@ -44,6 +44,21 @@ if(!isset($pendingTotal)){
     }
 }
 ?>
+<style>
+/* Sidebar Dropdown Styles (embedded to avoid cache issues) */
+.nav-dropdown-menu{display:none;flex-direction:column;background:rgba(0,0,0,0.15);padding:0.3rem 0;}
+.nav-dropdown.open .nav-dropdown-menu{display:flex;}
+.nav-dropdown-toggle{user-select:none;}
+.nav-dropdown-toggle .nav-chevron{transition:transform 0.2s;}
+.nav-dropdown.open .nav-dropdown-toggle .nav-chevron{transform:rotate(180deg);}
+.nav-sub-item{display:flex;align-items:center;gap:0.5rem;padding:0.4rem 1.2rem 0.4rem 2.8rem;font-size:0.75rem;color:#94A3B8;text-decoration:none;transition:all 0.15s;}
+.nav-sub-item:hover{color:#F1F5F9;background:rgba(255,255,255,0.05);}
+.nav-sub-item.active{color:#60A5FA;}
+.nav-sub-dot{width:4px;height:4px;border-radius:50%;background:#475569;transition:all 0.15s;}
+.nav-sub-item:hover .nav-sub-dot{background:#F1F5F9;}
+.nav-sub-item.active .nav-sub-dot{background:#3B82F6;box-shadow:0 0 6px rgba(59,130,246,0.5);}
+.nav-item.disabled{opacity:.35;pointer-events:none;cursor:not-allowed;}
+</style>
 <div class="sidebar">
   <div class="sb-logo">
     <div class="sb-logo-name">Legal<span>Fin</span></div>
@@ -115,12 +130,27 @@ if(!isset($pendingTotal)){
       </div>
     </div>
 
-    <?php foreach(["actions"] as $mk): ?>
-    <a href="#" class="nav-item <?= !in_array($mk,$myModules_sidebar)?"disabled":"" ?>">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><?= $ALL_MODULES_SIDEBAR[$mk]["icon"] ?></svg>
-      <?= $ALL_MODULES_SIDEBAR[$mk]["label"] ?>
-    </a>
-    <?php endforeach; ?>
+    <!-- Actions Dropdown (Candidature) -->
+    <div class="nav-dropdown <?= ($currentFile_sidebar === 'backofficecondidature.php' || $currentFile_sidebar === 'backofficeinvestissements.php' || $currentFile_sidebar === 'statistiques.php') ? 'open' : '' ?>" id="dropdown-actions-admin">
+      <div class="nav-item nav-dropdown-toggle <?= !in_array('actions',$myModules_sidebar)?'disabled':'' ?>"
+           onclick="toggleDropdown('dropdown-actions-admin')"
+           style="cursor:pointer; user-select:none;">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><?= $ALL_MODULES_SIDEBAR["actions"]["icon"] ?></svg>
+        <span style="flex:1">Actions</span>
+        <svg class="nav-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-left:auto"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="nav-dropdown-menu">
+        <a class="nav-sub-item <?= ($currentFile_sidebar === 'backofficecondidature.php')?'active':'' ?>" href="<?= APP_URL ?>/view/backoffice/backofficecondidature.php">
+          <span class="nav-sub-dot"></span>Projets
+        </a>
+        <a class="nav-sub-item <?= ($currentFile_sidebar === 'backofficeinvestissements.php')?'active':'' ?>" href="<?= APP_URL ?>/view/backoffice/backofficeinvestissements.php">
+          <span class="nav-sub-dot"></span>Investissements
+        </a>
+        <a class="nav-sub-item <?= ($currentFile_sidebar === 'statistiques.php')?'active':'' ?>" href="<?= APP_URL ?>/view/backoffice/statistiques.php">
+          <span class="nav-sub-dot"></span>Statistiques
+        </a>
+      </div>
+    </div>
 
     <div class="nav-dropdown <?= $isDonAdminSection ? "open" : "" ?>" id="dropdown-don-admin">
       <div class="nav-item nav-dropdown-toggle <?= (!in_array("dons_collectes",$myModules_sidebar) && !in_array("cagnottes",$myModules_sidebar))?"disabled":"" ?>"

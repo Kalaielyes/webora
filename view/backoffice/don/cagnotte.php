@@ -419,7 +419,7 @@ $categoryOptions = [
 </div>
 
 <div id="admin-edit-overlay" class="edit-modal-overlay" aria-hidden="true" style="display:none;">
-  <form id="admin-edit-form" method="post" class="edit-modal-card" onclick="event.stopPropagation()">
+  <form id="admin-edit-form" method="post" class="edit-modal-card" onclick="event.stopPropagation()" novalidate>
     <input type="hidden" name="action" value="update_cagnotte" />
     <input type="hidden" name="id" id="admin-edit-id" />
     <div class="edit-modal-head"><strong>Modifier la cagnotte</strong><button type="button" onclick="adminCloseEdit()" class="edit-close-btn">✕</button></div>
@@ -457,10 +457,8 @@ function adminOpenEdit(id, titre, desc, categorie, datedebut, objectif, datefin)
   document.getElementById('admin-edit-desc').value = desc || '';
   document.getElementById('admin-edit-categorie').value = normalizedCategory;
   document.getElementById('admin-edit-datedebut').value = datedebut || '';
-  document.getElementById('admin-edit-datedebut').min = today;
   document.getElementById('admin-edit-objectif').value = objectif || '';
   document.getElementById('admin-edit-datefin').value = datefin || '';
-  document.getElementById('admin-edit-datefin').min = datedebut && datedebut > today ? datedebut : today;
   var feedback = document.getElementById('admin-edit-feedback');
   feedback.style.display = 'none';
   feedback.textContent = '';
@@ -468,25 +466,6 @@ function adminOpenEdit(id, titre, desc, categorie, datedebut, objectif, datefin)
   overlay.style.display = 'flex';
   overlay.setAttribute('aria-hidden', 'false');
   document.body.style.overflow = 'hidden';
-}
-
-function validateAdminEditForm() {
-  var titre = (document.getElementById('admin-edit-titre').value || '').trim();
-  var description = (document.getElementById('admin-edit-desc').value || '').trim();
-  var categorie = (document.getElementById('admin-edit-categorie').value || '').trim();
-  var objectif = parseFloat(document.getElementById('admin-edit-objectif').value || '0');
-  var dateDebut = document.getElementById('admin-edit-datedebut').value;
-  var dateFin = document.getElementById('admin-edit-datefin').value;
-  var today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (titre.length < 3) return 'Le titre est trop court.';
-  if (!categorie) return 'Veuillez sélectionner une catégorie.';
-  if (isNaN(objectif) || objectif < 1) return 'L\'objectif doit être supérieur à 0.';
-  if (!dateDebut) return 'La date de début est obligatoire.';
-  if (!dateFin) return 'La date de fin est obligatoire.';
-  if (dateFin && dateDebut && new Date(dateFin) < new Date(dateDebut)) return 'La date de fin doit être postérieure à la date de début.';
-  return '';
 }
 
 function updateFeaturedFromRow(row) {
@@ -557,14 +536,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   var editForm = document.getElementById('admin-edit-form');
   editForm.addEventListener('submit', function (event) {
-    var msg = validateAdminEditForm();
     var feedback = document.getElementById('admin-edit-feedback');
-    if (msg) {
-      event.preventDefault();
-      feedback.textContent = msg;
-      feedback.style.display = 'block';
-      return;
-    }
     feedback.textContent = '';
     feedback.style.display = 'none';
   });
