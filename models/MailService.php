@@ -51,13 +51,13 @@ class MailService {
             error_log('[LegaFin Email Debug] Recipient: ' . $toEmail);
             
             $mail->isSMTP();
-            $mail->Host       = getenv('MAIL_HOST') ?: 'smtp.gmail.com';
+            $mail->Host       = getenv('AUTH_MAIL_HOST') ?: getenv('MAIL_HOST') ?: 'smtp.gmail.com';
             $mail->SMTPAuth   = true;
-            $mail->Username   = getenv('MAIL_USERNAME');
-            $mail->Password   = getenv('MAIL_PASSWORD');
-            $encryptionType   = strtoupper(getenv('MAIL_ENCRYPTION') ?: 'smtps');
+            $mail->Username   = getenv('AUTH_MAIL_USERNAME') ?: getenv('MAIL_USERNAME');
+            $mail->Password   = getenv('AUTH_MAIL_PASSWORD') ?: getenv('MAIL_PASSWORD');
+            $encryptionType   = strtoupper(getenv('AUTH_MAIL_ENCRYPTION') ?: getenv('MAIL_ENCRYPTION') ?: 'smtps');
             $mail->SMTPSecure = ($encryptionType === 'TLS') ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;            
-            $mail->Port       = (int)(getenv('MAIL_PORT') ?: 465);
+            $mail->Port       = (int)(getenv('AUTH_MAIL_PORT') ?: getenv('MAIL_PORT') ?: 465);
             $mail->CharSet    = 'UTF-8';
             
             // Enable SMTP debugging
@@ -68,8 +68,8 @@ class MailService {
             
             error_log('[LegaFin Email Debug] SMTP configured');
 
-            $fromAddress = getenv('MAIL_FROM_ADDRESS') ?: 'aymenhamouda321@gmail.com';
-            $fromName    = getenv('MAIL_FROM_NAME') ?: 'LegalFin Bank';
+            $fromAddress = getenv('AUTH_MAIL_FROM_ADDRESS') ?: getenv('MAIL_FROM_ADDRESS') ?: 'aymenhamouda321@gmail.com';
+            $fromName    = getenv('AUTH_MAIL_FROM_NAME') ?: getenv('MAIL_FROM_NAME') ?: 'LegalFin Bank';
             $mail->setFrom($fromAddress, $fromName);
             $mail->addAddress($toEmail, $userName);
 

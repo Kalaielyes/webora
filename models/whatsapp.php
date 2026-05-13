@@ -4,7 +4,7 @@
  * Handles sending WhatsApp messages via Twilio API.
  */
 
-require_once __DIR__ . '/vendor/autoload.php'; // Correct path to Twilio SDK
+require_once __DIR__ . '/../controller/src/Twilio/autoload.php'; // Correct path to Twilio SDK
 use Twilio\Rest\Client;
 
 /**

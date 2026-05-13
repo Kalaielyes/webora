@@ -23,7 +23,7 @@ if (!defined('APP_URL')) {
 
 // ── GEMINI API KEY ───────────────────────────────────────────────────────────
 if (!defined('GEMINI_API_KEY')) {
-    define('GEMINI_API_KEY', $_ENV['GEMINI_API_KEY'] ?? 'AIzaSyBwgDsz0ptUb2EOEXJFHyUDxcNWm60oSIM');
+    define('GEMINI_API_KEY', 'AIzaSyDFBh_5HHM6NBUWuximKKlRyybnZLZQN0U');
 }
 
 // ── STRIPE KEYS (don module) ─────────────────────────────────────────────────

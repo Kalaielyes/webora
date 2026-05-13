@@ -52,10 +52,12 @@ $self = $_SERVER['PHP_SELF'];
   <title>LegalFin — Gestion des Crédits</title>
   
   <!-- UI STYLES -->
-  <link rel="stylesheet" href="<?= APP_URL ?>/view/assets/css/frontoffice/compte.css">
-  <link rel="stylesheet" href="<?= APP_URL ?>/view/frontoffice/creditttt.css">
+  <link rel="stylesheet" href="../assets/css/frontoffice/compte.css">
+  <link rel="stylesheet" href="creditttt.css">
   
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
   
   <script>
     (function() {

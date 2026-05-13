@@ -99,7 +99,7 @@ function oldProfil(string $key, array $old, array $user): string {
 .modal-flash-error{background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);color:var(--rose);}
 </style>
 <?php if ($page === 'credit'): ?>
-  <link rel="stylesheet" href="<?= APP_URL ?>/view/frontoffice/creditttt.css">
+  <link rel="stylesheet" href="creditttt.css">
   <script>window.CONTROLLER_PATH = '<?= APP_URL . "/controller/CreditController.php" ?>';</script>
 <?php endif; ?>
 </head>
@@ -516,17 +516,7 @@ function applyTheme(theme) {
   localStorage.setItem('theme', theme);
   var sun = document.getElementById('theme-icon-sun');
   var moon = document.getElementById('theme-icon-moon');
-  
-  // Fix for credit light mode
-  var creditLink = document.querySelector('link[href*="creditttt"]');
-  if (creditLink) {
-    if (theme === 'light') {
-      creditLink.href = '<?= APP_URL ?>/view/frontoffice/creditttt_light.css';
-    } else {
-      creditLink.href = '<?= APP_URL ?>/view/frontoffice/creditttt.css';
-    }
-  }
-
+  // Theme icons toggle
   if (theme === 'light') {
     if (sun) sun.style.display = 'block';
     if (moon) moon.style.display = 'none';

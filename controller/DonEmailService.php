@@ -9,10 +9,9 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
+// PHPMailer classes should be autoloaded via Composer. If not present, log an error.
 if (!class_exists(PHPMailer::class)) {
-    require_once __DIR__ . '/../models/vendor/phpmailer/phpmailer/src/Exception.php';
-    require_once __DIR__ . '/../models/vendor/phpmailer/phpmailer/src/PHPMailer.php';
-    require_once __DIR__ . '/../models/vendor/phpmailer/phpmailer/src/SMTP.php';
+    error_log('[DonEmailService] PHPMailer classes not found. Ensure Composer autoload is included.');
 }
 require_once __DIR__ . '/../models/EnvLoader.php';
 require_once __DIR__ . '/../models/MailService.php';

@@ -19,3 +19,41 @@
         "parts": [
           {
             "text": "Le solde de votre **compte devise** (IBAN : TN594648918527461862) est actuellement de **128,00 TND**. \n\nSouhaitez-vous obtenir d'autres informations sur vos comptes ou consulter vos dernières transact
+[2026-05-13 18:12:15] Gemini HTTP:403 cURL:ok resp:{
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+[2026-05-13 18:12:20] Gemini HTTP:403 cURL:ok resp:{
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+[2026-05-13 18:12:22] Gemini HTTP:403 cURL:ok resp:{
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+[2026-05-13 18:15:07] Gemini HTTP:200 cURL:ok resp:{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Bonjour **elyes kalaiii**, voici les coordonnées IBAN de vos différents comptes chez **LegalFin** :\n\n**Comptes Actifs :**\n*   **Compte Courant (TND) :** `TN59 9521 4436 7425 7278`\n*   **Compte Cour
+[2026-05-13 18:15:53] Gemini HTTP:200 cURL:ok resp:{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Bonjour M. **elyes kalaiii**, voici l'état actuel de vos soldes pour l'ensemble de vos comptes chez **LegalFin** :\n\n• **Compte Courant** (TN...511) : **40 291,00 TND** (Actif)\n• **Compte Devise**

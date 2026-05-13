@@ -19,14 +19,21 @@ class FaceVerificationService {
      * @return array ['success' => bool, 'score' => float, 'error' => string]
      */
     public function compareFaces(string $idDocPath, string $selfiePath): array {
-        $idFullPath     = __DIR__ . '/../' . $idDocPath;
-        $selfieFullPath = __DIR__ . '/../' . $selfiePath;
+// Determine absolute paths. If the provided path works as-is, use it. Otherwise, assume it is relative to the project root.
+        $idFullPath = file_exists($idDocPath) ? $idDocPath : __DIR__ . '/../' . ltrim($idDocPath, '/\\');
+        $selfieFullPath = file_exists($selfiePath) ? $selfiePath : __DIR__ . '/../' . ltrim($selfiePath, '/\\');
 
+        error_log("[FaceVerification] Checking ID path: " . $idFullPath . " | exists: " . (file_exists($idFullPath) ? "YES" : "NO"));
+        error_log("[FaceVerification] Checking Selfie path: " . $selfieFullPath . " | exists: " . (file_exists($selfieFullPath) ? "YES" : "NO"));
+
+        // Verify ID document exists
         if (!file_exists($idFullPath)) {
-            return ['success' => false, 'score' => 0, 'error' => 'Document ID introuvable.'];
+            return ['success' => false, 'score' => 0, 'error' => 'Document ID introuvable. Path: ' . $idFullPath];
         }
+
+        // Verify selfie exists
         if (!file_exists($selfieFullPath)) {
-            return ['success' => false, 'score' => 0, 'error' => 'Selfie introuvable.'];
+            return ['success' => false, 'score' => 0, 'error' => 'Selfie introuvable. Path: ' . $selfieFullPath];
         }
 
         // If no real API key, run in simulation mode for development

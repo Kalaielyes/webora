@@ -111,12 +111,16 @@ function formatPhoneForWhatsApp(string $phone): string {
     return $clean;
 }
 function sendWhatsAppTwilio(string $phone, string $message): bool {
-    $sid      = $_ENV['TWILIO_WHATSAPP_SID'] ?? $_ENV['TWILIO_SID'] ?? '';
-    $token    = $_ENV['TWILIO_WHATSAPP_TOKEN'] ?? $_ENV['TWILIO_TOKEN'] ?? '';
-    $fromNum  = $_ENV['TWILIO_WHATSAPP_FROM'] ?? $_ENV['TWILIO_FROM'] ?? ''; 
+    $sid      = $_ENV['FORGOT_PWD_TWILIO_SID']   ?? $_ENV['TWILIO_WHATSAPP_SID'] ?? $_ENV['TWILIO_SID'] ?? '';
+    $token    = $_ENV['FORGOT_PWD_TWILIO_TOKEN'] ?? $_ENV['TWILIO_WHATSAPP_TOKEN'] ?? $_ENV['TWILIO_TOKEN'] ?? '';
+    $fromNum  = $_ENV['FORGOT_PWD_TWILIO_FROM']  ?? $_ENV['TWILIO_WHATSAPP_FROM'] ?? $_ENV['TWILIO_FROM'] ?? ''; 
     if (empty($sid) || empty($token) || empty($fromNum)) {
         error_log('[LegalFin] Twilio credentials manquants dans .env');
         return false;
+    }
+    // Ensure fromNum starts with 'whatsapp:' prefix
+    if (strpos($fromNum, 'whatsapp:') !== 0) {
+        $fromNum = 'whatsapp:' . (strpos($fromNum, '+') === 0 ? '' : '+') . $fromNum;
     }
     $toNum = 'whatsapp:+' . $phone;
     try {

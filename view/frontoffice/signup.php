@@ -263,7 +263,7 @@ body{overflow-x:hidden;align-items:flex-start;justify-content:center;padding:2re
             </div>
             <?= errorMessage('date_naissance', $fieldErrors) ?>
           </div>
-          <div class="field">
+          <div class="field" id="cin-field">
             <label class="field-label">CIN *</label>
             <div class="field-wrap">
               <span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
@@ -485,6 +485,10 @@ function syncAccountTypeFields() {
 
   if (prenomField) {
     prenomField.style.display = accountType === 'association' ? 'none' : 'block';
+  }
+  var cinField = document.getElementById('cin-field');
+  if (cinField) {
+    cinField.style.display = accountType === 'association' ? 'none' : 'block';
   }
   if (nomLabel) {
     nomLabel.textContent = accountType === 'association' ? "Nom de l'association *" : 'Nom *';

@@ -226,11 +226,11 @@ class Utilisateur {
         if (empty($this->numTel)) $errors[] = "Le téléphone est requis.";
         if (empty($this->date_naissance)) $errors[] = "La date de naissance est requise.";
         if (empty($this->adresse)) $errors[] = "L'adresse est requise.";
-        if (empty($this->cin)) $errors[] = "Le CIN est requis.";
+        if (!$this->association && empty($this->cin)) $errors[] = "Le CIN est requis.";
         if ($this->emailExiste($this->email)) {
             $errors[] = "Cet email est déjà utilisé.";
         }
-        if ($this->cinExiste($this->cin)) {
+        if (!$this->association && !empty($this->cin) && $this->cinExiste($this->cin)) {
             $errors[] = "Ce CIN est déjà enregistré.";
         }
         if (!empty($errors)) {

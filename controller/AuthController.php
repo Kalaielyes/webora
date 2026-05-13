@@ -254,12 +254,20 @@ if ($action === 'register') {
             }
         }
     }
-    if (empty($cin)) {
-        $errors['cin'] = "Le numéro CIN est requis.";
-    } elseif (!ctype_digit($cin)) {
-        $errors['cin'] = "Le CIN ne doit contenir que des chiffres.";
-    } elseif (strlen($cin) !== 8) {
-        $errors['cin'] = "Le CIN doit contenir exactement 8 chiffres.";
+    if (!$association) {
+        if (empty($cin)) {
+            $errors['cin'] = "Le numéro CIN est requis.";
+        } elseif (!ctype_digit($cin)) {
+            $errors['cin'] = "Le CIN ne doit contenir que des chiffres.";
+        } elseif (strlen($cin) !== 8) {
+            $errors['cin'] = "Le CIN doit contenir exactement 8 chiffres.";
+        }
+    } else {
+        // For associations, if CIN is hidden and empty, generate a placeholder
+        if (empty($cin)) {
+            $cin = '9' . str_pad(mt_rand(0, 9999999), 7, '0', STR_PAD_LEFT);
+            $old['cin'] = $cin; // Update old value for consistency
+        }
     }
     if (empty($email)) {
         $errors['email'] = "L'adresse e-mail est requise.";
@@ -337,6 +345,7 @@ if ($action === 'register') {
             header('Location: ../view/frontoffice/signup.php'); 
             exit;
         }
+        $m->setAssociation($association);
         if ($association) {
             $prenom = 'association';
         }
@@ -348,7 +357,6 @@ if ($action === 'register') {
         $m->setDateNaissance($date_naissance);
         $m->setAdresse($adresse);
         $m->setCin($cin);
-        $m->setAssociation($association);
         
         // Generate OTP
         $otp = sprintf("%06d", mt_rand(0, 999999));
