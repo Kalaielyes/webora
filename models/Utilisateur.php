@@ -317,7 +317,7 @@ class Utilisateur {
             ':nom'       => $this->nom,
             ':prenom'    => $this->prenom,
             ':email'     => $this->email,
-            ':mdp'       => password_hash($this->mdp, PASSWORD_BCRYPT, ['cost' => 12]),
+            ':mdp'       => $this->mdp,
             ':numTel'    => $this->numTel,
             ':dn'        => $this->date_naissance,
             ':adresse'   => $this->adresse,

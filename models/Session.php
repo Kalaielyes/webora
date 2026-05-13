@@ -28,14 +28,14 @@ class Session {
         return isset($_SESSION['role']) &&
                in_array($_SESSION['role'], ['ADMIN', 'SUPER_ADMIN']);
     }
-    public static function requireLogin(string $redirect = '../views/FrontOffice/login.php') : void {
+    public static function requireLogin(string $redirect = 'login.php') : void {
         self::start();
         if (!self::isLoggedIn()) {
             header('Location: ' . $redirect);
             exit;
         }
     }
-    public static function requireAdmin(string $redirect = '../views/FrontOffice/login.php') : void {
+    public static function requireAdmin(string $redirect = '../frontoffice/login.php') : void {
         self::start();
         if (!self::isAdmin()) {
             header('Location: ' . $redirect);

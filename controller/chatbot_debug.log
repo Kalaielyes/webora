@@ -1,0 +1,21 @@
+[2026-05-13 10:21:10] Gemini HTTP:200 cURL:ok resp:{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Bonjour M. **elyes kalai**, voici l'état de vos soldes au **13/05/2026** :\n\n• **Compte Courant** : 656 785,00 TND\n• **Compte Devise** : 490,00 TND\n\nSouhaitez-vous obtenir le détail de vos dern
+[2026-05-13 12:12:10] Gemini HTTP:200 cURL:ok resp:{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Bonjour ! Je suis l'assistant IA expert de la banque **LegalFin**.\n\nJe suis à votre disposition pour répondre à toutes vos questions concernant vos comptes, vos cartes, vos virements ou tout autre s
+[2026-05-13 12:12:20] Gemini HTTP:200 cURL:ok resp:{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Le solde de votre **compte devise** (IBAN : TN594648918527461862) est actuellement de **128,00 TND**. \n\nSouhaitez-vous obtenir d'autres informations sur vos comptes ou consulter vos dernières transact

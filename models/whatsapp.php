@@ -1,64 +1,53 @@
 <?php
+/**
+ * WhatsApp Service Wrapper - webora Integration
+ * Handles sending WhatsApp messages via Twilio API.
+ */
 
- 
-
-// =============================================
-//  YOUR TWILIO CREDENTIALS - EDIT THESE
-// =============================================
-if (!defined('TWILIO_SID')) define('TWILIO_SID', 'ACcd160fac0010719c91c52b7772535279');
-if (!defined('TWILIO_TOKEN')) define('TWILIO_TOKEN', '79c5b80b22e7a22694477d00fa2d325b');
-if (!defined('TWILIO_WHATSAPP_FROM')) define('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'); // Sandbox number
-// =============================================
+require_once __DIR__ . '/vendor/autoload.php'; // Correct path to Twilio SDK
+use Twilio\Rest\Client;
 
 /**
- * Send a WhatsApp message via Twilio REST API
+ * Send a WhatsApp message.
  * 
- * @param string $to The recipient phone number (e.g., +21612345678)
- * @param string $message The message body
- * @return bool
+ * @param string $phone   Phone number (with or without country code)
+ * @param string $message The message content
+ * @return bool True if success, false otherwise
  */
-function sendWhatsApp($to, $message) {
-    if (empty(TWILIO_SID) || TWILIO_SID === 'YOUR_TWILIO_ACCOUNT_SID') {
-        error_log("Twilio SID not configured.");
+function sendWhatsApp(string $phone, string $message): bool {
+    // 1. Load credentials from environment
+    $sid      = $_ENV['TWILIO_WHATSAPP_SID'] ?? $_ENV['TWILIO_SID'] ?? '';
+    $token    = $_ENV['TWILIO_WHATSAPP_TOKEN'] ?? $_ENV['TWILIO_TOKEN'] ?? '';
+    $fromNum  = $_ENV['TWILIO_WHATSAPP_FROM'] ?? $_ENV['TWILIO_FROM'] ?? '';
+
+    if (empty($sid) || empty($token) || empty($fromNum)) {
+        error_log('[LegalFin] WhatsApp credentials manquants dans .env');
         return false;
     }
 
-    // Ensure phone number starts with whatsapp:
-    if (strpos($to, 'whatsapp:') !== 0) {
-        // If it's just a number, add + and whatsapp:
-        if (strpos($to, '+') !== 0) {
-            // Assume +216 if no country code provided and it's 8 digits
-            if (strlen($to) === 8) {
-                $to = '+216' . $to;
-            } else {
-                $to = '+' . $to;
-            }
-        }
-        $to = 'whatsapp:' . $to;
+    // Ensure fromNum starts with 'whatsapp:' prefix
+    if (strpos($fromNum, 'whatsapp:') !== 0) {
+        $fromNum = 'whatsapp:' . (strpos($fromNum, '+') === 0 ? '' : '+') . $fromNum;
     }
 
-    $url = "https://api.twilio.com/2010-04-01/Accounts/" . TWILIO_SID . "/Messages.json";
-    
-    $data = [
-        'From' => TWILIO_WHATSAPP_FROM,
-        'To' => $to,
-        'Body' => $message
-    ];
+    // 2. Format phone number (Twilio requires whatsapp:+COUNTRY_CODE_NUMBER)
+    $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+    if (strlen($cleanPhone) === 8) {
+        $cleanPhone = '216' . $cleanPhone; // Default to Tunisia if 8 digits
+    }
+    $toNum = 'whatsapp:+' . $cleanPhone;
 
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_USERPWD, TWILIO_SID . ":" . TWILIO_TOKEN);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-    
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($httpCode >= 200 && $httpCode < 300) {
+    // 3. Send via Twilio
+    try {
+        $client = new Client($sid, $token);
+        $client->messages->create($toNum, [
+            'from' => $fromNum,
+            'body' => $message,
+        ]);
+        error_log("[LegalFin] WhatsApp envoyé avec succès à $toNum");
         return true;
-    } else {
-        error_log("Twilio API Error: " . $response);
+    } catch (Exception $e) {
+        error_log('[LegalFin] Twilio Error (WhatsApp): ' . $e->getMessage());
         return false;
     }
 }

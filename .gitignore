@@ -1,1 +1,3 @@
 models/vendor/
+models/config.local.php
+controller/helpers/config.local.php
